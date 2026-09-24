@@ -7,6 +7,7 @@ export type Dragon = {
 	SpeciesId: string, -- key into Config/Dragons; rarity and element come from there
 	Level: number,
 	ObtainedAt: number, -- os.time()
+	Evolutions: { [string]: string }?, -- stageId -> constellationId in the sky when it evolved (its branch)
 }
 
 export type PlayerData = {

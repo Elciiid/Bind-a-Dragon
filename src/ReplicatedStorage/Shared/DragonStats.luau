@@ -3,8 +3,10 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
+local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
@@ -42,6 +44,27 @@ function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 	end
 	local levelMultiplier = 1 + RoostConfig.IncomePerLevel * (dragon.Level - 1)
 	return rarity.GoldPerSecond * levelMultiplier * DragonStats.GetStage(dragon.Level).IncomeMultiplier
+end
+
+-- Gold needed to go from the dragon's current level to the next.
+function DragonStats.GetLevelUpCost(dragon: Dragon): number
+	local species = Dragons[dragon.SpeciesId]
+	local base = species and Leveling.BaseCost[species.Rarity]
+	if base == nil then
+		return math.huge
+	end
+	return math.floor(base * Leveling.CostGrowth ^ (dragon.Level - 1))
+end
+
+-- Max dragon level: the highest LevelCap among areas the player has unlocked with rebirths.
+function DragonStats.GetLevelCap(data: PlayerData): number
+	local cap = 1
+	for _, area in Areas do
+		if data.Rebirths >= area.RebirthsRequired then
+			cap = math.max(cap, area.LevelCap)
+		end
+	end
+	return cap
 end
 
 function DragonStats.GetRoostSlots(_data: PlayerData): number

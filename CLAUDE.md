@@ -29,7 +29,7 @@ _Update this section as work progresses._
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
-| Dragons: leveling + evolution | Not started |
+| Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branch saved in `dragon.Evolutions`. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
 | Gold sinks (Stardust shop, roost upgrades) | Not started |
 | Rebirth + area unlocks | Not started |
@@ -38,7 +38,7 @@ _Update this section as work progresses._
 | UI | Not started |
 | Ranked PvP | Post-launch |
 
-**Next up:** leveling/evolution, then rebirth. Then a dragon inventory UI (swap roost dragons, level up).
+**Next up:** rebirth. Then a dragon inventory UI (swap roost dragons, bulk level up).
 UI polish after the core loop is playable.
 
 **Open balance question (designer):** luck multiplies every non-Common weight equally, so it mostly turns
@@ -187,6 +187,9 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 - Monthly seasons, matchmaking by rank and team power, top-100 lobby leaderboard.
 
 ## Open questions (ask before assuming)
+
+- What does an evolution branch change (model variant, stats, element)? Currently only recorded.
+  Also: evolving during the day records the upcoming night's constellation. Is that right?
 
 - Combat style for Spire/PvP: direct control, or auto-battle with player-triggered special moves?
 - One dragon or a team in combat?
