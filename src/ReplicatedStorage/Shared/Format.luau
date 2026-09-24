@@ -25,4 +25,10 @@ function Format.Number(n: number): string
 	return text .. SUFFIXES[tier + 1]
 end
 
+-- 1.25 -> "x1.25", 2 -> "x2", 1.5 -> "x1.5"
+function Format.Multiplier(n: number): string
+	local text = string.format("%.2f", n):gsub("0+$", ""):gsub("%.$", "")
+	return "x" .. text
+end
+
 return Format

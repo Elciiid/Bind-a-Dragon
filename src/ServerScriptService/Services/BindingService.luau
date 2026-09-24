@@ -1,9 +1,11 @@
 --!strict
--- Binding at Star Altars. Any instance tagged "StarAltar" (a BasePart, or a Model with a PrimaryPart) gets a
--- Bind prompt, open only at night. The altar's "AreaId" attribute picks its entry in Config/Areas.
+-- Binding at Star Altars. Any instance tagged "StarAltar" (a BasePart, or a Model with a PrimaryPart) gets two
+-- prompts, open only at night: Bind (E) and Offer Stardust (F). The altar's "AreaId" attribute picks its entry
+-- in Config/Areas.
 --
 -- ProximityPrompt.Triggered fires on the server with the real player, so the client never sends any values.
 -- Every player gets their own roll; one bind per player per night (tracked by NightIndex, so it holds across servers).
+-- Luck comes from Shared/Luck, the same math the client uses to display it.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -11,13 +13,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataService = require(script.Parent.DataService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
+local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
+local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local bindResult = ReplicatedStorage.Remotes.BindResult :: RemoteEvent
 local announcement = ReplicatedStorage.Remotes.Announcement :: RemoteEvent
+local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 
 local ALTAR_TAG = "StarAltar"
 local DEFAULT_AREA = "StarterMeadow"
@@ -25,11 +31,6 @@ local DEFAULT_AREA = "StarterMeadow"
 local rng = Random.new()
 local prompts: { ProximityPrompt } = {}
 local busy: { [Player]: boolean } = {}
-
-local rarityById: { [string]: Rarities.Rarity } = {}
-for _, rarity in Rarities do
-	rarityById[rarity.Id] = rarity
-end
 
 local BindingService = {}
 
@@ -69,41 +70,63 @@ local function pickSpecies(rarityId: string, element: string?): string?
 	return pool[rng:NextInteger(1, #pool)]
 end
 
-local function reject(player: Player, message: string)
-	bindResult:FireClient(player, { Ok = false, Message = message })
+local function getAreaId(altar: Instance): string
+	local areaId = altar:GetAttribute("AreaId")
+	return if type(areaId) == "string" then areaId else DEFAULT_AREA
 end
 
-local function tryBind(player: Player, altar: Instance)
+-- Shared checks for binding and offering. Returns the player's data and the cycle state,
+-- or nil after telling the player why not.
+local function checkAltarUse(player: Player, altar: Instance): (PlayerDataTypes.PlayerData?, Cycle.State?)
 	local data = DataService:GetData(player)
 	if data == nil then
-		return reject(player, "Your data is still loading.")
+		notify:FireClient(player, "Your data is still loading.", "error")
+		return nil, nil
 	end
 
 	local state = Cycle.GetState()
 	if not state.IsNight then
-		return reject(player, "The stars only answer at night.")
+		notify:FireClient(player, "The stars only answer at night.", "error")
+		return nil, nil
 	end
 	if data.LastBindNight == state.NightIndex then
-		return reject(player, "You've already bound tonight. Come back next night!")
+		notify:FireClient(player, "You've already bound tonight. Come back next night!", "error")
+		return nil, nil
 	end
 
-	local areaId = altar:GetAttribute("AreaId")
-	local area = Areas[if type(areaId) == "string" then areaId else DEFAULT_AREA]
+	local areaId = getAreaId(altar)
+	local area = Areas[areaId]
 	if area == nil then
 		warn(`[BindingService] Altar {altar:GetFullName()} has unknown AreaId {areaId}`)
-		return reject(player, "This altar is broken.")
+		notify:FireClient(player, "This altar is broken.", "error")
+		return nil, nil
 	end
 	if data.Rebirths < area.RebirthsRequired then
-		return reject(player, `You need {area.RebirthsRequired} rebirths to bind in {area.Name}.`)
+		notify:FireClient(player, `You need {area.RebirthsRequired} rebirths to use the altar in {area.Name}.`, "error")
+		return nil, nil
 	end
 
-	-- TODO(LuckService): stack Stardust, moon, group and event luck here, with the total cap.
-	local luck = area.BindLuck
-	local rarity = rollRarity(luck)
+	return data, state
+end
+
+local function tryBind(player: Player, altar: Instance, part: BasePart)
+	local data, state = checkAltarUse(player, altar)
+	if data == nil or state == nil then
+		return
+	end
+
+	local luck = Luck.Compute(
+		getAreaId(altar),
+		state.NightIndex,
+		Luck.GetOfferingCount(data, state.NightIndex),
+		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius)
+	)
+	local rarity = rollRarity(luck.Total)
 	local speciesId = pickSpecies(rarity.Id, state.Constellation.Element)
 	if speciesId == nil then
 		warn(`[BindingService] No species with rarity {rarity.Id} in Config/Dragons`)
-		return reject(player, "The stars were silent. Try again.")
+		notify:FireClient(player, "The stars were silent. Try again.", "error")
+		return
 	end
 
 	local dragonId = tostring(data.NextDragonId)
@@ -119,15 +142,72 @@ local function tryBind(player: Player, altar: Instance)
 	data.StarAtlas[constellationId] = (data.StarAtlas[constellationId] or 0) + 1
 
 	bindResult:FireClient(player, {
-		Ok = true,
 		DragonId = dragonId,
 		SpeciesId = speciesId,
 		ConstellationId = constellationId,
+		Luck = luck.Total,
 	})
 
 	if rarity.AnnounceOnBind then
 		announcement:FireAllClients(`{player.DisplayName} bound a {rarity.Name} {Dragons[speciesId].Name}!`)
 	end
+end
+
+local function tryOffer(player: Player, altar: Instance)
+	local data, state = checkAltarUse(player, altar)
+	if data == nil or state == nil then
+		return
+	end
+
+	local count = Luck.GetOfferingCount(data, state.NightIndex)
+	local offering = Luck.GetNextOffering(count)
+	if offering == nil then
+		notify:FireClient(player, "You've made every offering tonight. Time to bind!", "error")
+		return
+	end
+	if data.Stardust < offering.Cost then
+		notify:FireClient(player, `You need {offering.Cost} Stardust for this offering.`, "error")
+		return
+	end
+
+	data.Stardust -= offering.Cost
+	if data.OfferingNight ~= state.NightIndex then
+		data.OfferingNight = state.NightIndex
+		data.Offerings = 0
+	end
+	data.Offerings += 1
+
+	local stardustLuck = Luck.Compute(getAreaId(altar), state.NightIndex, data.Offerings, 1).Stardust
+	notify:FireClient(player, `The stars accept your offering. Stardust luck x{stardustLuck}`, "success")
+end
+
+-- Runs fn for a player unless one of their altar actions is already running.
+local function guarded(player: Player, fn: () -> ())
+	if busy[player] then
+		return
+	end
+	busy[player] = true
+	local ok, err = pcall(fn)
+	if not ok then
+		warn(`[BindingService] Altar action failed for {player.Name}: {err}`)
+	end
+	busy[player] = nil
+end
+
+local function makePrompt(part: BasePart, name: string, actionText: string, key: Enum.KeyCode, gamepadKey: Enum.KeyCode, hold: number): ProximityPrompt
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = name
+	prompt.ActionText = actionText
+	prompt.ObjectText = "Star Altar"
+	prompt.KeyboardKeyCode = key
+	prompt.GamepadKeyCode = gamepadKey
+	prompt.HoldDuration = hold
+	prompt.MaxActivationDistance = BindingConfig.PromptRange
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = Cycle.GetState().IsNight
+	prompt.Parent = part
+	table.insert(prompts, prompt)
+	return prompt
 end
 
 local function setupAltar(altar: Instance)
@@ -137,33 +217,27 @@ local function setupAltar(altar: Instance)
 		return
 	end
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "BindPrompt"
-	prompt.ActionText = "Bind"
-	prompt.ObjectText = "Star Altar"
-	prompt.HoldDuration = BindingConfig.PromptHoldSeconds
-	prompt.MaxActivationDistance = BindingConfig.PromptRange
-	prompt.RequiresLineOfSight = false
-	prompt.Enabled = Cycle.GetState().IsNight
-	prompt.Parent = part
-	table.insert(prompts, prompt)
+	local bindPrompt = makePrompt(part, "BindPrompt", "Bind", Enum.KeyCode.E, Enum.KeyCode.ButtonX, BindingConfig.PromptHoldSeconds)
+	bindPrompt.Triggered:Connect(function(player)
+		guarded(player, function()
+			tryBind(player, altar, part)
+		end)
+	end)
 
-	prompt.Triggered:Connect(function(player)
-		if busy[player] then
-			return
-		end
-		busy[player] = true
-		local ok, err = pcall(tryBind, player, altar)
-		if not ok then
-			warn(`[BindingService] Bind failed for {player.Name}: {err}`)
-		end
-		busy[player] = nil
+	local offerPrompt = makePrompt(part, "OfferPrompt", "Offer Stardust", Enum.KeyCode.F, Enum.KeyCode.ButtonY, LuckConfig.OfferingPromptHoldSeconds)
+	offerPrompt.UIOffset = Vector2.new(0, 80) -- stack below the Bind prompt instead of overlapping
+	offerPrompt.Triggered:Connect(function(player)
+		guarded(player, function()
+			tryOffer(player, altar)
+		end)
 	end)
 
 	altar.Destroying:Connect(function()
-		local index = table.find(prompts, prompt)
-		if index then
-			table.remove(prompts, index)
+		for _, prompt in { bindPrompt, offerPrompt } do
+			local index = table.find(prompts, prompt)
+			if index then
+				table.remove(prompts, index)
+			end
 		end
 	end)
 end

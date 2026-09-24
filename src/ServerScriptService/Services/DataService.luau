@@ -39,6 +39,8 @@ local TEMPLATE: PlayerData = {
 
 	StarAtlas = {},
 	LastBindNight = -1,
+	OfferingNight = -1,
+	Offerings = 0,
 
 	LastOnline = 0,
 	PurchaseIds = {},

@@ -58,10 +58,22 @@ function NotificationController:Init()
 	layout.Parent = container
 end
 
+local KIND_COLORS: { [string]: Color3 } = {
+	error = Color3.fromRGB(255, 120, 120),
+	success = Color3.fromRGB(130, 230, 140),
+	info = Color3.new(1, 1, 1),
+}
+
 function NotificationController:Start()
 	local announcement = ReplicatedStorage.Remotes.Announcement :: RemoteEvent
 	announcement.OnClientEvent:Connect(function(text: string)
 		self:Show(text, Color3.fromRGB(255, 220, 120))
+	end)
+
+	-- Messages for just this player: Notify:FireClient(player, text, kind) where kind is "error" | "success" | "info".
+	local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
+	notify.OnClientEvent:Connect(function(text: string, kind: string?)
+		self:Show(text, KIND_COLORS[kind or "info"])
 	end)
 end
 

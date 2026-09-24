@@ -1,5 +1,6 @@
 --!strict
--- Shows the result of a bind. The server decides everything; this only displays it.
+-- Shows the result of a successful bind. The server decides everything; this only displays it.
+-- (Refusals arrive as Notify messages, handled by NotificationController.)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -8,9 +9,10 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 
 type BindResult = {
-	Ok: boolean,
-	Message: string?,
-	SpeciesId: string?,
+	DragonId: string,
+	SpeciesId: string,
+	ConstellationId: string,
+	Luck: number,
 }
 
 local BindingController = {}
@@ -18,12 +20,7 @@ local BindingController = {}
 function BindingController:Start()
 	local bindResult = ReplicatedStorage.Remotes.BindResult :: RemoteEvent
 	bindResult.OnClientEvent:Connect(function(result: BindResult)
-		if not result.Ok then
-			NotificationController:Show(result.Message or "Binding failed.", Color3.fromRGB(255, 120, 120))
-			return
-		end
-
-		local species = Dragons[result.SpeciesId :: string]
+		local species = Dragons[result.SpeciesId]
 		if species == nil then
 			return
 		end

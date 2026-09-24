@@ -21,6 +21,8 @@ export type PlayerData = {
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)
+	OfferingNight: number, -- NightIndex the Offerings count belongs to (older nights = 0 offerings)
+	Offerings: number, -- Stardust offerings made on OfferingNight
 
 	LastOnline: number, -- os.time() of the last save; used for offline income
 	PurchaseIds: { string }, -- recent developer product receipt IDs, oldest first
