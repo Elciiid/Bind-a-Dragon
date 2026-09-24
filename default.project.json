@@ -1,6 +1,6 @@
 {
   "name": "BindADragon",
-  "globIgnorePaths": ["**/.gitkeep", "**/*.LICENSE.txt"],
+  "globIgnorePaths": ["**/.gitkeep", "**/*.LICENSE.txt", "**/*.tmp.*"],
   "tree": {
     "$className": "DataModel",
 

@@ -20,6 +20,7 @@ export type PlayerData = {
 	NextDragonId: number,
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
+	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)
 
 	LastOnline: number, -- os.time() of the last save; used for offline income
 	PurchaseIds: { string }, -- recent developer product receipt IDs, oldest first

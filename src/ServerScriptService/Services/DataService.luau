@@ -33,6 +33,7 @@ local TEMPLATE: PlayerData = {
 	NextDragonId = 1,
 
 	StarAtlas = {},
+	LastBindNight = -1,
 
 	LastOnline = 0,
 	PurchaseIds = {},

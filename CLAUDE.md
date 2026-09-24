@@ -25,8 +25,8 @@ _Update this section as work progresses._
 | --- | --- |
 | Project setup (Rojo, Git, folder structure) | Done (Rojo 7.7.0, `default.project.json`, Init/Start bootstraps) |
 | Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData` |
-| Day/night + constellation cycle | Not started |
-| Binding (RNG, rarity, per-player rolls) | Not started |
+| Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
+| Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
 | Luck system | Not started |
 | Dragons: leveling + evolution | Not started |
 | Roost + AFK income | Not started |
@@ -37,7 +37,12 @@ _Update this section as work progresses._
 | UI | Not started |
 | Ranked PvP | Post-launch |
 
-**Next up:** binding (needs Config for rarities, dragons, constellations).
+**Next up:** luck system (hook is the TODO in `BindingService`), then roost + placeholder dragon models.
+
+**World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
+the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
+and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
+To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on Workspace.
 
 ## Team
 
@@ -52,7 +57,10 @@ _Update this section as work progresses._
 - Roblox Studio MCP server (Claude can inspect and edit the open place)
 
 ### Dev setup
-- Dev tools live on drive E, not C: `E:\Roblox\Tools\bin` (on the user PATH). Rojo 7.7.0 is there.
+- Dev tools live on drive E, not C: `E:\Roblox\Tools\bin` (on the user PATH).
+- **Rojo is pinned to 7.6.1.** 7.7.0 crashes `rojo serve` when files are saved via temp-file rename (how Claude's
+  edit tools write), see rojo-rbx/rojo#1314 (fix in PR #1319). Don't upgrade until a release includes that fix.
+  The Studio plugin must match: `rojo plugin install` with the same version.
 - `rojo serve` from the repo root, then click Connect in the Rojo Studio plugin.
 - `default.project.json` maps `src/ReplicatedStorage`, `src/ServerScriptService` and
   `src/StarterPlayer/StarterPlayerScripts` with `$ignoreUnknownInstances`, so anything built directly in
