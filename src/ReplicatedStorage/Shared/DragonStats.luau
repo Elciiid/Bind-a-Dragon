@@ -9,6 +9,7 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
+local RebirthConfig = require(ReplicatedStorage.Shared.Config.Rebirth)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -105,6 +106,16 @@ function DragonStats.GetLevelCap(data: PlayerData): number
 		end
 	end
 	return cap
+end
+
+function DragonStats.GetRebirthCost(rebirths: number): number
+	return RebirthConfig.BaseCost * RebirthConfig.CostGrowth ^ rebirths
+end
+
+-- True if the player has enough rebirths for the area (areas stay unlocked since rebirths never go down).
+function DragonStats.IsAreaUnlocked(data: PlayerData, areaId: string): boolean
+	local area = Areas[areaId]
+	return area ~= nil and data.Rebirths >= area.RebirthsRequired
 end
 
 function DragonStats.GetRoostSlots(_data: PlayerData): number

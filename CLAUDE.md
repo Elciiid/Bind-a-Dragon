@@ -32,13 +32,14 @@ _Update this section as work progresses._
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
 | Gold sinks (Stardust shop, roost upgrades) | Not started |
-| Rebirth + area unlocks | Not started |
+| Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Dragon Spire (tower) | Not started |
 | Game passes + developer products | Not started |
 | UI | Not started |
 | Ranked PvP | Post-launch |
 
-**Next up:** rebirth. Then a dragon inventory UI (swap roost dragons, bulk level up).
+**Next up:** dragon inventory UI (see all dragons, swap roost dragons, bulk level up), then Star Merchant
+(Stardust for gold) and roost upgrades, then the Dragon Spire, then monetization.
 UI polish after the core loop is playable.
 
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.4):
@@ -50,6 +51,9 @@ and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; th
 `StarterMeadow.Roosts` has 8 plots (Models tagged `RoostPlot`, each with a `Perches` folder of 8 perch Models with
 an `Index` attribute and pivot on the top surface facing the plot center, plus a `Sign` part). Keep server max
 players ≤ 8, or add plots.
+`Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
+(`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. The meadow has `Portal_VolcanoPeak` near the spawn and
+its own `AreaSpawn`. New areas: build far away, add a `StarAltar` + `AreaSpawn` with the AreaId, and a portal.
 **Dragon art:** `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` (or `<SpeciesId>` for one model for all
 stages) replaces the tinted `Placeholder` model automatically. Assets live in the place file, not Git.
 To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on Workspace.
@@ -198,8 +202,19 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 - Evolution branches (option B): each evolution under a night constellation gives +10% income (+20% if the
   constellation's element matches the dragon's) and tints the dragon's accent in that element. Evolving during
   the day gives a plain "Day" branch with no bonus. Numbers in `Config/Evolution`.
-- `E:\Roblox\Bind A Dragon.pdf` is the team's copy of the design doc. When game design changes, update the
-  design doc (Claude Doc linked above) and re-export that PDF.
+- `E:\Roblox\Bind A Dragon.pdf` is the team's copy of the design doc (exported from the Claude Doc linked above).
+  **Only revise the doc/PDF when the user asks.** Until then, track changes in "Pending design doc updates" below.
+
+## Pending design doc updates (apply when the user asks to revise the doc)
+
+- Title is Bind A Dragon; combat is auto-battle with the player's best dragon (answers 3 open questions).
+- Luck: 5 sources (Stardust offerings 3/night, 8-phase moon, rare constellation boost, group at altar, area), x10 cap,
+  scales harder for rarer tiers (TierScaling).
+- Evolution branches = option B (element income bonus + accent color; daytime = plain branch).
+- Roost: one plot per player (8 per server), 3 base slots, auto-fill with best dragons, offline income capped 8h.
+- Leveling cost formula (per-rarity base x 1.2^level); rebirth cost 10M x5 per rebirth.
+- Day/night: 8 min day + 4 min night, same night and constellation on every server.
+- Rebirth: ★ badge above the character; areas are reached by portals (locked ones refuse), not walked to.
 
 ## Working agreements for Claude Code
 
