@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Constellations = require(ReplicatedStorage.Shared.Config.Constellations)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
@@ -130,12 +131,39 @@ function DragonStats.IsAreaUnlocked(data: PlayerData, areaId: string): boolean
 	return area ~= nil and data.Rebirths >= area.RebirthsRequired
 end
 
-function DragonStats.GetRoostSlots(_data: PlayerData): number
-	-- TODO(Economy): add roost upgrade slots here.
-	return math.min(RoostConfig.BaseSlots, RoostConfig.MaxSlots)
+function DragonStats.GetRoostSlots(data: PlayerData): number
+	return math.min(RoostConfig.BaseSlots + data.RoostSlotUpgrades, RoostConfig.MaxSlots)
 end
 
--- Total gold/sec from every dragon placed in the roost.
+-- Cost of the next extra roost slot, or nil when no more can be bought.
+function DragonStats.GetNextSlotCost(data: PlayerData): number?
+	if DragonStats.GetRoostSlots(data) >= RoostConfig.MaxSlots then
+		return nil
+	end
+	return Economy.RoostUpgrades.SlotCosts[data.RoostSlotUpgrades + 1]
+end
+
+function DragonStats.GetRoostIncomeMultiplier(data: PlayerData): number
+	return 1 + Economy.RoostUpgrades.IncomeBonusPerLevel * data.RoostIncomeLevel
+end
+
+-- Cost of the next roost income level, or nil at the max level.
+function DragonStats.GetNextIncomeUpgradeCost(data: PlayerData): number?
+	local upgrades = Economy.RoostUpgrades
+	if data.RoostIncomeLevel >= upgrades.MaxIncomeLevel then
+		return nil
+	end
+	return math.floor(upgrades.IncomeBaseCost * upgrades.IncomeCostGrowth ^ data.RoostIncomeLevel)
+end
+
+-- Gold price of the next Stardust bundle from the Star Merchant (rises per purchase, resets at dawn).
+function DragonStats.GetMerchantPrice(data: PlayerData, dayIndex: number): number
+	local merchant = Economy.Merchant
+	local bought = if data.MerchantDay == dayIndex then data.MerchantPurchases else 0
+	return math.floor(merchant.BasePrice * merchant.PriceGrowth ^ bought)
+end
+
+-- Total gold/sec from every dragon placed in the roost, including the roost income upgrade.
 function DragonStats.GetRoostIncome(data: PlayerData): number
 	local total = 0
 	for _, dragonId in data.RoostDragonIds do
@@ -144,7 +172,7 @@ function DragonStats.GetRoostIncome(data: PlayerData): number
 			total += DragonStats.GetGoldPerSecond(dragon)
 		end
 	end
-	return total
+	return total * DragonStats.GetRoostIncomeMultiplier(data)
 end
 
 return DragonStats

@@ -37,6 +37,11 @@ local TEMPLATE: PlayerData = {
 	Dragons = {},
 	NextDragonId = 1,
 	RoostDragonIds = {},
+	RoostSlotUpgrades = 0,
+	RoostIncomeLevel = 0,
+
+	MerchantDay = -1,
+	MerchantPurchases = 0,
 
 	StarAtlas = {},
 	LastBindNight = -1,

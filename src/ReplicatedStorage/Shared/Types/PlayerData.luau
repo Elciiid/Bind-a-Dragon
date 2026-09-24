@@ -20,6 +20,11 @@ export type PlayerData = {
 	Dragons: { [string]: Dragon }, -- keyed by Dragon.Id
 	NextDragonId: number,
 	RoostDragonIds: { string }, -- dragons placed in the roost, in perch order (earn gold)
+	RoostSlotUpgrades: number, -- extra roost slots bought
+	RoostIncomeLevel: number, -- roost income upgrade level
+
+	MerchantDay: number, -- Cycle NightIndex the MerchantPurchases count belongs to (resets at dawn)
+	MerchantPurchases: number, -- Stardust bundles bought on MerchantDay
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)

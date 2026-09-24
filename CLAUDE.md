@@ -31,14 +31,14 @@ _Update this section as work progresses._
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
-| Gold sinks (Stardust shop, roost upgrades) | Not started |
+| Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`, upgrade buttons in the Dragons panel |
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Dragon Spire (tower) | Not started |
 | Game passes + developer products | Not started |
 | UI | Placeholder UI built in code: sky HUD, notifications, luck panel, currency, rebirth panel, dragon inventory (`InventoryController`: +1/+10/Max, Place in roost). Needs designer/artist polish |
 | Ranked PvP | Post-launch |
 
-**Next up:** Star Merchant (Stardust for gold) and roost upgrades, then the Dragon Spire, then monetization.
+**Next up:** the Dragon Spire (auto-battle, player's best dragon), then monetization.
 UI polish after the core loop is playable.
 
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.4):
@@ -50,6 +50,7 @@ and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; th
 `StarterMeadow.Roosts` has 8 plots (Models tagged `RoostPlot`, each with a `Perches` folder of 8 perch Models with
 an `Index` attribute and pivot on the top surface facing the plot center, plus a `Sign` part). Keep server max
 players ≤ 8, or add plots.
+`StarterMeadow.StarMerchant` (stall near the spawn, tagged `StarMerchant`, PrimaryPart `Counter`).
 `Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
 (`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. The meadow has `Portal_VolcanoPeak` near the spawn and
 its own `AreaSpawn`. New areas: build far away, add a `StarAltar` + `AreaSpawn` with the AreaId, and a portal.
@@ -215,6 +216,9 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 - Day/night: 8 min day + 4 min night, same night and constellation on every server.
 - Rebirth: ★ badge above the character; areas are reached by portals (locked ones refuse), not walked to.
 - Dragon inventory: +1/+10/Max leveling; "Place in roost" swaps out the weakest roost dragon when full.
+- Star Merchant: 10 Stardust per bundle, 500 gold x1.5 per purchase, resets at dawn (stall near the spawn).
+- Roost upgrades: 5 extra slots (25K → 250M, x10 each), income +10%/level up to +100% (10K x2.5 per level).
+- Only binding gives new dragons (1 per night). Possible later: dragon eggs from Spire bosses.
 
 ## Working agreements for Claude Code
 
