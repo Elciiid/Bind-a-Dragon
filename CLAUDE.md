@@ -47,9 +47,11 @@ Mythic 0.5% at x1 → 7.4% at the x10 cap.
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
 the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
 and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
-`StarterMeadow.Roosts` has 8 plots (Models tagged `RoostPlot`, each with a `Perches` folder of 8 perch Models with
-an `Index` attribute and pivot on the top surface facing the plot center, plus a `Sign` part). Keep server max
-players ≤ 8, or add plots.
+`StarterMeadow.Roosts` has 8 plots: fenced grass pens (Models tagged `RoostPlot`) with attributes `RoamCenter`
+(floor top center) and `RoamRadius`, a gate with the owner `Sign`, and upgrade stands `UpgradeSlots` /
+`UpgradeIncome` outside the entrance. Dragons roam client-side (`RoostAnimationController`): Hatchlings hop,
+Drakes walk, Dragons/Elders fly (per-stage Movement/MoveSpeed/FlyHeight in `Config/Evolution`).
+Keep server max players ≤ 8, or add plots.
 `StarterMeadow.StarMerchant` (stall near the spawn, tagged `StarMerchant`, PrimaryPart `Counter`).
 `Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
 (`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. The meadow has `Portal_VolcanoPeak` near the spawn and
@@ -217,7 +219,10 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 - Rebirth: ★ badge above the character; areas are reached by portals (locked ones refuse), not walked to.
 - Dragon inventory: +1/+10/Max leveling; "Place in roost" swaps out the weakest roost dragon when full.
 - Star Merchant: 10 Stardust per bundle, 500 gold x1.5 per purchase, resets at dawn (stall near the spawn).
-- Roost upgrades: 5 extra slots (25K → 250M, x10 each), income +10%/level up to +100% (10K x2.5 per level).
+- Roost upgrades: 5 extra slots (25K → 250M, x10 each), income +10%/level up to +100% (10K x2.5 per level),
+  bought at stands in front of your own roost (not a shop/menu).
+- Roost is a pen where dragons roam (like the house in Steal an Egg): Hatchlings hop, Drakes walk,
+  Dragons fly low, Elders fly high.
 - Only binding gives new dragons (1 per night). Possible later: dragon eggs from Spire bosses.
 
 ## Working agreements for Claude Code

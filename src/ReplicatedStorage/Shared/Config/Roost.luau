@@ -7,7 +7,7 @@
 
 return {
 	BaseSlots = 3, -- roost slots every player starts with (roost upgrades will add more)
-	MaxSlots = 8, -- hard limit; each roost plot in the world has this many perches
+	MaxSlots = 8, -- hard limit on dragons in one roost
 
 	IncomePerLevel = 0.15, -- +15% of base income per level above 1
 

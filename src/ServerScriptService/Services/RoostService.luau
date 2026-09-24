@@ -5,9 +5,11 @@
 -- Offline: on join, pays for the time since data.LastOnline (stamped on every save), capped at OfflineCapHours.
 -- Slots: empty roost slots are filled automatically with the player's best-earning unplaced dragons.
 --
--- World: Models tagged "RoostPlot" are handed out one per player. Each plot needs a "Perches" folder of Models
--- (each with a number attribute "Index" and its pivot at the spot where a dragon sits), and may have a "Sign"
--- part for the owner's name. Players without a free plot still earn income, they just have no visuals.
+-- World: Models tagged "RoostPlot" are handed out one per player. Each plot is a fenced pen with attributes
+-- "RoamCenter" (Vector3, the floor's top center) and "RoamRadius" (studs dragons may roam from it), a "Sign" part
+-- for the owner's name, and upgrade stands "UpgradeSlots" / "UpgradeIncome" (prompts added by the owner's client).
+-- Dragons spawn at random spots in the pen; clients animate them (RoostAnimationController).
+-- Players without a free plot still earn income, they just have no visuals.
 --
 -- Dragon art: ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId> (Model), else .../<SpeciesId> (Model),
 -- else .../Placeholder, which is tinted by element (parts with a "Tint" attribute: Primary/Secondary/Accent).
@@ -30,7 +32,8 @@ type PlayerData = PlayerDataTypes.PlayerData
 type Shown = { Model: Model, Key: string }
 
 local PLOT_TAG = "RoostPlot"
-local EMPTY_RING_COLOR = Color3.fromRGB(80, 85, 105)
+
+local rng = Random.new()
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
@@ -143,24 +146,11 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Plot visuals
 
-local function getPerch(plot: Model, index: number): Model?
-	local perches = plot:FindFirstChild("Perches")
-	if perches == nil then
-		return nil
-	end
-	for _, perch in perches:GetChildren() do
-		if perch:IsA("Model") and perch:GetAttribute("Index") == index then
-			return perch
-		end
-	end
-	return nil
-end
-
-local function setRing(perch: Model, color: Color3)
-	local ring = perch:FindFirstChild("Ring")
-	if ring and ring:IsA("BasePart") then
-		ring.Color = color
-	end
+-- The pen's floor center (top surface) and how far from it dragons may roam.
+local function getPen(plot: Model): (Vector3?, number)
+	local center = plot:GetAttribute("RoamCenter")
+	local radius = plot:GetAttribute("RoamRadius")
+	return if typeof(center) == "Vector3" then center else nil, if type(radius) == "number" then radius else 12
 end
 
 local function setSign(plot: Model, owner: Player?)
@@ -230,7 +220,7 @@ local function makeNameplate(model: Model, text: string, color: Color3)
 	gui.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 end
 
-local function buildDragonModel(dragon: PlayerDataTypes.Dragon, perch: Model): Model?
+local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Model?
 	local species = Dragons[dragon.SpeciesId]
 	if species == nil then
 		return nil
@@ -278,11 +268,20 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, perch: Model): M
 		end
 	end
 
-	-- Stand on the perch, facing its LookVector.
-	local size = model:GetExtentsSize()
-	local boxCFrame = model:GetBoundingBox()
-	local pivotOffset = boxCFrame:ToObjectSpace(model:GetPivot())
-	model:PivotTo(perch:GetPivot() * CFrame.new(0, size.Y / 2, 0) * pivotOffset)
+	-- Stand on the pen floor at a random spot, facing a random way. Clients take over from here and animate it
+	-- (RoostAnimationController) using the movement attributes below; the server never moves it again.
+	local center, radius = getPen(plot)
+	if center then
+		local angle, distance = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(0, radius * 0.7)
+		local spot = center + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		local size = model:GetExtentsSize()
+		local boxCFrame = model:GetBoundingBox()
+		local pivotOffset = boxCFrame:ToObjectSpace(model:GetPivot())
+		model:PivotTo(CFrame.new(spot) * CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0) * CFrame.new(0, size.Y / 2, 0) * pivotOffset)
+	end
+	model:SetAttribute("Movement", stage.Movement)
+	model:SetAttribute("MoveSpeed", stage.MoveSpeed)
+	model:SetAttribute("FlyHeight", stage.FlyHeight)
 
 	local rarity = DragonStats.GetRarity(species.Rarity)
 	makeNameplate(model, `{species.Name}  Lv {dragon.Level}`, if rarity then rarity.Color else Color3.new(1, 1, 1))
@@ -298,35 +297,26 @@ local function refreshPlot(player: Player, data: PlayerData)
 	end
 
 	local wanted: { [string]: boolean } = {}
-	for index = 1, RoostConfig.MaxSlots do
-		local perch = getPerch(plot, index)
-		local dragonId = data.RoostDragonIds[index]
-		local dragon = dragonId and data.Dragons[dragonId]
-		if perch == nil then
-			continue
-		end
+	for _, dragonId in data.RoostDragonIds do
+		local dragon = data.Dragons[dragonId]
 		if dragon == nil then
-			setRing(perch, EMPTY_RING_COLOR)
 			continue
 		end
-
 		wanted[dragon.Id] = true
-		local key = `{index}:{dragon.SpeciesId}:{dragon.Level}`
+		-- Rebuild when anything visible changes (level/stage, branch color, trait/grade on the nameplate).
+		local key = `{dragon.SpeciesId}:{dragon.Level}`
 		local existing = current[dragon.Id]
 		if existing == nil or existing.Key ~= key then
 			if existing then
 				existing.Model:Destroy()
 			end
-			local model = buildDragonModel(dragon, perch)
+			local model = buildDragonModel(dragon, plot)
 			if model then
 				model.Parent = plot
 				current[dragon.Id] = { Model = model, Key = key }
 			else
 				current[dragon.Id] = nil
 			end
-			local species = Dragons[dragon.SpeciesId]
-			local rarity = species and DragonStats.GetRarity(species.Rarity)
-			setRing(perch, if rarity then rarity.Color else EMPTY_RING_COLOR)
 		end
 	end
 
@@ -339,12 +329,6 @@ local function refreshPlot(player: Player, data: PlayerData)
 end
 
 local function clearPlot(plot: Model)
-	for index = 1, RoostConfig.MaxSlots do
-		local perch = getPerch(plot, index)
-		if perch then
-			setRing(perch, EMPTY_RING_COLOR)
-		end
-	end
 	setSign(plot, nil)
 end
 

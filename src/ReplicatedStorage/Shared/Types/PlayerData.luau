@@ -19,7 +19,7 @@ export type PlayerData = {
 
 	Dragons: { [string]: Dragon }, -- keyed by Dragon.Id
 	NextDragonId: number,
-	RoostDragonIds: { string }, -- dragons placed in the roost, in perch order (earn gold)
+	RoostDragonIds: { string }, -- dragons placed in the roost (earn gold)
 	RoostSlotUpgrades: number, -- extra roost slots bought
 	RoostIncomeLevel: number, -- roost income upgrade level
 

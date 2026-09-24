@@ -10,11 +10,9 @@ local DataController = require(script.Parent.DataController)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
-local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
-local buyRoostUpgrade = ReplicatedStorage.Remotes.BuyRoostUpgrade :: RemoteEvent
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 
@@ -29,8 +27,6 @@ local InventoryController = {}
 local panel: Frame
 local header: TextLabel
 local list: ScrollingFrame
-local slotButton: TextButton
-local incomeButton: TextButton
 local dirty = true
 
 local function round(instance: GuiObject)
@@ -167,17 +163,6 @@ local function redraw()
 
 	header.Text = `Your dragons ({#entries})  ·  Roost {#data.RoostDragonIds}/{DragonStats.GetRoostSlots(data)}`
 		.. (if #entries == 0 then "  ·  Bind at a Star Altar at night!" else "")
-
-	-- Roost upgrades
-	local slotCost = DragonStats.GetNextSlotCost(data)
-	slotButton.Text = if slotCost then `+1 roost slot: {Format.Number(slotCost)}` else "Roost slots maxed"
-	slotButton.BackgroundColor3 = if slotCost and data.Gold >= slotCost then GOLD else GREY
-	local incomeCost = DragonStats.GetNextIncomeUpgradeCost(data)
-	local bonus = math.round((DragonStats.GetRoostIncomeMultiplier(data) - 1) * 100)
-	incomeButton.Text = if incomeCost
-		then `Roost income +{bonus}% → +{bonus + math.round(Economy.RoostUpgrades.IncomeBonusPerLevel * 100)}%: {Format.Number(incomeCost)}`
-		else `Roost income +{bonus}% (max)`
-	incomeButton.BackgroundColor3 = if incomeCost and data.Gold >= incomeCost then GOLD else GREY
 end
 
 function InventoryController:Init()
@@ -226,21 +211,9 @@ function InventoryController:Init()
 	close.Position = UDim2.new(1, -10, 0, 8)
 	close.Size = UDim2.new(0, 36, 0, 30)
 
-	-- Roost upgrade buttons (text and color set in redraw; the server checks cost and limits)
-	slotButton = button(panel, "+1 roost slot", true, function()
-		buyRoostUpgrade:FireServer("Slots")
-	end)
-	slotButton.Position = UDim2.new(0, 14, 0, 44)
-	slotButton.Size = UDim2.new(0.4, -18, 0, 32)
-	incomeButton = button(panel, "Roost income", true, function()
-		buyRoostUpgrade:FireServer("Income")
-	end)
-	incomeButton.Position = UDim2.new(0.4, 4, 0, 44)
-	incomeButton.Size = UDim2.new(0.6, -18, 0, 32)
-
 	list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.new(0, 10, 0, 86)
-	list.Size = UDim2.new(1, -20, 1, -96)
+	list.Position = UDim2.new(0, 10, 0, 46)
+	list.Size = UDim2.new(1, -20, 1, -56)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
@@ -262,7 +235,7 @@ function InventoryController:Init()
 	local function markDirty()
 		dirty = true
 	end
-	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "RoostSlotUpgrades", "RoostIncomeLevel" } do
+	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "RoostSlotUpgrades" } do
 		DataController:OnChanged(key, markDirty)
 	end
 end

@@ -8,19 +8,26 @@
 -- The latest branch also tints the dragon's accent color in that constellation's element.
 -- PLACEHOLDER numbers.
 
+export type Movement = "Hop" | "Walk" | "Fly"
+
 export type Stage = {
 	Id: string,
 	Name: string,
 	MinLevel: number,
 	IncomeMultiplier: number, -- multiplies roost gold/sec
+	PowerMultiplier: number, -- multiplies Spire battle power
 	ModelScale: number, -- size of the placeholder model (real art can ignore this)
+	-- How it roams around the roost pen:
+	Movement: Movement, -- Hop = walks with little jumps, Walk = walks, Fly = flies around at FlyHeight
+	MoveSpeed: number, -- studs per second
+	FlyHeight: number, -- studs above the pen floor (Fly only)
 }
 
 local Stages: { Stage } = {
-	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, ModelScale = 1 },
-	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, ModelScale = 1.4 },
-	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, ModelScale = 1.9 },
-	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, ModelScale = 2.5 },
+	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, PowerMultiplier = 1, ModelScale = 1, Movement = "Hop", MoveSpeed = 4, FlyHeight = 0 },
+	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, PowerMultiplier = 2.5, ModelScale = 1.4, Movement = "Walk", MoveSpeed = 5, FlyHeight = 0 },
+	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, PowerMultiplier = 6, ModelScale = 1.9, Movement = "Fly", MoveSpeed = 8, FlyHeight = 8 },
+	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, ModelScale = 2.5, Movement = "Fly", MoveSpeed = 10, FlyHeight = 16 },
 }
 
 return {
