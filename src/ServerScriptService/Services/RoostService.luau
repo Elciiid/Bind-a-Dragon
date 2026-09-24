@@ -33,11 +33,14 @@ local PLOT_TAG = "RoostPlot"
 local EMPTY_RING_COLOR = Color3.fromRGB(80, 85, 105)
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
+local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 
 local plotOwners: { [Model]: Player } = {}
 local plotOf: { [Player]: Model } = {}
 local shown: { [Player]: { [string]: Shown } } = {} -- dragonId -> model on the player's plot
 local unpaid: { [Player]: number } = {} -- fractional gold carried between payouts
+local lastPlace: { [Player]: number } = {}
+local PLACE_INTERVAL = 0.25 -- seconds between PlaceInRoost requests per player (anti-spam)
 
 local RoostService = {}
 
@@ -81,6 +84,45 @@ local function fillSlots(data: PlayerData)
 		end
 		table.insert(data.RoostDragonIds, candidate.Id)
 	end
+end
+
+-- PlaceInRoost(dragonId): put an owned dragon in the roost. If the roost is full, it takes the slot of the
+-- lowest-earning roost dragon (so a slot is never left empty and auto-fill never fights the player).
+local function onPlaceInRoost(player: Player, dragonId: unknown)
+	if typeof(dragonId) ~= "string" or #dragonId > 20 then
+		return
+	end
+	local now = os.clock()
+	if now - (lastPlace[player] or 0) < PLACE_INTERVAL then
+		return
+	end
+	lastPlace[player] = now
+
+	local data = DataService:GetData(player)
+	local dragon = data and data.Dragons[dragonId]
+	if data == nil or dragon == nil or table.find(data.RoostDragonIds, dragonId) then
+		return
+	end
+
+	local slots = DragonStats.GetRoostSlots(data)
+	if #data.RoostDragonIds < slots then
+		table.insert(data.RoostDragonIds, dragonId)
+	else
+		local weakestIndex, weakestIncome = nil, math.huge
+		for index, id in data.RoostDragonIds do
+			local placed = data.Dragons[id]
+			local income = if placed then DragonStats.GetGoldPerSecond(placed) else -1
+			if income < weakestIncome then
+				weakestIndex, weakestIncome = index, income
+			end
+		end
+		if weakestIndex == nil then
+			return
+		end
+		data.RoostDragonIds[weakestIndex] = dragonId
+	end
+	local species = Dragons[dragon.SpeciesId]
+	notify:FireClient(player, `{if species then species.Name else "Dragon"} is now in your roost.`, "success")
 end
 
 local function payOffline(player: Player, data: PlayerData)
@@ -347,6 +389,8 @@ function RoostService:Start()
 		end
 	end
 
+	placeInRoost.OnServerEvent:Connect(onPlaceInRoost)
+
 	DataService:OnDataLoaded(function(player, data)
 		payOffline(player, data)
 		assignPlot(player)
@@ -357,6 +401,7 @@ function RoostService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		releasePlot(player)
 		unpaid[player] = nil
+		lastPlace[player] = nil
 	end)
 
 	while true do

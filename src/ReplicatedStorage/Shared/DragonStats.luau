@@ -97,6 +97,18 @@ function DragonStats.GetLevelUpCost(dragon: Dragon): number
 	return math.floor(base * Leveling.CostGrowth ^ (dragon.Level - 1))
 end
 
+-- Levels and total gold for buying up to `count` levels (stops at the cap). Doesn't change the dragon.
+function DragonStats.GetBulkLevelCost(dragon: Dragon, count: number, cap: number): (number, number)
+	local levels, total = 0, 0
+	local probe = table.clone(dragon)
+	while levels < count and probe.Level < cap do
+		total += DragonStats.GetLevelUpCost(probe)
+		probe.Level += 1
+		levels += 1
+	end
+	return levels, total
+end
+
 -- Max dragon level: the highest LevelCap among areas the player has unlocked with rebirths.
 function DragonStats.GetLevelCap(data: PlayerData): number
 	local cap = 1

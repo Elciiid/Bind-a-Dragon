@@ -35,11 +35,10 @@ _Update this section as work progresses._
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Dragon Spire (tower) | Not started |
 | Game passes + developer products | Not started |
-| UI | Not started |
+| UI | Placeholder UI built in code: sky HUD, notifications, luck panel, currency, rebirth panel, dragon inventory (`InventoryController`: +1/+10/Max, Place in roost). Needs designer/artist polish |
 | Ranked PvP | Post-launch |
 
-**Next up:** dragon inventory UI (see all dragons, swap roost dragons, bulk level up), then Star Merchant
-(Stardust for gold) and roost upgrades, then the Dragon Spire, then monetization.
+**Next up:** Star Merchant (Stardust for gold) and roost upgrades, then the Dragon Spire, then monetization.
 UI polish after the core loop is playable.
 
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.4):
@@ -215,6 +214,7 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 - Leveling cost formula (per-rarity base x 1.2^level); rebirth cost 10M x5 per rebirth.
 - Day/night: 8 min day + 4 min night, same night and constellation on every server.
 - Rebirth: ★ badge above the character; areas are reached by portals (locked ones refuse), not walked to.
+- Dragon inventory: +1/+10/Max leveling; "Place in roost" swaps out the weakest roost dragon when full.
 
 ## Working agreements for Claude Code
 
