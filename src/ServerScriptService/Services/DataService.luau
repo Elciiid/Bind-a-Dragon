@@ -36,6 +36,7 @@ local TEMPLATE: PlayerData = {
 
 	Dragons = {},
 	NextDragonId = 1,
+	RoostDragonIds = {},
 
 	StarAtlas = {},
 	LastBindNight = -1,

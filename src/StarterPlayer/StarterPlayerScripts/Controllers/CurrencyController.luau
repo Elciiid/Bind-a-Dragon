@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 
 local CurrencyController = {}
@@ -13,7 +14,7 @@ local function makeCounter(parent: Instance, name: string, color: Color3, order:
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.LayoutOrder = order
-	label.Size = UDim2.new(0, 190, 0, 40)
+	label.Size = UDim2.new(0, 260, 0, 40)
 	label.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
 	label.BackgroundTransparency = 0.25
 	label.TextColor3 = color
@@ -41,7 +42,7 @@ function CurrencyController:Init()
 	local column = Instance.new("Frame")
 	column.AnchorPoint = Vector2.new(0, 1)
 	column.Position = UDim2.new(0, 16, 1, -16)
-	column.Size = UDim2.new(0, 190, 0, 86)
+	column.Size = UDim2.new(0, 260, 0, 86)
 	column.BackgroundTransparency = 1
 	column.Parent = gui
 	local layout = Instance.new("UIListLayout")
@@ -53,9 +54,19 @@ function CurrencyController:Init()
 	local gold = makeCounter(column, "Gold", Color3.fromRGB(255, 210, 70), 1)
 	local stardust = makeCounter(column, "Stardust", Color3.fromRGB(170, 220, 255), 2)
 
-	DataController:OnChanged("Gold", function(value: number)
-		gold.Text = `Gold: {Format.Number(value)}`
-	end)
+	-- Gold shows the roost's income too, e.g. "Gold: 1.2K (+25/s)".
+	local function updateGold()
+		local data = DataController:Get()
+		if data == nil then
+			return
+		end
+		local income = DragonStats.GetRoostIncome(data)
+		local incomeText = if income > 0 then `  (+{Format.Number(income)}/s)` else ""
+		gold.Text = `Gold: {Format.Number(data.Gold)}{incomeText}`
+	end
+	DataController:OnChanged("Gold", updateGold)
+	DataController:OnChanged("Dragons", updateGold)
+	DataController:OnChanged("RoostDragonIds", updateGold)
 	DataController:OnChanged("Stardust", function(value: number)
 		stardust.Text = `Stardust: {Format.Number(value)}`
 	end)

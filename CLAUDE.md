@@ -30,7 +30,7 @@ _Update this section as work progresses._
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Not started |
-| Roost + AFK income | Not started |
+| Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
 | Gold sinks (Stardust shop, roost upgrades) | Not started |
 | Rebirth + area unlocks | Not started |
 | Dragon Spire (tower) | Not started |
@@ -38,7 +38,7 @@ _Update this section as work progresses._
 | UI | Not started |
 | Ranked PvP | Post-launch |
 
-**Next up:** roost + placeholder dragon models, then leveling/evolution, then rebirth.
+**Next up:** leveling/evolution, then rebirth. Then a dragon inventory UI (swap roost dragons, level up).
 UI polish after the core loop is playable.
 
 **Open balance question (designer):** luck multiplies every non-Common weight equally, so it mostly turns
@@ -48,6 +48,11 @@ higher tiers.
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
 the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
 and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
+`StarterMeadow.Roosts` has 8 plots (Models tagged `RoostPlot`, each with a `Perches` folder of 8 perch Models with
+an `Index` attribute and pivot on the top surface facing the plot center, plus a `Sign` part). Keep server max
+players ≤ 8, or add plots.
+**Dragon art:** `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` (or `<SpeciesId>` for one model for all
+stages) replaces the tinted `Placeholder` model automatically. Assets live in the place file, not Git.
 To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on Workspace.
 
 ## Team

@@ -18,6 +18,7 @@ export type PlayerData = {
 
 	Dragons: { [string]: Dragon }, -- keyed by Dragon.Id
 	NextDragonId: number,
+	RoostDragonIds: { string }, -- dragons placed in the roost, in perch order (earn gold)
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)
