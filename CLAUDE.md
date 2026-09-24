@@ -24,7 +24,7 @@ _Update this section as work progresses._
 | System | Status |
 | --- | --- |
 | Project setup (Rojo, Git, folder structure) | Done (Rojo 7.7.0, `default.project.json`, Init/Start bootstraps) |
-| Player data / DataStore | Not started |
+| Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData` |
 | Day/night + constellation cycle | Not started |
 | Binding (RNG, rarity, per-player rolls) | Not started |
 | Luck system | Not started |
@@ -37,7 +37,7 @@ _Update this section as work progresses._
 | UI | Not started |
 | Ranked PvP | Post-launch |
 
-**Next up:** player data, then binding.
+**Next up:** binding (needs Config for rarities, dragons, constellations).
 
 ## Team
 
@@ -54,9 +54,12 @@ _Update this section as work progresses._
 ### Dev setup
 - Dev tools live on drive E, not C: `E:\Roblox\Tools\bin` (on the user PATH). Rojo 7.7.0 is there.
 - `rojo serve` from the repo root, then click Connect in the Rojo Studio plugin.
-- `default.project.json` maps only the `src/` folders and sets `$ignoreUnknownInstances`, so anything built
-  directly in Studio (Workspace, models in ReplicatedStorage, etc.) is not deleted by Rojo syncs.
+- `default.project.json` maps `src/ReplicatedStorage`, `src/ServerScriptService` and
+  `src/StarterPlayer/StarterPlayerScripts` with `$ignoreUnknownInstances`, so anything built directly in
+  Studio (Workspace, models in ReplicatedStorage, etc.) is not deleted by Rojo syncs. New folders under those
+  sync automatically; editing `default.project.json` itself needs a `rojo serve` restart + reconnect.
   Workspace/builds are owned in Studio; code lives in the repo.
+- Third-party code is copied into `src/ServerScriptService/Packages` with its license, no package manager. ProfileStore is there, from MadStudioRoblox/ProfileStore @ 45c9847.
 - Services/Controllers are ModuleScripts that may expose `Init()` (setup) and `Start()` (run).
   `ServerScriptService/Main.server.luau` and `StarterPlayerScripts/Main.client.luau` load them all automatically.
 - File naming: `*.server.luau` = Script, `*.client.luau` = LocalScript, `*.luau` = ModuleScript.

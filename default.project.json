@@ -1,43 +1,25 @@
 {
   "name": "BindADragon",
-  "globIgnorePaths": ["**/.gitkeep"],
+  "globIgnorePaths": ["**/.gitkeep", "**/*.LICENSE.txt"],
   "tree": {
     "$className": "DataModel",
 
     "ReplicatedStorage": {
-      "$className": "ReplicatedStorage",
-      "$ignoreUnknownInstances": true,
-      "Shared": {
-        "$path": "src/ReplicatedStorage/Shared"
-      },
-      "Remotes": {
-        "$path": "src/ReplicatedStorage/Remotes"
-      }
+      "$path": "src/ReplicatedStorage",
+      "$ignoreUnknownInstances": true
     },
 
     "ServerScriptService": {
-      "$className": "ServerScriptService",
-      "$ignoreUnknownInstances": true,
-      "Services": {
-        "$path": "src/ServerScriptService/Services"
-      },
-      "Main": {
-        "$path": "src/ServerScriptService/Main.server.luau"
-      }
+      "$path": "src/ServerScriptService",
+      "$ignoreUnknownInstances": true
     },
 
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$ignoreUnknownInstances": true,
       "StarterPlayerScripts": {
-        "$className": "StarterPlayerScripts",
-        "$ignoreUnknownInstances": true,
-        "Controllers": {
-          "$path": "src/StarterPlayer/StarterPlayerScripts/Controllers"
-        },
-        "Main": {
-          "$path": "src/StarterPlayer/StarterPlayerScripts/Main.client.luau"
-        }
+        "$path": "src/StarterPlayer/StarterPlayerScripts",
+        "$ignoreUnknownInstances": true
       }
     }
   }
