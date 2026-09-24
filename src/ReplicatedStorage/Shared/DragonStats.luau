@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
+local Constellations = require(ReplicatedStorage.Shared.Config.Constellations)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
@@ -19,6 +20,11 @@ for _, rarity in Rarities do
 	rarityById[rarity.Id] = rarity
 end
 
+local constellationById: { [string]: Constellations.Constellation } = {}
+for _, constellation in Constellations do
+	constellationById[constellation.Id] = constellation
+end
+
 local DragonStats = {}
 
 function DragonStats.GetRarity(rarityId: string): Rarities.Rarity?
@@ -27,13 +33,44 @@ end
 
 -- The highest stage whose MinLevel the dragon has reached.
 function DragonStats.GetStage(level: number): Evolution.Stage
-	local current = Evolution[1]
-	for _, stage in Evolution do
+	local current = Evolution.Stages[1]
+	for _, stage in Evolution.Stages do
 		if level >= stage.MinLevel then
 			current = stage
 		end
 	end
 	return current
+end
+
+-- Income multiplier from evolution branches: +BranchIncomeBonus per branch earned under a night constellation,
+-- +MatchingBranchIncomeBonus instead when that constellation's element matches the dragon's. Day branches add nothing.
+function DragonStats.GetBranchMultiplier(dragon: Dragon): number
+	local species = Dragons[dragon.SpeciesId]
+	local bonus = 0
+	for _, constellationId in dragon.Evolutions or {} do
+		local constellation = constellationById[constellationId]
+		if constellation then
+			local matches = species ~= nil and constellation.Element == species.Element
+			bonus += if matches then Evolution.MatchingBranchIncomeBonus else Evolution.BranchIncomeBonus
+		end
+	end
+	return 1 + bonus
+end
+
+-- Element of the dragon's most recent night branch (for its accent color), or nil if it has none.
+function DragonStats.GetBranchElement(dragon: Dragon): string?
+	local evolutions = dragon.Evolutions
+	if evolutions == nil then
+		return nil
+	end
+	local element: string? = nil
+	for _, stage in Evolution.Stages do -- stage order, so the latest evolution wins
+		local constellation = constellationById[evolutions[stage.Id] or ""]
+		if constellation and constellation.Element then
+			element = constellation.Element
+		end
+	end
+	return element
 end
 
 function DragonStats.GetGoldPerSecond(dragon: Dragon): number
@@ -43,7 +80,10 @@ function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 		return 0
 	end
 	local levelMultiplier = 1 + RoostConfig.IncomePerLevel * (dragon.Level - 1)
-	return rarity.GoldPerSecond * levelMultiplier * DragonStats.GetStage(dragon.Level).IncomeMultiplier
+	return rarity.GoldPerSecond
+		* levelMultiplier
+		* DragonStats.GetStage(dragon.Level).IncomeMultiplier
+		* DragonStats.GetBranchMultiplier(dragon)
 end
 
 -- Gold needed to go from the dragon's current level to the next.

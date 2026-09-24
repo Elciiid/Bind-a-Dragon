@@ -11,6 +11,8 @@
 --
 -- Dragon art: ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId> (Model), else .../<SpeciesId> (Model),
 -- else .../Placeholder, which is tinted by element (parts with a "Tint" attribute: Primary/Secondary/Accent).
+-- Evolution branch color: placeholder Accent parts, and any part in real art with attribute BranchAccent = true,
+-- take the element color of the dragon's latest night branch.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -199,13 +201,25 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, perch: Model): M
 
 	local model = template:Clone()
 	model.Name = `Dragon_{dragon.Id}`
+
+	-- Evolution branch accent: the element color of the latest night constellation it evolved under.
+	local branchElementId = DragonStats.GetBranchElement(dragon)
+	local branchElement = branchElementId and Elements[branchElementId]
+	if branchElement then
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") and part:GetAttribute("BranchAccent") == true then
+				part.Color = branchElement.Color
+			end
+		end
+	end
+
 	if isPlaceholder then
 		local element = Elements[species.Element]
 		local primary = if element then element.Color else Color3.new(1, 1, 1)
 		local tints = {
 			Primary = primary,
 			Secondary = primary:Lerp(Color3.new(0, 0, 0), 0.45),
-			Accent = primary:Lerp(Color3.new(1, 1, 1), 0.6),
+			Accent = if branchElement then branchElement.Color else primary:Lerp(Color3.new(1, 1, 1), 0.6),
 		}
 		for _, part in model:GetDescendants() do
 			local tint = part:GetAttribute("Tint")

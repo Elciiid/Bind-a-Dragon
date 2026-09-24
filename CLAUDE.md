@@ -29,7 +29,7 @@ _Update this section as work progresses._
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
-| Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branch saved in `dragon.Evolutions`. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
+| Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
 | Gold sinks (Stardust shop, roost upgrades) | Not started |
 | Rebirth + area unlocks | Not started |
@@ -187,16 +187,19 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 
 ## Open questions (ask before assuming)
 
-- What does an evolution branch change? Options offered: (A) different model per branch, (B) small
-  element bonus + color tint (recommended), (C) drop branches. Currently only recorded.
-  Evolving during the day: recommended = plain branch, no bonus. Currently records the upcoming night's.
-- Rebirth cost: proposed 10M gold, x5 per rebirth ("expensive", to lengthen play). Awaiting confirmation.
+- Rebirth cost: using 10M gold, x5 per rebirth ("expensive", to lengthen play) unless told otherwise.
+- Evolution branch Spire battle perk: define when the Spire is built.
 
 ## Decisions made
 
 - Title: **Bind A Dragon**.
 - Spire/PvP combat: **auto-battle**, **one dragon** (the player's best).
 - Rebirth should be **expensive** to lengthen play.
+- Evolution branches (option B): each evolution under a night constellation gives +10% income (+20% if the
+  constellation's element matches the dragon's) and tints the dragon's accent in that element. Evolving during
+  the day gives a plain "Day" branch with no bonus. Numbers in `Config/Evolution`.
+- `E:\Roblox\Bind A Dragon.pdf` is the team's copy of the design doc. When game design changes, update the
+  design doc (Claude Doc linked above) and re-export that PDF.
 
 ## Working agreements for Claude Code
 

@@ -12,6 +12,7 @@ local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
@@ -66,12 +67,14 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 
 		local stageAfter = DragonStats.GetStage(dragon.Level)
 		if stageAfter.Id ~= stageBefore.Id then
-			local constellation = Cycle.GetState().Constellation
+			-- The constellation in the sky becomes this stage's branch; during the day there is none.
+			local state = Cycle.GetState()
 			local evolutions = dragon.Evolutions or {}
-			evolutions[stageAfter.Id] = constellation.Id
+			evolutions[stageAfter.Id] = if state.IsNight then state.Constellation.Id else Evolution.DayBranchId
 			dragon.Evolutions = evolutions
 			local name = if species then species.Name else "Your dragon"
-			notify:FireClient(player, `{name} evolved into a {stageAfter.Name} under {constellation.Name}!`, "success")
+			local under = if state.IsNight then ` under {state.Constellation.Name}` else " in daylight (no branch bonus)"
+			notify:FireClient(player, `{name} evolved into a {stageAfter.Name}{under}!`, "success")
 		end
 	end
 
