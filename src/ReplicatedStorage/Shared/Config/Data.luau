@@ -3,6 +3,7 @@
 
 return {
 	-- DataStore name. Changing this starts everyone with fresh data, so only change it on purpose.
+	-- Studio playtests automatically use "<StoreName>_Studio" instead, so tests never touch live data.
 	StoreName = "PlayerData",
 
 	-- Starting currency for a new player.

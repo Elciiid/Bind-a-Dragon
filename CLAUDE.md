@@ -24,7 +24,8 @@ _Update this section as work progresses._
 | System | Status |
 | --- | --- |
 | Project setup (Rojo, Git, folder structure) | Done (Rojo 7.7.0, `default.project.json`, Init/Start bootstraps) |
-| Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData` |
+| Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData`. Studio uses a separate `PlayerData_Studio` store |
+| Client data sync | Done: snapshot + auto-diffed changes (`DataService` → `DataController`); `PRIVATE_KEYS` stay server-only. Gold/Stardust HUD in `CurrencyController` |
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
 | Luck system | Not started |
@@ -37,7 +38,8 @@ _Update this section as work progresses._
 | UI | Not started |
 | Ranked PvP | Post-launch |
 
-**Next up:** luck system (hook is the TODO in `BindingService`), then roost + placeholder dragon models.
+**Next up:** luck system (hook is the TODO in `BindingService`), then roost + placeholder dragon models,
+then leveling/evolution, then rebirth. UI polish after the core loop is playable.
 
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
 the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
