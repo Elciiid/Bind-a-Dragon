@@ -15,5 +15,7 @@ return {
 
 	CostGrowth = 1.2, -- each level costs 20% more than the last
 
+	PowerPerLevel = 0.15, -- +15% of base Spire power per level above 1 (income per level is in Config/Roost)
+
 	MaxLevelsPerRequest = 100, -- most levels one "level up xN" request can buy
 }

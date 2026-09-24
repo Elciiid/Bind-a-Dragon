@@ -12,6 +12,7 @@ local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.Rebirth)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
+local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type Dragon = PlayerDataTypes.Dragon
@@ -20,6 +21,16 @@ type PlayerData = PlayerDataTypes.PlayerData
 local rarityById: { [string]: Rarities.Rarity } = {}
 for _, rarity in Rarities do
 	rarityById[rarity.Id] = rarity
+end
+
+local traitById: { [string]: TraitConfig.Trait } = {}
+for _, trait in TraitConfig.Traits do
+	traitById[trait.Id] = trait
+end
+
+local gradeById: { [string]: TraitConfig.Grade } = {}
+for _, grade in TraitConfig.Grades do
+	gradeById[grade.Id] = grade
 end
 
 local constellationById: { [string]: Constellations.Constellation } = {}
@@ -75,17 +86,46 @@ function DragonStats.GetBranchElement(dragon: Dragon): string?
 	return element
 end
 
+function DragonStats.GetTrait(dragon: Dragon): TraitConfig.Trait?
+	return if dragon.Trait then traitById[dragon.Trait] else nil
+end
+
+function DragonStats.GetGrade(dragon: Dragon): TraitConfig.Grade?
+	return if dragon.Grade then gradeById[dragon.Grade] else nil
+end
+
 function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 	local species = Dragons[dragon.SpeciesId]
 	local rarity = species and rarityById[species.Rarity]
 	if rarity == nil then
 		return 0
 	end
+	local trait = DragonStats.GetTrait(dragon)
+	local grade = DragonStats.GetGrade(dragon)
 	local levelMultiplier = 1 + RoostConfig.IncomePerLevel * (dragon.Level - 1)
 	return rarity.GoldPerSecond
 		* levelMultiplier
 		* DragonStats.GetStage(dragon.Level).IncomeMultiplier
 		* DragonStats.GetBranchMultiplier(dragon)
+		* (1 + (if trait then trait.Income else 0))
+		* (if grade then grade.Multiplier else 1)
+end
+
+-- Spire battle power: rarity base x level x stage x trait x grade.
+function DragonStats.GetPower(dragon: Dragon): number
+	local species = Dragons[dragon.SpeciesId]
+	local rarity = species and rarityById[species.Rarity]
+	if rarity == nil then
+		return 0
+	end
+	local trait = DragonStats.GetTrait(dragon)
+	local grade = DragonStats.GetGrade(dragon)
+	local levelMultiplier = 1 + Leveling.PowerPerLevel * (dragon.Level - 1)
+	return rarity.BasePower
+		* levelMultiplier
+		* DragonStats.GetStage(dragon.Level).PowerMultiplier
+		* (1 + (if trait then trait.Power else 0))
+		* (if grade then grade.Multiplier else 1)
 end
 
 -- Gold needed to go from the dragon's current level to the next.

@@ -233,6 +233,8 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 
 	local model = template:Clone()
 	model.Name = `Dragon_{dragon.Id}`
+	-- Stream the whole model at once, so clients never animate a dragon that's missing parts.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 
 	-- Evolution branch accent: the element color of the latest night constellation it evolved under.
 	local branchElementId = DragonStats.GetBranchElement(dragon)
@@ -284,7 +286,9 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	model:SetAttribute("FlyHeight", stage.FlyHeight)
 
 	local rarity = DragonStats.GetRarity(species.Rarity)
-	makeNameplate(model, `{species.Name}  Lv {dragon.Level}`, if rarity then rarity.Color else Color3.new(1, 1, 1))
+	local grade = DragonStats.GetGrade(dragon)
+	local gradeText = if grade then `  [{grade.Id}]` else ""
+	makeNameplate(model, `{species.Name}  Lv {dragon.Level}{gradeText}`, if rarity then rarity.Color else Color3.new(1, 1, 1))
 	return model
 end
 
@@ -304,7 +308,7 @@ local function refreshPlot(player: Player, data: PlayerData)
 		end
 		wanted[dragon.Id] = true
 		-- Rebuild when anything visible changes (level/stage, branch color, trait/grade on the nameplate).
-		local key = `{dragon.SpeciesId}:{dragon.Level}`
+		local key = `{dragon.SpeciesId}:{dragon.Level}:{dragon.Trait or ""}:{dragon.Grade or ""}`
 		local existing = current[dragon.Id]
 		if existing == nil or existing.Key ~= key then
 			if existing then

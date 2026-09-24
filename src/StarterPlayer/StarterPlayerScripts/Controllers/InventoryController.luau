@@ -90,11 +90,21 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	label(card, if species then species.Name else dragon.SpeciesId, if rarity then rarity.Color else GREY, true, 6, 22)
 	label(card, `{if species then species.Rarity else "?"} {if species then species.Element else ""} · {stage.Name}`, Color3.fromRGB(200, 200, 215), false, 30, 16)
 	label(card, `Lv {dragon.Level}/{cap} · {Format.Number(DragonStats.GetGoldPerSecond(dragon))} gold/s`, Color3.new(1, 1, 1), false, 48, 16)
+	local trait = DragonStats.GetTrait(dragon)
+	local grade = DragonStats.GetGrade(dragon)
+	label(
+		card,
+		`Power {Format.Number(DragonStats.GetPower(dragon))} · {if trait then trait.Name else "No trait"} · {if grade then "Grade " .. grade.Id else "No grade"}`,
+		Color3.fromRGB(170, 220, 255),
+		false,
+		66,
+		16
+	)
 
 	-- Level buttons
 	local row = Instance.new("Frame")
 	row.BackgroundTransparency = 1
-	row.Position = UDim2.new(0, 8, 0, 72)
+	row.Position = UDim2.new(0, 8, 0, 90)
 	row.Size = UDim2.new(1, -16, 0, 30)
 	row.Parent = card
 	local layout = Instance.new("UIListLayout")
@@ -120,12 +130,12 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 
 	-- Roost
 	if inRoost then
-		label(card, "In roost", Color3.fromRGB(130, 230, 140), true, 108, 20)
+		label(card, "In roost", Color3.fromRGB(130, 230, 140), true, 126, 20)
 	else
 		local place = button(card, "Place in roost", true, function()
 			placeInRoost:FireServer(dragon.Id)
 		end)
-		place.Position = UDim2.new(0, 8, 0, 108)
+		place.Position = UDim2.new(0, 8, 0, 126)
 		place.Size = UDim2.new(1, -16, 0, 26)
 	end
 end
@@ -162,6 +172,7 @@ local function redraw()
 	end
 
 	header.Text = `Your dragons ({#entries})  ·  Roost {#data.RoostDragonIds}/{DragonStats.GetRoostSlots(data)}`
+		.. `  ·  {data.WyrmRunes} Wyrm Runes  ·  {data.Dragonstones} Dragonstones`
 		.. (if #entries == 0 then "  ·  Bind at a Star Altar at night!" else "")
 end
 
@@ -221,7 +232,7 @@ function InventoryController:Init()
 	list.CanvasSize = UDim2.new()
 	list.Parent = panel
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.new(0, 210, 0, 142)
+	grid.CellSize = UDim2.new(0, 210, 0, 160)
 	grid.CellPadding = UDim2.new(0, 8, 0, 8)
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -235,7 +246,7 @@ function InventoryController:Init()
 	local function markDirty()
 		dirty = true
 	end
-	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "RoostSlotUpgrades" } do
+	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "RoostSlotUpgrades", "WyrmRunes", "Dragonstones" } do
 		DataController:OnChanged(key, markDirty)
 	end
 end

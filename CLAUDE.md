@@ -33,6 +33,7 @@ _Update this section as work progresses._
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
 | Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`, upgrade buttons in the Dragons panel |
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
+| Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons now have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones not obtainable yet (Spire) |
 | Dragon Spire (tower) | Not started |
 | Game passes + developer products | Not started |
 | UI | Placeholder UI built in code: sky HUD, notifications, luck panel, currency, rebirth panel, dragon inventory (`InventoryController`: +1/+10/Max, Place in roost). Needs designer/artist polish |
@@ -53,6 +54,9 @@ and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; th
 Drakes walk, Dragons/Elders fly (per-stage Movement/MoveSpeed/FlyHeight in `Config/Evolution`).
 Keep server max players ≤ 8, or add plots.
 `StarterMeadow.StarMerchant` (stall near the spawn, tagged `StarMerchant`, PrimaryPart `Counter`).
+`StarterMeadow.RuneShrine` (tag `RuneShrine`, west of the altar) and `StarterMeadow.DragonstoneForge`
+(tag `DragonstoneForge`, east). StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client
+code that sets up prompts on streamed models must retry until the parts arrive.
 `Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
 (`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. The meadow has `Portal_VolcanoPeak` near the spawn and
 its own `AreaSpawn`. New areas: build far away, add a `StarAltar` + `AreaSpawn` with the AreaId, and a portal.
@@ -224,6 +228,9 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 - Roost is a pen where dragons roam (like the house in Steal an Egg): Hatchlings hop, Drakes walk,
   Dragons fly low, Elders fly high.
 - Only binding gives new dragons (1 per night). Possible later: dragon eggs from Spire bosses.
+- NEW: traits and grades (inspired by Anime Dice, renamed to dragon themes). Wyrm Runes roll a trait at the
+  Rune Shrine; Dragonstones roll a grade (D..SSS) at the Dragonstone Forge. Traits boost income and/or Spire power;
+  grades multiply both. Both currencies come from the Dragon Spire. Dragons gain a Power stat for the Spire.
 
 ## Working agreements for Claude Code
 

@@ -8,6 +8,8 @@ export type Dragon = {
 	Level: number,
 	ObtainedAt: number, -- os.time()
 	Evolutions: { [string]: string }?, -- stageId -> constellationId in the sky when it evolved (its branch)
+	Trait: string?, -- Config/Traits trait Id (rolled with Wyrm Runes)
+	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
 }
 
 export type PlayerData = {
@@ -15,6 +17,8 @@ export type PlayerData = {
 
 	Gold: number,
 	Stardust: number,
+	WyrmRunes: number, -- trait rolls (from the Dragon Spire)
+	Dragonstones: number, -- grade rolls (from the Dragon Spire)
 	Rebirths: number,
 
 	Dragons: { [string]: Dragon }, -- keyed by Dragon.Id

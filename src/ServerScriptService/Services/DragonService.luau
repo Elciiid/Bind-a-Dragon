@@ -3,7 +3,10 @@
 -- the server checks ownership, the level cap and gold, and buys as many of the requested levels as it can afford.
 -- Crossing a stage's MinLevel evolves the dragon; the constellation in the sky at that moment is recorded
 -- as that stage's branch in dragon.Evolutions.
+-- Also trait rolls (RollTrait: dragonId, costs Wyrm Runes, at a "RuneShrine") and grade rolls
+-- (RollGrade: dragonId, costs Dragonstones, at a "DragonstoneForge"); odds in Config/Traits.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -14,14 +17,23 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
+local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
+local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
+local rollTrait = ReplicatedStorage.Remotes.RollTrait :: RemoteEvent
+local rollGrade = ReplicatedStorage.Remotes.RollGrade :: RemoteEvent
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
+local announcement = ReplicatedStorage.Remotes.Announcement :: RemoteEvent
 
 local MIN_REQUEST_INTERVAL = 0.1 -- seconds between level-up requests per player (anti-spam)
+local MIN_ROLL_INTERVAL = 0.5 -- seconds between trait/grade rolls per player
+local STATION_RANGE = 20 -- studs from a Rune Shrine / Dragonstone Forge to roll there
 local MAX_ID_LENGTH = 20
 
+local rng = Random.new()
 local lastRequest: { [Player]: number } = {}
+local lastRoll: { [Player]: number } = {}
 
 local DragonService = {}
 
@@ -84,10 +96,118 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 	end
 end
 
+---------------------------------------------------------------------------------------------------------------
+-- Traits and grades: rolled at the Rune Shrine (Wyrm Runes -> trait) and the Dragonstone Forge
+-- (Dragonstones -> grade). The player must be standing at a station of the right kind.
+
+local function isNearStation(player: Player, tag: string): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		return false
+	end
+	for _, station in CollectionService:GetTagged(tag) do
+		local position = if station:IsA("Model")
+			then station:GetPivot().Position
+			elseif station:IsA("BasePart") then station.Position
+			else nil
+		if position and (root.Position - position).Magnitude <= STATION_RANGE then
+			return true
+		end
+	end
+	return false
+end
+
+-- Picks one entry at random, weighted by its Weight field.
+local function weightedPick(entries: { any }): any
+	local total = 0
+	for _, entry in entries do
+		total += entry.Weight
+	end
+	local roll = rng:NextNumber() * total
+	for _, entry in entries do
+		roll -= entry.Weight
+		if roll < 0 then
+			return entry
+		end
+	end
+	return entries[#entries]
+end
+
+local function tierAtLeast(tierId: string, minimumId: string): boolean
+	local tierIndex, minimumIndex = 0, math.huge
+	for index, rarity in Rarities do
+		if rarity.Id == tierId then
+			tierIndex = index
+		end
+		if rarity.Id == minimumId then
+			minimumIndex = index
+		end
+	end
+	return tierIndex >= minimumIndex
+end
+
+local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade")
+	if typeof(dragonId) ~= "string" or #dragonId > MAX_ID_LENGTH then
+		return
+	end
+	local now = os.clock()
+	if now - (lastRoll[player] or 0) < MIN_ROLL_INTERVAL then
+		return
+	end
+	lastRoll[player] = now
+
+	local data = DataService:GetData(player)
+	local dragon = data and data.Dragons[dragonId]
+	if data == nil or dragon == nil then
+		return
+	end
+	local stationTag = if kind == "Trait" then "RuneShrine" else "DragonstoneForge"
+	if not isNearStation(player, stationTag) then
+		notify:FireClient(player, if kind == "Trait" then "Go to the Rune Shrine to roll traits." else "Go to the Dragonstone Forge to roll grades.", "error")
+		return
+	end
+
+	local species = Dragons[dragon.SpeciesId]
+	local name = if species then species.Name else "Your dragon"
+	if kind == "Trait" then
+		if data.WyrmRunes < TraitConfig.TraitRollCost then
+			notify:FireClient(player, "You're out of Wyrm Runes. Earn more in the Dragon Spire.", "error")
+			return
+		end
+		data.WyrmRunes -= TraitConfig.TraitRollCost
+		local trait = weightedPick(TraitConfig.Traits)
+		dragon.Trait = trait.Id
+		notify:FireClient(player, `{name} gained the {trait.Name} trait!`, "success")
+		if tierAtLeast(trait.Tier, TraitConfig.AnnounceTier) then
+			announcement:FireAllClients(`{player.DisplayName} rolled the {trait.Name} trait!`)
+		end
+	else
+		if data.Dragonstones < TraitConfig.GradeRollCost then
+			notify:FireClient(player, "You're out of Dragonstones. Earn more in the Dragon Spire.", "error")
+			return
+		end
+		data.Dragonstones -= TraitConfig.GradeRollCost
+		local grade = weightedPick(TraitConfig.Grades)
+		dragon.Grade = grade.Id
+		notify:FireClient(player, `{name} is now grade {grade.Id}!`, "success")
+		if tierAtLeast(grade.Tier, TraitConfig.AnnounceTier) then
+			announcement:FireAllClients(`{player.DisplayName} rolled grade {grade.Id}!`)
+		end
+	end
+end
+
 function DragonService:Start()
 	levelUpDragon.OnServerEvent:Connect(onLevelUp)
+	rollTrait.OnServerEvent:Connect(function(player, dragonId)
+		onRoll(player, dragonId, "Trait")
+	end)
+	rollGrade.OnServerEvent:Connect(function(player, dragonId)
+		onRoll(player, dragonId, "Grade")
+	end)
 	Players.PlayerRemoving:Connect(function(player)
 		lastRequest[player] = nil
+		lastRoll[player] = nil
 	end)
 end
 

@@ -32,6 +32,8 @@ local TEMPLATE: PlayerData = {
 
 	Gold = DataConfig.StartingGold,
 	Stardust = DataConfig.StartingStardust,
+	WyrmRunes = 0,
+	Dragonstones = 0,
 	Rebirths = 0,
 
 	Dragons = {},
