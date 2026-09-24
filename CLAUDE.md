@@ -1,4 +1,4 @@
-# CLAUDE.md — Dragon Constellation Game (Roblox)
+# CLAUDE.md — Bind A Dragon (Roblox)
 
 This file gives Claude Code the context for this project. Read it before making changes.
 Keep it updated: when a system is finished or a design decision changes, edit the relevant section.
@@ -41,9 +41,8 @@ _Update this section as work progresses._
 **Next up:** rebirth. Then a dragon inventory UI (swap roost dragons, bulk level up).
 UI polish after the core loop is playable.
 
-**Open balance question (designer):** luck multiplies every non-Common weight equally, so it mostly turns
-Commons into Rares; Mythic only goes 0.5% → 1.1% at the x10 cap. Decide whether luck should scale harder for
-higher tiers.
+**Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.4):
+Mythic 0.5% at x1 → 7.4% at the x10 cap.
 
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
 the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
@@ -188,12 +187,16 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 
 ## Open questions (ask before assuming)
 
-- What does an evolution branch change (model variant, stats, element)? Currently only recorded.
-  Also: evolving during the day records the upcoming night's constellation. Is that right?
+- What does an evolution branch change? Options offered: (A) different model per branch, (B) small
+  element bonus + color tint (recommended), (C) drop branches. Currently only recorded.
+  Evolving during the day: recommended = plain branch, no bonus. Currently records the upcoming night's.
+- Rebirth cost: proposed 10M gold, x5 per rebirth ("expensive", to lengthen play). Awaiting confirmation.
 
-- Combat style for Spire/PvP: direct control, or auto-battle with player-triggered special moves?
-- One dragon or a team in combat?
-- Final game title.
+## Decisions made
+
+- Title: **Bind A Dragon**.
+- Spire/PvP combat: **auto-battle**, **one dragon** (the player's best).
+- Rebirth should be **expensive** to lengthen play.
 
 ## Working agreements for Claude Code
 

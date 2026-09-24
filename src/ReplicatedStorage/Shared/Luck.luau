@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
+local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 
 export type Breakdown = {
@@ -53,6 +54,15 @@ function Luck.CountPlayersNear(position: Vector3, radius: number): number
 		end
 	end
 	return count
+end
+
+-- Each rarity's roll weight at the given luck, in Config/Rarities order. Rarer tiers gain more (TierScaling).
+function Luck.GetRarityWeights(luck: number): { number }
+	local weights = {}
+	for index, rarity in Rarities do
+		weights[index] = rarity.BindWeight * luck ^ (LuckConfig.TierScaling * (index - 1))
+	end
+	return weights
 end
 
 function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number, groupSize: number): Breakdown

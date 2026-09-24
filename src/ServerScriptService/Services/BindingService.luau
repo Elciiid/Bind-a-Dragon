@@ -34,15 +34,16 @@ local busy: { [Player]: boolean } = {}
 
 local BindingService = {}
 
--- Weighted rarity roll. Luck multiplies the weight of every tier above the first (Common).
+-- Weighted rarity roll using the luck-adjusted weights from Shared/Luck.
 local function rollRarity(luck: number): Rarities.Rarity
+	local weights = Luck.GetRarityWeights(luck)
 	local total = 0
-	for index, rarity in Rarities do
-		total += rarity.BindWeight * (if index > 1 then luck else 1)
+	for _, weight in weights do
+		total += weight
 	end
 	local roll = rng:NextNumber() * total
 	for index, rarity in Rarities do
-		roll -= rarity.BindWeight * (if index > 1 then luck else 1)
+		roll -= weights[index]
 		if roll < 0 then
 			return rarity
 		end
