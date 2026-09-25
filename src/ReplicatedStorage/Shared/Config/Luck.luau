@@ -2,7 +2,8 @@
 -- Bind luck. Every source is a multiplier; they're multiplied together and then capped at Cap.
 -- Luck boosts rarer tiers more: a tier's weight (Config/Rarities) is multiplied by
 --   luck ^ (TierScaling x tier steps above Common)
--- so with TierScaling 0.4 and luck x10: Rare x2.5, Epic x6.3, Legendary x15.8, Mythic x39.8.
+-- so with TierScaling 0.3 and luck x10: Rare x2, Epic x4, Legendary x7.9, Mythic x15.8.
+-- Odds: x1 Mythic 0.5%, x10 (Cap) 4.2%, x20 (PotionCap, with a luck potion charge) 7.1%.
 -- Area luck is in Config/Areas (BindLuck); constellation luck is in Config/Constellations (Luck).
 -- PLACEHOLDER numbers.
 
@@ -17,10 +18,11 @@ export type MoonPhase = {
 }
 
 return {
-	Cap = 10, -- max total luck multiplier
+	Cap = 10, -- max total luck multiplier from all normal sources
+	PotionCap = 20, -- hard cap once an armed luck potion charge is applied on top (Phase 2: Config/Boosts)
 
 	-- How much harder luck pushes each higher tier. 0 = luck does nothing; higher = rarer tiers gain faster.
-	TierScaling = 0.4,
+	TierScaling = 0.3,
 
 	-- Stardust offerings at a Star Altar, made in order, each night (reset every night, lost if you don't bind).
 	-- With these numbers: 1 offering = x1.25, 2 = x1.5, 3 = x2.

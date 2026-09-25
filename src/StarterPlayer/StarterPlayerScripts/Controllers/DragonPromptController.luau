@@ -85,7 +85,7 @@ local function update()
 		if dragon.Level >= cap then
 			prompt.ActionText = "Max level"
 		else
-			prompt.ActionText = `Level up: {Format.Number(DragonStats.GetLevelUpCost(dragon))} gold`
+			prompt.ActionText = `Level up: {Format.Number(DragonStats.GetLevelUpCost(dragon, data.Rebirths))} gold`
 		end
 	end
 end

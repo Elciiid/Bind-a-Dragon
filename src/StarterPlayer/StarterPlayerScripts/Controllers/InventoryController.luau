@@ -113,8 +113,8 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	layout.Parent = row
 
 	local atCap = dragon.Level >= cap
-	local oneCost = DragonStats.GetLevelUpCost(dragon)
-	local tenLevels, tenCost = DragonStats.GetBulkLevelCost(dragon, 10, cap)
+	local oneCost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
+	local tenLevels, tenCost = DragonStats.GetBulkLevelCost(dragon, 10, cap, data.Rebirths)
 	local plusOne = button(row, if atCap then "Max level" else `+1  {Format.Number(oneCost)}`, not atCap and data.Gold >= oneCost, function()
 		levelUpDragon:FireServer(dragon.Id, 1)
 	end)

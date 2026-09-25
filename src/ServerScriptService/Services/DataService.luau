@@ -51,6 +51,8 @@ local TEMPLATE: PlayerData = {
 	Offerings = 0,
 
 	LastOnline = 0,
+	AfkCreditDay = -1,
+	AfkCreditSeconds = 0,
 	PurchaseIds = {},
 }
 

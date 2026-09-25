@@ -80,6 +80,10 @@ local function onRequestRebirth(player: Player)
 	if data == nil then
 		return
 	end
+	if DragonStats.IsAtRebirthCap(data) then
+		notify:FireClient(player, "Rebirth cap reached. More rebirths in the next update!", "info")
+		return
+	end
 	local cost = DragonStats.GetRebirthCost(data.Rebirths)
 	if data.Gold < cost then
 		notify:FireClient(player, `You need {Format.Number(cost)} gold to rebirth.`, "error")
@@ -91,7 +95,7 @@ local function onRequestRebirth(player: Player)
 	data.Rebirths += 1
 	local capAfter = DragonStats.GetLevelCap(data)
 
-	local parts = { `Rebirth {data.Rebirths} complete!` }
+	local parts = { `Rebirth {data.Rebirths} complete! Income {Format.Multiplier(DragonStats.GetRebirthBonus(data.Rebirths))}.` }
 	if capAfter > capBefore then
 		table.insert(parts, `Level cap {capBefore} → {capAfter}.`)
 	end

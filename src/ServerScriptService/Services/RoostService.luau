@@ -2,7 +2,10 @@
 -- Roosts: AFK gold income and the dragons shown on each player's roost plot.
 --
 -- Income: every PayoutInterval, each player earns the gold/sec of the dragons in data.RoostDragonIds.
--- Offline: on join, pays for the time since data.LastOnline (stamped on every save), capped at OfflineCapHours.
+-- Offline: on join, pays for the time since data.LastOnline (stamped on every save) at OfflineIncomeMultiplier.
+-- Idle: a player who hasn't moved for IdleAfterSeconds earns like offline. Offline + idle share one daily
+-- allowance of OfflineCapHours (data.AfkCreditDay / AfkCreditSeconds).
+-- Weekly rebirth cap: at the cap, banked gold stops at one rebirth's cost, with a message.
 -- Slots: empty roost slots are filled automatically with the player's best-earning unplaced dragons.
 --
 -- World: Models tagged "RoostPlot" are handed out one per player. Each plot is a fenced pen with attributes
@@ -43,6 +46,9 @@ local plotOf: { [Player]: Model } = {}
 local shown: { [Player]: { [string]: Shown } } = {} -- dragonId -> model on the player's plot
 local unpaid: { [Player]: number } = {} -- fractional gold carried between payouts
 local lastPlace: { [Player]: number } = {}
+local lastActive: { [Player]: number } = {} -- os.clock() of the player's last movement
+local lastPosition: { [Player]: Vector3 } = {}
+local capNotified: { [Player]: boolean } = {} -- "rebirth cap reached" shown this session
 local PLACE_INTERVAL = 0.25 -- seconds between PlaceInRoost requests per player (anti-spam)
 
 local RoostService = {}
@@ -128,19 +134,66 @@ local function onPlaceInRoost(player: Player, dragonId: unknown)
 	notify:FireClient(player, `{if species then species.Name else "Dragon"} is now in your roost.`, "success")
 end
 
+-- Offline and idle time share one daily allowance (Config/Roost OfflineCapHours), reset each UTC day.
+local function afkSecondsLeft(data: PlayerData): number
+	local today = os.time() // 86400
+	if data.AfkCreditDay ~= today then
+		data.AfkCreditDay = today
+		data.AfkCreditSeconds = 0
+	end
+	return math.max(0, RoostConfig.OfflineCapHours * 3600 - data.AfkCreditSeconds)
+end
+
+-- At the weekly rebirth cap, banked gold stops at one rebirth's cost (so a new update can't be cleared from savings).
+local function clampAtRebirthCap(player: Player, data: PlayerData)
+	if not DragonStats.IsAtRebirthCap(data) then
+		return
+	end
+	local limit = DragonStats.GetRebirthCost(data.Rebirths)
+	if data.Gold >= limit then
+		data.Gold = limit
+		if not capNotified[player] then
+			capNotified[player] = true
+			notify:FireClient(player, "Rebirth cap reached. More rebirths in the next update!", "info")
+		end
+	end
+end
+
 local function payOffline(player: Player, data: PlayerData)
 	if data.LastOnline <= 0 then
 		return -- first session
 	end
-	local seconds = math.clamp(os.time() - data.LastOnline, 0, RoostConfig.OfflineCapHours * 3600)
+	local seconds = math.clamp(os.time() - data.LastOnline, 0, afkSecondsLeft(data))
+	data.AfkCreditSeconds += seconds
 	fillSlots(data)
 	local earned = math.floor(
 		DragonStats.GetRoostIncome(data) * seconds * RoostConfig.OfflineIncomeMultiplier * getIncomeMultiplier(player)
 	)
 	if earned > 0 then
 		data.Gold += earned
+		clampAtRebirthCap(player, data)
 		notify:FireClient(player, `While you were away, your dragons earned {Format.Number(earned)} gold!`, "success")
 	end
+end
+
+-- Idle detection: a player whose character hasn't moved for IdleAfterSeconds counts as idle.
+local function updateActivity(player: Player)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local now = os.clock()
+	if root == nil or not root:IsA("BasePart") then
+		lastActive[player] = lastActive[player] or now
+		return
+	end
+	local previous = lastPosition[player]
+	if previous == nil or (root.Position - previous).Magnitude > 1 then
+		lastActive[player] = now
+		lastPosition[player] = root.Position
+	end
+end
+
+local function isIdle(player: Player): boolean
+	return os.clock() - (lastActive[player] or os.clock()) > RoostConfig.IdleAfterSeconds
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -390,6 +443,9 @@ function RoostService:Start()
 		releasePlot(player)
 		unpaid[player] = nil
 		lastPlace[player] = nil
+		lastActive[player] = nil
+		lastPosition[player] = nil
+		capNotified[player] = nil
 	end)
 
 	while true do
@@ -400,11 +456,20 @@ function RoostService:Start()
 				continue
 			end
 			fillSlots(data)
+			updateActivity(player)
+			-- Idle players earn like offline, from the same daily allowance.
+			local seconds, rate = RoostConfig.PayoutInterval, 1
+			if isIdle(player) then
+				seconds = math.min(seconds, afkSecondsLeft(data))
+				data.AfkCreditSeconds += seconds
+				rate = RoostConfig.OfflineIncomeMultiplier
+			end
 			local earned = (unpaid[player] or 0)
-				+ DragonStats.GetRoostIncome(data) * RoostConfig.PayoutInterval * getIncomeMultiplier(player)
+				+ DragonStats.GetRoostIncome(data) * seconds * rate * getIncomeMultiplier(player)
 			local whole = math.floor(earned)
 			data.Gold += whole
 			unpaid[player] = earned - whole
+			clampAtRebirthCap(player, data)
 			refreshPlot(player, data)
 		end
 	end

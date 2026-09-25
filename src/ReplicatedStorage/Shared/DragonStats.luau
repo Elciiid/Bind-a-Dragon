@@ -102,12 +102,11 @@ function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 	end
 	local trait = DragonStats.GetTrait(dragon)
 	local grade = DragonStats.GetGrade(dragon)
-	local levelMultiplier = 1 + RoostConfig.IncomePerLevel * (dragon.Level - 1)
 	return rarity.GoldPerSecond
-		* levelMultiplier
+		* Leveling.IncomePerLevel ^ (dragon.Level - 1)
 		* DragonStats.GetStage(dragon.Level).IncomeMultiplier
 		* DragonStats.GetBranchMultiplier(dragon)
-		* (1 + (if trait then trait.Income else 0))
+		* (if trait then trait.Income else 1)
 		* (if grade then grade.Multiplier else 1)
 end
 
@@ -120,49 +119,66 @@ function DragonStats.GetPower(dragon: Dragon): number
 	end
 	local trait = DragonStats.GetTrait(dragon)
 	local grade = DragonStats.GetGrade(dragon)
-	local levelMultiplier = 1 + Leveling.PowerPerLevel * (dragon.Level - 1)
 	return rarity.BasePower
-		* levelMultiplier
+		* Leveling.PowerPerLevel ^ (dragon.Level - 1)
 		* DragonStats.GetStage(dragon.Level).PowerMultiplier
-		* (1 + (if trait then trait.Power else 0))
+		* (if trait then trait.Power else 1)
 		* (if grade then grade.Multiplier else 1)
 end
 
--- Gold needed to go from the dragon's current level to the next.
-function DragonStats.GetLevelUpCost(dragon: Dragon): number
+-- Permanent roost income multiplier from rebirths (x IncomeBonusPerRebirth per rebirth, multiplying).
+function DragonStats.GetRebirthBonus(rebirths: number): number
+	return RebirthConfig.IncomeBonusPerRebirth ^ rebirths
+end
+
+-- Gold needed to go from the dragon's current level to the next. Scales with the rebirth bonus so levelling stays
+-- a real gold sink after every rebirth (see Config/Leveling).
+function DragonStats.GetLevelUpCost(dragon: Dragon, rebirths: number): number
 	local species = Dragons[dragon.SpeciesId]
 	local base = species and Leveling.BaseCost[species.Rarity]
 	if base == nil then
 		return math.huge
 	end
-	return math.floor(base * Leveling.CostGrowth ^ (dragon.Level - 1))
+	return base * Leveling.CostGrowth ^ (dragon.Level - 1) * DragonStats.GetRebirthBonus(rebirths)
 end
 
 -- Levels and total gold for buying up to `count` levels (stops at the cap). Doesn't change the dragon.
-function DragonStats.GetBulkLevelCost(dragon: Dragon, count: number, cap: number): (number, number)
+function DragonStats.GetBulkLevelCost(dragon: Dragon, count: number, cap: number, rebirths: number): (number, number)
 	local levels, total = 0, 0
 	local probe = table.clone(dragon)
 	while levels < count and probe.Level < cap do
-		total += DragonStats.GetLevelUpCost(probe)
+		total += DragonStats.GetLevelUpCost(probe, rebirths)
 		probe.Level += 1
 		levels += 1
 	end
 	return levels, total
 end
 
--- Max dragon level: the highest LevelCap among areas the player has unlocked with rebirths.
+-- Max dragon level: CapBase + CapPerRebirth per rebirth.
 function DragonStats.GetLevelCap(data: PlayerData): number
-	local cap = 1
-	for _, area in Areas do
-		if data.Rebirths >= area.RebirthsRequired then
-			cap = math.max(cap, area.LevelCap)
-		end
-	end
-	return cap
+	return Leveling.CapBase + Leveling.CapPerRebirth * data.Rebirths
 end
 
+-- Gold cost of the NEXT rebirth for a player who has done `rebirths` so far. Open-ended (see Config/Rebirth).
 function DragonStats.GetRebirthCost(rebirths: number): number
-	return RebirthConfig.BaseCost * RebirthConfig.CostGrowth ^ rebirths
+	local r = rebirths + 1
+	local config = RebirthConfig
+	local cost = config.FirstCost * config.EarlyGrowth ^ (math.min(r, config.EarlyUntil) - 1)
+	if r > config.EarlyUntil then
+		cost *= config.LateGrowth ^ (math.min(r, config.CurveEnd) - config.EarlyUntil)
+	end
+	if r > config.CurveEnd then
+		local weeklyGrowth = config.IncomeBonusPerRebirth
+			* Leveling.IncomePerLevel ^ Leveling.CapPerRebirth
+			* config.WeeklyGrowthStep
+		cost *= config.WeeklyJump * weeklyGrowth ^ (r - config.CurveEnd)
+	end
+	return cost
+end
+
+-- True once the player has done every rebirth this week's update allows (Config/Rebirth RebirthCap).
+function DragonStats.IsAtRebirthCap(data: PlayerData): boolean
+	return data.Rebirths >= RebirthConfig.RebirthCap
 end
 
 -- True if the player has enough rebirths for the area (areas stay unlocked since rebirths never go down).
@@ -196,14 +212,18 @@ function DragonStats.GetNextIncomeUpgradeCost(data: PlayerData): number?
 	return math.floor(upgrades.IncomeBaseCost * upgrades.IncomeCostGrowth ^ data.RoostIncomeLevel)
 end
 
--- Gold price of the next Stardust bundle from the Star Merchant (rises per purchase, resets at dawn).
+-- Gold price of the next Stardust bundle from the Star Merchant: a share of the next rebirth cost, rising per
+-- purchase, resetting at dawn.
 function DragonStats.GetMerchantPrice(data: PlayerData, dayIndex: number): number
 	local merchant = Economy.Merchant
 	local bought = if data.MerchantDay == dayIndex then data.MerchantPurchases else 0
-	return math.floor(merchant.BasePrice * merchant.PriceGrowth ^ bought)
+	-- Round, not floor: 50M * 0.0006 is 29999.99... in floating point.
+	return math.round(
+		DragonStats.GetRebirthCost(data.Rebirths) * merchant.PriceFractionOfNextRebirth * merchant.PriceGrowth ^ bought
+	)
 end
 
--- Total gold/sec from every dragon placed in the roost, including the roost income upgrade.
+-- Total gold/sec from every dragon placed in the roost, including the roost income upgrade and the rebirth bonus.
 function DragonStats.GetRoostIncome(data: PlayerData): number
 	local total = 0
 	for _, dragonId in data.RoostDragonIds do
@@ -212,7 +232,7 @@ function DragonStats.GetRoostIncome(data: PlayerData): number
 			total += DragonStats.GetGoldPerSecond(dragon)
 		end
 	end
-	return total * DragonStats.GetRoostIncomeMultiplier(data)
+	return total * DragonStats.GetRoostIncomeMultiplier(data) * DragonStats.GetRebirthBonus(data.Rebirths)
 end
 
 return DragonStats

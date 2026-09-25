@@ -19,6 +19,8 @@ local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
+local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
+local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
 local rollTrait = ReplicatedStorage.Remotes.RollTrait :: RemoteEvent
@@ -68,7 +70,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 	local species = Dragons[dragon.SpeciesId]
 	local leveled = 0
 	while leveled < wanted and dragon.Level < cap do
-		local cost = DragonStats.GetLevelUpCost(dragon)
+		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 		if data.Gold < cost then
 			break
 		end
@@ -91,7 +93,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 	end
 
 	if leveled == 0 then
-		local cost = DragonStats.GetLevelUpCost(dragon)
+		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 		notify:FireClient(player, `Not enough gold. You need {Format.Number(cost)}.`, "error")
 	end
 end
@@ -197,7 +199,21 @@ local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade"
 	end
 end
 
+-- Brand-new players (no dragons ever) get the starter dragon from Config/Data, so income starts right away.
+local function grantStarter(player: Player, data: PlayerDataTypes.PlayerData)
+	local speciesId = DataConfig.StarterDragon
+	if speciesId == nil or Dragons[speciesId] == nil or data.NextDragonId ~= 1 or next(data.Dragons) ~= nil then
+		return
+	end
+	local dragonId = tostring(data.NextDragonId)
+	data.NextDragonId += 1
+	data.Dragons[dragonId] = { Id = dragonId, SpeciesId = speciesId, Level = 1, ObtainedAt = os.time() }
+	table.insert(data.RoostDragonIds, dragonId)
+	notify:FireClient(player, `Your first dragon, {Dragons[speciesId].Name}, has hatched in your roost!`, "success")
+end
+
 function DragonService:Start()
+	DataService:OnDataLoaded(grantStarter)
 	levelUpDragon.OnServerEvent:Connect(onLevelUp)
 	rollTrait.OnServerEvent:Connect(function(player, dragonId)
 		onRoll(player, dragonId, "Trait")

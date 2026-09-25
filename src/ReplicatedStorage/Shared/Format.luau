@@ -3,7 +3,12 @@
 
 local Format = {}
 
-local SUFFIXES = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc" }
+-- Short scale up to 1e63 (Vg). The launch curve ends near 640 Oc (6.4e29); weekly updates go higher.
+-- Numbers are plain Luau doubles (safe to ~1.8e308): never use string.format("%d") or IntValues for gold.
+local SUFFIXES = {
+	"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc",
+	"Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg",
+}
 
 -- 950 -> "950", 1234 -> "1.23K", 45600000 -> "45.6M"
 function Format.Number(n: number): string
@@ -25,8 +30,11 @@ function Format.Number(n: number): string
 	return text .. SUFFIXES[tier + 1]
 end
 
--- 1.25 -> "x1.25", 2 -> "x2", 1.5 -> "x1.5"
+-- 1.25 -> "x1.25", 2 -> "x2", 1.5 -> "x1.5", 12345 -> "x12.3K"
 function Format.Multiplier(n: number): string
+	if n >= 1000 then
+		return "x" .. Format.Number(n)
+	end
 	local text = string.format("%.2f", n):gsub("0+$", ""):gsub("%.$", "")
 	return "x" .. text
 end

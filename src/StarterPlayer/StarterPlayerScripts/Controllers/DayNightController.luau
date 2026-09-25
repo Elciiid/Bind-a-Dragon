@@ -1,13 +1,16 @@
 --!strict
 -- Drives the local sky from the shared cycle: Lighting.ClockTime, a night tint in tonight's element color,
--- and a small HUD label with the phase, constellation and time left. Placeholder UI.
+-- and a small HUD label with the phase, constellation and time left. Warns DuskWarningSeconds before night.
+-- Placeholder UI.
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local NotificationController = require(script.Parent.NotificationController)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
+local DayNight = require(ReplicatedStorage.Shared.Config.DayNight)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 
 local NIGHT_TINT = 0.35 -- how strongly tonight's element colors the ambient light
@@ -16,6 +19,7 @@ local RARE_NIGHT_TINT = 0.6
 local DayNightController = {}
 
 local label: TextLabel
+local warnedNight: number? = nil -- NightIndex the dusk warning was last shown for
 local baseAmbient: Color3
 local baseOutdoorAmbient: Color3
 
@@ -73,6 +77,14 @@ function DayNightController:Start()
 		else
 			label.Text = `Day  ·  Night falls in {formatTime(state.SecondsLeft)}`
 			label.TextColor3 = Color3.new(1, 1, 1)
+			-- Dusk warning, once per cycle, so players can walk to the altar in time.
+			if state.SecondsLeft <= DayNight.DuskWarningSeconds and warnedNight ~= state.NightIndex then
+				warnedNight = state.NightIndex
+				NotificationController:Show(
+					`Night falls in {DayNight.DuskWarningSeconds}s: {constellation.Name} rises. Head to a Star Altar!`,
+					Color3.fromRGB(170, 220, 255)
+				)
+			end
 		end
 	end)
 end

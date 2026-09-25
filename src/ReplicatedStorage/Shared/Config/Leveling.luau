@@ -1,21 +1,28 @@
 --!strict
 -- Dragon leveling with gold (the main gold sink).
--- Cost of the next level = BaseCost[rarity] x CostGrowth ^ (current level - 1)
--- Level caps come from Config/Areas (highest unlocked area's LevelCap).
+--   Level cap           = CapBase + CapPerRebirth x rebirths
+--   Income at level L   = base x IncomePerLevel ^ (L - 1)        (compounding)
+--   Power at level L    = base x PowerPerLevel ^ (L - 1)
+--   Cost of next level  = BaseCost[rarity] x CostGrowth ^ (L - 1) x Rebirth.IncomeBonusPerRebirth ^ rebirths
+-- Costs scale with the rebirth bonus so each rebirth's new levels cost about the same share of income:
+-- levelling stays a real gold sink instead of snowballing.
 -- PLACEHOLDER numbers.
 
 return {
+	CapBase = 50,
+	CapPerRebirth = 5,
+
+	IncomePerLevel = 1.06, -- income x1.06 per level
+	PowerPerLevel = 1.05, -- Spire power x1.05 per level
+
 	BaseCost = {
-		Common = 25,
-		Rare = 100,
-		Epic = 400,
-		Legendary = 2000,
-		Mythic = 10000,
+		Common = 1_000,
+		Rare = 5_000,
+		Epic = 20_000,
+		Legendary = 100_000,
+		Mythic = 500_000,
 	} :: { [string]: number },
-
-	CostGrowth = 1.2, -- each level costs 20% more than the last
-
-	PowerPerLevel = 0.15, -- +15% of base Spire power per level above 1 (income per level is in Config/Roost)
+	CostGrowth = 1.08, -- each level costs 8% more than the last (just above income growth)
 
 	MaxLevelsPerRequest = 100, -- most levels one "level up xN" request can buy
 }

@@ -36,6 +36,8 @@ export type PlayerData = {
 	Offerings: number, -- Stardust offerings made on OfferingNight
 
 	LastOnline: number, -- os.time() of the last save; used for offline income
+	AfkCreditDay: number, -- UTC day (os.time() // 86400) that AfkCreditSeconds belongs to
+	AfkCreditSeconds: number, -- offline + idle seconds already paid today (capped by Config/Roost OfflineCapHours)
 	PurchaseIds: { string }, -- recent developer product receipt IDs, oldest first
 }
 

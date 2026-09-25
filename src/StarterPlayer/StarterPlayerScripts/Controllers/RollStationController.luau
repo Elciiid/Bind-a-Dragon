@@ -41,10 +41,6 @@ local openKind: Kind? = nil
 local openStation: BasePart? = nil
 local selectedId: string? = nil
 
-local function percent(value: number): string
-	return `{math.round(value * 100)}%`
-end
-
 local function rarityColor(tierId: string): Color3
 	local rarity = DragonStats.GetRarity(tierId)
 	return if rarity then rarity.Color else Color3.new(1, 1, 1)
@@ -57,11 +53,11 @@ local function describe(dragon: PlayerDataTypes.Dragon, kind: Kind): (string, Co
 			return "No trait", GREY
 		end
 		local parts = {}
-		if trait.Income > 0 then
-			table.insert(parts, `+{percent(trait.Income)} gold`)
+		if trait.Income > 1 then
+			table.insert(parts, `x{trait.Income} gold`)
 		end
-		if trait.Power > 0 then
-			table.insert(parts, `+{percent(trait.Power)} power`)
+		if trait.Power > 1 then
+			table.insert(parts, `x{trait.Power} power`)
 		end
 		return `{trait.Name} ({table.concat(parts, ", ")})`, rarityColor(trait.Tier)
 	end

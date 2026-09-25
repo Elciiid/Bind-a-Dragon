@@ -18,7 +18,7 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
-**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phase 1).
+**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phase 1 done, Phase 2 next).
 _Update this section as work progresses._
 
 | System | Status |
@@ -34,7 +34,7 @@ _Update this section as work progresses._
 | Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`; roost upgrades are bought at stands in front of the roost (`RoostUpgradeController`) |
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons now have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones not obtainable yet (Spire) |
-| Economy rebalance (big numbers, open-ended rebirths) | In progress: Phase 1 of the build order below |
+| Economy rebalance (big numbers, open-ended rebirths) | Phase 1 done: new configs, multiplicative levels/traits/grades, rebirth curve + weekly cap (`DragonStats.GetRebirthCost`, `IsAtRebirthCap`, gold clamps at the cap), ×1.59 rebirth income bonus, level cap 50 + 5/rebirth, idle >20 min = offline rate from the 8 h/day allowance (`RoostService`), starter dragon (`Config/Data.StarterDragon`), dusk warning. Phases 2–6 below |
 | Boosts / potions + Boosts panel | Proposed (Phase 2) |
 | Dragon Index + Starborn variants | Proposed (Phase 3) |
 | Daily/weekly quests + login streak | Proposed (Phase 4) |

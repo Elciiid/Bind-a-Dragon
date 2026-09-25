@@ -9,6 +9,7 @@ local DataController = require(script.Parent.DataController)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
+local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 
 local requestRebirth = ReplicatedStorage.Remotes.RequestRebirth :: RemoteEvent
 
@@ -54,13 +55,22 @@ local function refresh()
 	local next = data.Rebirths + 1
 	button.Text = if data.Rebirths > 0 then `Rebirth  ★{data.Rebirths}` else "Rebirth"
 
+	if DragonStats.IsAtRebirthCap(data) then
+		body.Text = table.concat({
+			`Rebirth cap reached (★{data.Rebirths}).`,
+			"",
+			"More rebirths arrive in the next update.",
+			"Your gold is saved up to the cost of one rebirth until then.",
+		}, "\n")
+		confirm.Text = "Cap reached"
+		confirm.BackgroundColor3 = Color3.fromRGB(120, 120, 130)
+		return
+	end
+
 	local capNow = DragonStats.GetLevelCap(data)
-	local capNext = capNow
+	local capNext = capNow + Leveling.CapPerRebirth
 	local unlocks = {}
 	for _, area in Areas do
-		if area.RebirthsRequired <= next then
-			capNext = math.max(capNext, area.LevelCap)
-		end
 		if area.RebirthsRequired == next then
 			table.insert(unlocks, area.Name)
 		end
@@ -71,9 +81,10 @@ local function refresh()
 		`Cost: {Format.Number(cost)} gold  (you have {Format.Number(data.Gold)})`,
 		"",
 		"Resets: your gold.",
-		"Keeps: dragons, levels, evolutions, Stardust.",
+		"Keeps: dragons, levels, evolutions, traits, grades, Stardust, roost upgrades.",
 		"",
-		if capNext > capNow then `Level cap {capNow} → {capNext}` else `Level cap stays {capNow}`,
+		`Income bonus {Format.Multiplier(DragonStats.GetRebirthBonus(data.Rebirths))} → {Format.Multiplier(DragonStats.GetRebirthBonus(next))}`,
+		`Level cap {capNow} → {capNext}`,
 		if #unlocks > 0 then `Unlocks: {table.concat(unlocks, ", ")}` else "No new area at this rebirth",
 	}
 	body.Text = table.concat(lines, "\n")

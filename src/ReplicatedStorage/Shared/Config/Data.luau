@@ -10,6 +10,11 @@ return {
 	StartingGold = 0,
 	StartingStardust = 0,
 
+	-- Free Common Hatchling (SpeciesId from Config/Dragons) every brand-new player gets on first join, so their roost
+	-- earns from the first second instead of waiting up to a full day for the first night. nil = no starter.
+	-- PLACEHOLDER: the team will pick the final starter.
+	StarterDragon = "Cinderwing" :: string?,
+
 	-- How many developer product receipt IDs to remember per player (prevents double-granting).
 	-- Oldest IDs are dropped first; Roblox stops retrying a receipt long before this fills up.
 	MaxStoredPurchaseIds = 50,
