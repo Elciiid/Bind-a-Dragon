@@ -6,7 +6,8 @@
 -- so the day's total is always the same. Rewards are granted automatically when a quest completes.
 --
 -- Quest kinds (tracked by QuestService:Progress):
---   Bind = binds at a Star Altar; Levels = dragon levels bought; Offer = Stardust offerings;
+--   Bind = binds at a Star Altar; FavoredBind = binds in the area tonight's constellation favors;
+--   Levels = dragon levels bought; Offer = Stardust offerings;
 --   Gold = gold earned in game (Target = IncomeSeconds of the player's roost income when the quest is given).
 -- Quest Ids are saved in player data, so never rename or remove an Id once live (change Text instead).
 --
@@ -20,7 +21,7 @@ type Reward = Rewards.Reward
 
 export type Quest = {
 	Id: string,
-	Kind: "Bind" | "Levels" | "Offer" | "Gold",
+	Kind: "Bind" | "Levels" | "Offer" | "Gold" | "FavoredBind",
 	Text: string, -- "{n}" is replaced by the target
 	Target: number?, -- fixed target (all kinds except Gold)
 	IncomeSeconds: number?, -- Gold: target = this many seconds of roost income at the time
@@ -31,6 +32,7 @@ local DailyPool: { Quest } = {
 	{ Id = "DailyLevels", Kind = "Levels", Text = "Buy {n} dragon levels", Target = 20 },
 	{ Id = "DailyOffer", Kind = "Offer", Text = "Make {n} Stardust offerings", Target = 2 },
 	{ Id = "DailyGold", Kind = "Gold", Text = "Earn {n} gold", IncomeSeconds = 15 * 60 },
+	{ Id = "DailyFavored", Kind = "FavoredBind", Text = "Bind in tonight's favored area", Target = 1 },
 }
 
 local WeeklyPool: { Quest } = {

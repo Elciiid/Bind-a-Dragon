@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
+local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
@@ -19,6 +20,7 @@ export type Breakdown = {
 	Moon: number,
 	MoonName: string,
 	Constellation: number,
+	Favored: number, -- FavoredAreaLuck if tonight's constellation favors this area, else 1
 	Stardust: number,
 	Group: number,
 	GroupSize: number,
@@ -43,6 +45,44 @@ end
 -- The next offering the player can make, or nil if they've made them all.
 function Luck.GetNextOffering(offeringCount: number): LuckConfig.Offering?
 	return LuckConfig.Offerings[offeringCount + 1]
+end
+
+-- True if this area is an element area and the constellation has its element.
+function Luck.IsFavored(areaId: string, constellation: { Element: string? }): boolean
+	local area = Areas[areaId]
+	return area ~= nil and area.Element ~= nil and area.Element == constellation.Element
+end
+
+-- The area tonight's constellation favors (element areas only), or nil.
+function Luck.GetFavoredAreaId(constellation: { Element: string? }): string?
+	for areaId, area in Areas do
+		if area.Element ~= nil and area.Element == constellation.Element then
+			return areaId
+		end
+	end
+	return nil
+end
+
+-- Rarity weights for an area's roster: rarities not in the roster (for the given element, if any) weigh 0.
+function Luck.GetAreaRarityWeights(areaId: string, element: string?, luck: number): { number }
+	local weights = Luck.GetRarityWeights(luck)
+	local area = Areas[areaId]
+	if area == nil then
+		return weights
+	end
+	local present: { [string]: boolean } = {}
+	for _, speciesId in area.Species do
+		local species = Dragons[speciesId]
+		if species and (element == nil or species.Element == element) then
+			present[species.Rarity] = true
+		end
+	end
+	for index, rarity in Rarities do
+		if not present[rarity.Id] then
+			weights[index] = 0
+		end
+	end
+	return weights
 end
 
 -- Players whose characters are within radius of position (including the local/binding player).
@@ -95,7 +135,9 @@ function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number,
 	local areaLuck = if area then area.BindLuck else 1
 
 	local moon = Luck.GetMoonPhase(nightIndex)
-	local constellationLuck = Cycle.GetConstellation(nightIndex).Luck
+	local constellation = Cycle.GetConstellation(nightIndex)
+	local constellationLuck = constellation.Luck
+	local favoredLuck = if Luck.IsFavored(areaId, constellation) then LuckConfig.FavoredAreaLuck else 1
 
 	local stardustLuck = 1
 	for i = 1, math.min(offeringCount, #LuckConfig.Offerings) do
@@ -105,7 +147,7 @@ function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number,
 	local counted = math.clamp(groupSize, 1, LuckConfig.GroupMaxPlayers)
 	local groupLuck = 1 + LuckConfig.GroupLuckPerExtraPlayer * (counted - 1)
 
-	local raw = areaLuck * moon.Luck * constellationLuck * stardustLuck * groupLuck
+	local raw = areaLuck * moon.Luck * constellationLuck * favoredLuck * stardustLuck * groupLuck
 	local potion = potionLuck or 1
 	return {
 		Total = math.min(math.min(raw, LuckConfig.Cap) * potion, LuckConfig.PotionCap),
@@ -115,6 +157,7 @@ function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number,
 		Moon = moon.Luck,
 		MoonName = moon.Name,
 		Constellation = constellationLuck,
+		Favored = favoredLuck,
 		Stardust = stardustLuck,
 		Group = groupLuck,
 		GroupSize = groupSize,

@@ -10,7 +10,11 @@ local RunService = game:GetService("RunService")
 
 local NotificationController = require(script.Parent.NotificationController)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
+local Format = require(ReplicatedStorage.Shared.Format)
+local Luck = require(ReplicatedStorage.Shared.Luck)
+local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local DayNight = require(ReplicatedStorage.Shared.Config.DayNight)
+local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 
 local NIGHT_TINT = 0.35 -- how strongly tonight's element colors the ambient light
@@ -22,6 +26,12 @@ local label: TextLabel
 local warnedNight: number? = nil -- NightIndex the dusk warning was last shown for
 local baseAmbient: Color3
 local baseOutdoorAmbient: Color3
+
+local function duskWhere(constellation: { Element: string?, Luck: number }): string
+	local favoredId = Luck.GetFavoredAreaId(constellation)
+	local favored = if favoredId then Areas[favoredId] else nil
+	return if favored then `It favors {favored.Name}!` else "Head to a Star Altar!"
+end
 
 local function formatTime(seconds: number): string
 	local s = math.max(0, math.floor(seconds))
@@ -72,7 +82,14 @@ function DayNightController:Start()
 		Lighting.OutdoorAmbient = baseOutdoorAmbient:Lerp(tintColor, tint)
 
 		if state.IsNight then
-			label.Text = `{constellation.Name}  ·  Bind at the Star Altar  ·  {formatTime(state.SecondsLeft)}`
+			local favoredId = Luck.GetFavoredAreaId(constellation)
+			local favored = if favoredId then Areas[favoredId] else nil
+			local everywhere = if constellation.Luck > 1 then `{Format.Multiplier(constellation.Luck)} luck at every altar` else nil
+			local favoredText = if favored then `favors {favored.Name} ({Format.Multiplier(LuckConfig.FavoredAreaLuck)})` else nil
+			local where = if everywhere and favoredText
+				then `{everywhere}, {favoredText}`
+				else everywhere or favoredText or "Bind at a Star Altar"
+			label.Text = `{constellation.Name}  ·  {where}  ·  {formatTime(state.SecondsLeft)}`
 			label.TextColor3 = if element then element.Color else Color3.fromRGB(255, 220, 120)
 		else
 			label.Text = `Day  ·  Night falls in {formatTime(state.SecondsLeft)}`
@@ -81,7 +98,7 @@ function DayNightController:Start()
 			if state.SecondsLeft <= DayNight.DuskWarningSeconds and warnedNight ~= state.NightIndex then
 				warnedNight = state.NightIndex
 				NotificationController:Show(
-					`Night falls in {DayNight.DuskWarningSeconds}s: {constellation.Name} rises. Head to a Star Altar!`,
+					`Night falls in {DayNight.DuskWarningSeconds}s: {constellation.Name} rises. {duskWhere(constellation)}`,
 					Color3.fromRGB(170, 220, 255)
 				)
 			end

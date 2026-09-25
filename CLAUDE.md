@@ -27,7 +27,7 @@ _Update this section as work progresses._
 | Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData`. Studio uses a separate `PlayerData_Studio` store |
 | Client data sync | Done: snapshot + auto-diffed changes (`DataService` → `DataController`); `PRIVATE_KEYS` stay server-only. Gold/Stardust HUD in `CurrencyController` |
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
-| Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
+| Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons`. Area rosters: `Config/Areas` `Element` + `Species` per area (Meadow = Common/Rare, element areas = all 5 of their element; rolls only over rarities in the roster, `Luck.GetAreaRarityWeights`); favored area ×`FavoredAreaLuck` (`Luck.IsFavored`), shown on the sky HUD and luck panel; Auto-bind uses the nearest unlocked altar's area |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. Roost is a pen where dragons roam (`RoostAnimationController`); "Place in roost" in the Dragons panel |
@@ -73,6 +73,11 @@ and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; th
 `UpgradeIncome` outside the entrance. Dragons roam client-side (`RoostAnimationController`): Hatchlings hop,
 Drakes walk, Dragons/Elders fly (per-stage Movement/MoveSpeed/FlyHeight in `Config/Evolution`).
 Keep server max players ≤ 8, or add plots.
+**Placeholder areas:** `Workspace.FrozenCliffs_Placeholder` (x ≈ +900), `StormCanyon_Placeholder` (x ≈ -900) and
+`EclipseIsles_Placeholder` (z ≈ +900): flat platform, cloned Star Altar (`AreaId`), `AreaSpawn`, portal back, and a
+"PLACEHOLDER" sign; Meadow portals `Portal_FrozenCliffs/StormCanyon/EclipseIsles` next to `Portal_VolcanoPeak`.
+The builder replaces each with the real area (keep the altar tag + `AreaId`, the `AreaSpawn`, and the portals).
+Eclipse Isles should be themed to match the Shadow dragons.
 `StarterMeadow.StarMerchant` (stall near the spawn, tagged `StarMerchant`, PrimaryPart `Counter`).
 `StarterMeadow.RuneShrine` (tag `RuneShrine`, west of the altar) and `StarterMeadow.DragonstoneForge`
 (tag `DragonstoneForge`, east). StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client
@@ -192,7 +197,7 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 | Volcano Peak | 1 | 1.25x | 60 |
 | Frozen Cliffs | 3 | 1.5x | 70 |
 | Storm Canyon | 5 | 2x | 80 |
-| Sky Isles | 10 | 3x | 100 |
+| Eclipse Isles (Shadow-themed) | 10 | 3x | 100 |
 
 ### Dragon Spire (tower)
 - Climb floor by floor; each floor is a fight against an enemy dragon; every 10th floor is a boss.
@@ -275,6 +280,14 @@ Doc and PDF last revised 2026-09-25. Changes since then (economy rebalance, appr
 - **Spire:** enemy power 10 × 1.215^floor (bosses ×1.5), 150 floors at launch + 10 per weekly update, first-clear
   drops guaranteed, re-clears only near the record; Moonfire from floor 50, Starlight every 20th floor.
 - **Build order** adds Phase 6 Monetization after the Spire.
+- **Area rosters (approved and built 2026-09-26):** each element area is that element's home.
+  Starter Meadow = Common + Rare of every element (tonight's constellation picks the element, rolls capped at Rare);
+  Volcano Peak (R1) = all 5 Fire, Frozen Cliffs (R3) = all 5 Ice, Storm Canyon (R5) = all 5 Storm, Eclipse Isles
+  (R10, renamed from Sky Isles, Shadow-themed) = all 5 Shadow. Epic/Legendary/Mythic only in their home area.
+  In element areas a night of the same element gives that altar x1.5 luck. Constellation luck stays server-wide:
+  the Eclipse Serpent's x1.5 applies at every altar (Eclipse Isles also gets the favored x1.5), the Dragon King x2
+  everywhere. The HUD/luck panel show which area tonight favors. Auto-bind uses the altar of the area the player is
+  in, at base luck. New daily quest "Bind in tonight's favored area". Event dragons: event nights, home-area altar.
 
 When revising: update the Claude Doc via the docs connector, export the tab as PDF, and overwrite
 `E:\Roblox\Bind A Dragon.pdf`.

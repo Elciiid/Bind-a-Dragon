@@ -12,6 +12,7 @@ local DataController = require(script.Parent.DataController)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
+local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 
@@ -78,6 +79,13 @@ local function cycleCharge()
 	end
 end
 
+-- "Favors Volcano Peak" when tonight favors another area (so players know where to go).
+local function favoredHint(constellation: { Element: string? }): string
+	local areaId = Luck.GetFavoredAreaId(constellation)
+	local area = areaId and Areas[areaId]
+	return if area then `Tonight favors {area.Name}` else "Tonight favors no area"
+end
+
 local function update()
 	local data = DataController:Get()
 	local character = Players.LocalPlayer.Character
@@ -134,6 +142,7 @@ local function update()
 		`Area  {Format.Multiplier(luck.Area)}`,
 		`{luck.MoonName}  {Format.Multiplier(luck.Moon)}`,
 		`{state.Constellation.Name}  {Format.Multiplier(luck.Constellation)}`,
+		if luck.Favored > 1 then `Favored area  {Format.Multiplier(luck.Favored)}` else favoredHint(state.Constellation),
 		`Stardust ({offeringCount}/{#LuckConfig.Offerings})  {Format.Multiplier(luck.Stardust)}`,
 		`Group ({luck.GroupSize} here)  {Format.Multiplier(luck.Group)}`,
 	}
@@ -164,7 +173,7 @@ function LuckController:Init()
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(1, 0.5)
 	panel.Position = UDim2.new(1, -16, 0.5, 0)
-	panel.Size = UDim2.new(0, 250, 0, 220)
+	panel.Size = UDim2.new(0, 250, 0, 240)
 	panel.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
 	panel.BackgroundTransparency = 0.25
 	panel.Visible = false

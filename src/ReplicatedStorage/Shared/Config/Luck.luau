@@ -21,6 +21,10 @@ return {
 	Cap = 10, -- max total luck multiplier from all normal sources
 	PotionCap = 20, -- hard cap once an armed luck potion charge is applied on top (Phase 2: Config/Boosts)
 
+	-- An element area's altar (Config/Areas Element) on a night whose constellation has the same element.
+	-- Constellation luck itself (Config/Constellations Luck, e.g. Eclipse Serpent x1.5, Dragon King x2) applies at every altar.
+	FavoredAreaLuck = 1.5,
+
 	-- How much harder luck pushes each higher tier. 0 = luck does nothing; higher = rarer tiers gain faster.
 	TierScaling = 0.3,
 

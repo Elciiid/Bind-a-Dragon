@@ -8,7 +8,9 @@
 -- Luck comes from Shared/Luck, the same math the client uses to display it. An armed luck charge
 -- (Config/Boosts) is included and used up by the bind. Each bind may be Starborn (Config/Index StarbornChance)
 -- and is recorded in the Dragon Index (IndexService). The Auto-bind pass binds for its owner at base luck near the
--- end of any night they haven't bound (Config/Products AutoBindSecondsLeft).
+-- end of any night they haven't bound (Config/Products AutoBindSecondsLeft), at the altar of the area they're in.
+-- Rosters: each area binds only its Config/Areas Species; element areas are their element's home (all rarities),
+-- Starter Meadow lets tonight's constellation pick the element.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -43,12 +45,21 @@ local busy: { [Player]: boolean } = {}
 
 local BindingService = {}
 
--- Weighted rarity roll using the luck-adjusted weights from Shared/Luck.
-local function rollRarity(luck: number): Rarities.Rarity
-	local weights = Luck.GetRarityWeights(luck)
+-- The element tonight's roll uses at this area: the area's home element, else tonight's constellation's (nil = any).
+local function getRollElement(areaId: string, constellation: { Element: string? }): string?
+	local area = Areas[areaId]
+	return if area and area.Element then area.Element else constellation.Element
+end
+
+-- Weighted rarity roll over the rarities this area's roster has (Shared/Luck, same math as the luck panel).
+local function rollRarity(areaId: string, element: string?, luck: number): Rarities.Rarity?
+	local weights = Luck.GetAreaRarityWeights(areaId, element, luck)
 	local total = 0
 	for _, weight in weights do
 		total += weight
+	end
+	if total <= 0 then
+		return nil
 	end
 	local roll = rng:NextNumber() * total
 	for index, rarity in Rarities do
@@ -57,22 +68,19 @@ local function rollRarity(luck: number): Rarities.Rarity
 			return rarity
 		end
 	end
-	return Rarities[#Rarities]
+	return nil
 end
 
--- Picks a species of the given rarity, matching the element if one is given.
--- Falls back to any element if no species matches (e.g. a gap in the roster).
-local function pickSpecies(rarityId: string, element: string?): string?
-	local matches, anyElement = {}, {}
-	for speciesId, species in Dragons do
-		if species.Rarity == rarityId then
-			table.insert(anyElement, speciesId)
-			if element == nil or species.Element == element then
-				table.insert(matches, speciesId)
-			end
+-- Picks a species of the given rarity from the area's roster (matching the element, if given).
+local function pickSpecies(areaId: string, rarityId: string, element: string?): string?
+	local area = Areas[areaId]
+	local pool = {}
+	for _, speciesId in if area then area.Species else {} do
+		local species = Dragons[speciesId]
+		if species and species.Rarity == rarityId and (element == nil or species.Element == element) then
+			table.insert(pool, speciesId)
 		end
 	end
-	local pool = if #matches > 0 then matches else anyElement
 	if #pool == 0 then
 		return nil
 	end
@@ -120,11 +128,19 @@ local function checkAltarUse(player: Player, altar: Instance): (PlayerDataTypes.
 end
 
 -- Rolls and grants tonight's dragon. usePotion: an armed luck charge is used up (not for Auto-bind).
-local function performBind(player: Player, data: PlayerDataTypes.PlayerData, state: Cycle.State, luck: number, usePotion: boolean)
-	local rarity = rollRarity(luck)
-	local speciesId = pickSpecies(rarity.Id, state.Constellation.Element)
-	if speciesId == nil then
-		warn(`[BindingService] No species with rarity {rarity.Id} in Config/Dragons`)
+local function performBind(
+	player: Player,
+	data: PlayerDataTypes.PlayerData,
+	state: Cycle.State,
+	areaId: string,
+	luck: number,
+	usePotion: boolean
+)
+	local element = getRollElement(areaId, state.Constellation)
+	local rarity = rollRarity(areaId, element, luck)
+	local speciesId = rarity and pickSpecies(areaId, rarity.Id, element)
+	if rarity == nil or speciesId == nil then
+		warn(`[BindingService] Area {areaId} has no species to bind (element {element})`)
 		notify:FireClient(player, "The stars were silent. Try again.", "error")
 		return
 	end
@@ -156,6 +172,9 @@ local function performBind(player: Player, data: PlayerDataTypes.PlayerData, sta
 	})
 	IndexService:Sync(player, data)
 	QuestService:Progress(player, "Bind", 1)
+	if Luck.IsFavored(areaId, state.Constellation) then
+		QuestService:Progress(player, "FavoredBind", 1)
+	end
 
 	if rarity.AnnounceOnBind or starborn then
 		local variant = if starborn then "STARBORN " else ""
@@ -176,7 +195,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
 		Luck.GetArmedPotionLuck(data)
 	)
-	performBind(player, data, state, luck.Total, true)
+	performBind(player, data, state, getAreaId(altar), luck.Total, true)
 end
 
 local function tryOffer(player: Player, altar: Instance)
@@ -209,6 +228,28 @@ local function tryOffer(player: Player, altar: Instance)
 end
 
 -- Runs fn for a player unless one of their altar actions is already running.
+-- Auto-bind: the area of the Star Altar nearest the player (the area they're in), if they've unlocked it.
+local function getPlayerAreaId(player: Player, data: PlayerDataTypes.PlayerData): string
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		return DEFAULT_AREA
+	end
+	local bestId, bestDistance = DEFAULT_AREA, math.huge
+	for _, altar in CollectionService:GetTagged(ALTAR_TAG) do
+		local part = if altar:IsA("BasePart") then altar elseif altar:IsA("Model") then altar.PrimaryPart else nil
+		local areaId = getAreaId(altar)
+		local area = Areas[areaId]
+		if part and area and data.Rebirths >= area.RebirthsRequired then
+			local distance = (part.Position - root.Position).Magnitude
+			if distance < bestDistance then
+				bestId, bestDistance = areaId, distance
+			end
+		end
+	end
+	return bestId
+end
+
 local function guarded(player: Player, fn: () -> ())
 	if busy[player] then
 		return
@@ -292,7 +333,7 @@ function BindingService:Start()
 				if data and data.LastBindNight ~= state.NightIndex and MonetizationService:OwnsPass(player, "AutoBind") then
 					guarded(player, function()
 						if data.LastBindNight ~= state.NightIndex then
-							performBind(player, data, state, Products.AutoBindLuck, false)
+							performBind(player, data, state, getPlayerAreaId(player, data), Products.AutoBindLuck, false)
 						end
 					end)
 				end
