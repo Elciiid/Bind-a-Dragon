@@ -56,6 +56,8 @@ local TEMPLATE: PlayerData = {
 	LoginDay = -1,
 	LoginStreak = 0,
 
+	SpireRecord = 0,
+
 	StarAtlas = {},
 	Index = {},
 	IndexMilestones = 0,

@@ -14,6 +14,7 @@ local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.Rebirth)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
+local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -128,6 +129,28 @@ function DragonStats.GetPower(dragon: Dragon): number
 		* (if trait then trait.Power else 1)
 		* (if grade then grade.Multiplier else 1)
 		* (if dragon.Starborn then IndexConfig.StarbornPower else 1)
+end
+
+-- The player's most powerful dragon (fights in the Spire), or nil if they have none.
+function DragonStats.GetBestDragon(data: PlayerData): (Dragon?, number)
+	local best, bestPower = nil, 0
+	for _, dragon in data.Dragons do
+		local power = DragonStats.GetPower(dragon)
+		if best == nil or power > bestPower or (power == bestPower and dragon.Id < best.Id) then
+			best, bestPower = dragon, power
+		end
+	end
+	return best, bestPower
+end
+
+function DragonStats.IsBossFloor(floor: number): boolean
+	return floor % SpireConfig.BossEvery == 0
+end
+
+-- Enemy power on a Spire floor (Config/Spire).
+function DragonStats.GetEnemyPower(floor: number): number
+	local power = SpireConfig.EnemyBase * SpireConfig.EnemyGrowth ^ floor
+	return if DragonStats.IsBossFloor(floor) then power * SpireConfig.BossMultiplier else power
 end
 
 ---------------------------------------------------------------------------------------------------------------

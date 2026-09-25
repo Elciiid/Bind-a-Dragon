@@ -18,7 +18,7 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
-**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phases 1–4 done, Phase 5 next).
+**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phases 1–5 done, Phase 6 Monetization next).
 _Update this section as work progresses._
 
 | System | Status |
@@ -38,7 +38,7 @@ _Update this section as work progresses._
 | Boosts / potions + Boosts panel | Done: `Config/Boosts` (7 potions), `BoostService` (UseBoost remote, timers tick only in game, 60 min max stored, Premium +10%, `GetMultiplier`/`GrantPotion`), gold boosts in `RoostService` (in game only), Runebright roll luck in `DragonService` (`Luck.GetTierWeights`), luck charges armed via Boosts panel or the altar luck panel and used up by the next bind (`Luck.GetArmedPotionLuck`, up to `PotionCap`). `BoostController` panel + HUD timers. Potions not obtainable yet (Spire/quests) |
 | Dragon Index + Starborn variants | Done: `Config/Index`, `IndexService` (Sync: records owned species incl. `<SpeciesId>_Starborn`, backfills old saves, auto-grants 5-entry + complete-element rewards once), Index income in `DragonStats.GetIndexMultiplier` (roost income). Starborn rolled in `BindingService` (1/850, ×3 income, ×2 power, announcement, tint + sparkles + ★ nameplate). `IndexController` panel (grid + Star Atlas) |
 | Daily/weekly quests + login streak | Done: `Config/Quests` (pools, per-slot rewards, streak rewards), `QuestService` (3 daily / 2 weekly picked per UTC day / Monday week, auto-granted on completion, `Progress(player, kind, amount)` from Binding/Dragon/Roost services; Gold targets = minutes of roost income), login streak on first join per UTC day. `Shared/Rewards` (Describe/Apply) shared with the Index. `QuestController` panel. Days 1–6 streak rewards are placeholder Stardust |
-| Dragon Spire (tower) | Proposed (Phase 5): auto-battle, curve and drops in the approved proposal |
+| Dragon Spire (tower) | Done: `Config/Spire` (curve, 150 floors, drop tables from the simulation), `SpireService` (prompt on `DragonSpire` tag or SpireAction Start/Stop; server-run floors: far-below floors fast with no drops, top-10 window + new floors fought 20 s each; must stay within `EntranceRange`; first clear = 30 s of income + guaranteed drops; Wyrmblood power, Conqueror's Brew rewards), `data.SpireRecord`, `SpireController` fight panel. Elevator hook `getStartFloor` is a TODO for Phase 6. Placeholder tower only; no interior/arena yet |
 | Game passes + developer products | Proposed (Phase 6) |
 | Weekly Spire leaderboard | Proposed (weekly update) |
 | Weekly event constellation (event-only dragon, single model) | Proposed (weekly update) |
@@ -74,6 +74,8 @@ Keep server max players ≤ 8, or add plots.
 `StarterMeadow.RuneShrine` (tag `RuneShrine`, west of the altar) and `StarterMeadow.DragonstoneForge`
 (tag `DragonstoneForge`, east). StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client
 code that sets up prompts on streamed models must retry until the parts arrive.
+`StarterMeadow.DragonSpire` (placeholder stone tower north of the altar at (0, 2, -95), tag `DragonSpire`, PrimaryPart
+`Entrance` = the glowing door facing the altar). Replace with the builder's Spire; keep the tag and a PrimaryPart.
 `Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
 (`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. The meadow has `Portal_VolcanoPeak` near the spawn and
 its own `AreaSpawn`. New areas: build far away, add a `StarAltar` + `AreaSpawn` with the AreaId, and a portal.

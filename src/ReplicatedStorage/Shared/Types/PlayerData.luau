@@ -49,6 +49,8 @@ export type PlayerData = {
 	LoginDay: number, -- UTC day of the last counted login
 	LoginStreak: number, -- current streak day (1..#StreakRewards)
 
+	SpireRecord: number, -- highest Dragon Spire floor cleared
+
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	Index: { [string]: number }, -- Dragon Index entry (SpeciesId or "<SpeciesId>_Starborn") -> os.time() found
 	IndexMilestones: number, -- MilestoneEvery rewards already given
