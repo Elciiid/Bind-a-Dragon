@@ -48,6 +48,7 @@ local TEMPLATE: PlayerData = {
 	Potions = {},
 	ActiveBoosts = {},
 	ArmedLuckPotion = "",
+	PotionHintShown = false,
 
 	QuestDay = -1,
 	DailyQuests = {},

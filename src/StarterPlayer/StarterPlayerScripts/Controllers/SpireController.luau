@@ -152,7 +152,7 @@ local function onUpdate(update: { [string]: any })
 			log = {}
 			logLabel.Text = ""
 		end
-		title.Text = `Floor {update.Floor}{if update.Boss then "  ·  BOSS" else ""}  ·  record {update.Record}/{SpireConfig.MaxFloors}`
+		title.Text = `Floor {update.Floor}{if update.Boss then "  ·  BOSS" else ""}{if update.Fast then "  ·  fast" else ""}  ·  record {update.Record}/{SpireConfig.MaxFloors}`
 		matchup.Text = `{update.Dragon} ({Format.Number(update.Power)})  vs  {update.Enemy} ({Format.Number(update.EnemyPower)})`
 		matchup.TextColor3 = if update.Power >= update.EnemyPower then GREEN else RED
 		startTimer(update.Seconds)

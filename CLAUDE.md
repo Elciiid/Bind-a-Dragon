@@ -38,7 +38,7 @@ _Update this section as work progresses._
 | Boosts / potions + Boosts panel | Done: `Config/Boosts` (7 potions), `BoostService` (UseBoost remote, timers tick only in game, 60 min max stored, Premium +10%, `GetMultiplier`/`GrantPotion`), gold boosts in `RoostService` (in game only), Runebright roll luck in `DragonService` (`Luck.GetTierWeights`), luck charges armed via Boosts panel or the altar luck panel and used up by the next bind (`Luck.GetArmedPotionLuck`, up to `PotionCap`). `BoostController` panel + HUD timers. Potions not obtainable yet (Spire/quests) |
 | Dragon Index + Starborn variants | Done: `Config/Index`, `IndexService` (Sync: records owned species incl. `<SpeciesId>_Starborn`, backfills old saves, auto-grants 5-entry + complete-element rewards once), Index income in `DragonStats.GetIndexMultiplier` (roost income). Starborn rolled in `BindingService` (1/850, ×3 income, ×2 power, announcement, tint + sparkles + ★ nameplate). `IndexController` panel (grid + Star Atlas) |
 | Daily/weekly quests + login streak | Done (streak: Gilded, 30 Stardust, Rune+Stone, 2 Gilded, Hoard, 2 Runes+2 Stones, Moonfire): `Config/Quests` (pools, per-slot rewards, streak rewards), `QuestService` (3 daily / 2 weekly picked per UTC day / Monday week, auto-granted on completion, `Progress(player, kind, amount)` from Binding/Dragon/Roost services; Gold targets = minutes of roost income), login streak on first join per UTC day. `Shared/Rewards` (Describe/Apply) shared with the Index. `QuestController` panel |
-| Dragon Spire (tower) | Done: `Config/Spire` (curve, 150 floors, drop tables from the simulation), `SpireService` (prompt on `DragonSpire` tag or SpireAction Start/Stop; server-run floors: far-below floors fast with no drops, top-10 window + new floors fought 20 s each; must stay within `EntranceRange`; first clear = 30 s of income + guaranteed drops; Wyrmblood power, Conqueror's Brew rewards), `data.SpireRecord`, `SpireController` fight panel. Elevator hook `getStartFloor` is a TODO for Phase 6. Placeholder tower only; no interior/arena yet |
+| Dragon Spire (tower) | Done: `Config/Spire` (curve, 150 floors, drop tables from the simulation), `SpireService` (prompt on `DragonSpire` tag or SpireAction Start/Stop; server-run floors: far-below floors fast with no drops, top-10 window + new floors fought 20 s each; must stay within `EntranceRange`; first clear = 30 s of income + guaranteed drops; Wyrmblood power, Conqueror's Brew rewards; floors where power ≥ `PowerFastRatio` (3) × the enemy also go fast: a new one keeps its drops but gives no gold, a cleared one gives nothing), `data.SpireRecord`, `SpireController` fight panel. Elevator hook `getStartFloor` is a TODO for Phase 6. Placeholder tower only; no interior/arena yet |
 | Game passes + developer products | Done: `Config/Products` (IDs are 0 = not created yet; paste real IDs), `MonetizationService` (pass cache + `Pass_<Key>` player attributes, `WaitForPasses`, `ProcessReceipt` grants, records PurchaseId, confirms only after ProfileStore saved it). Tower Elevator / Elevator Skip start Spire climbs above the record (`data.ElevatorSkips`); 2x AFK Income doubles offline + idle income only; Auto-bind binds at base luck with `AutoBindSecondsLeft` of night left. `ShopController`. Studio: server-side Player attribute `TestPass_<Key>` grants a pass |
 | Weekly Spire leaderboard | Proposed (weekly update) |
 | Weekly event constellation (event-only dragon, single model) | Proposed (weekly update) |
@@ -57,7 +57,10 @@ Studio, fix, commit, and send the user a short summary before starting the next.
 5. Dragon Spire (`Config/Spire`, `SpireService`, `SpireController`).
 6. Monetization (Tower Elevator Pass, Single Elevator Skip, 2x AFK Income, Auto-bind; `ProcessReceipt` with receipt IDs).
 Later weekly updates: Spire leaderboard, event constellations, then Ascension (design only).
-UI polish after the core loop is playable.
+UI polish after the core loop is playable. **UI polish list (in order):**
+1. Phone layout of the left button column (Shop, Quests, Index, Boosts, Dragons, Rebirth + currency): it is 6 buttons
+   tall and overflows phone screens. Needs a compact/phone layout (e.g. icon grid or a collapsible menu).
+2. Spire battle visuals (see Open questions): a visible dragon-vs-dragon fight instead of the timer bar.
 
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.3):
 Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a potion.
@@ -233,8 +236,10 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
   **Only revise the doc/PDF when the user asks.** Until then, track changes in "Pending design doc updates" below.
 - **Economy rebalance approved** (proposal v5 + follow-ups). Pacing targets: Dedicated (3–4 h/day + offline)
   reaches this week's rebirth cap in a median ~8 days, fastest 10% ≥ 6 days; Casual clearly slower; AFK-only and
-  paying AFK (Auto-bind + 2x AFK) slower than Dedicated; each rebirth after R10 takes ≥ the previous one; a weekly
-  update's +5 rebirths lasts a veteran most of the week. Simulation scripts are not in the repo (scratchpad only).
+  paying AFK (Auto-bind + 2x AFK) slower than Dedicated; the rebirth cost curve always rises; short dips from potion bursts are fine as long as the weekly-update and week-1 targets hold; a weekly
+  update's +5 rebirths lasts a veteran most of the week. Simulation scripts are not in the repo (scratchpad only). Re-simulated with the built game (LateGrowth 2.69,
+  Spire EnemyGrowth 1.215, power fast-forward): Dedicated R50 median 8.1 d (fastest 10% 6.0 d), Casual 18.5 d,
+  paying AFK 12.3 d (12 check-ins), weekly update 6.1 d, Spire week-1 floor median 114.
 - Paid passes must not beat active play: idling in game counts as offline after 20 min without input
   (`IdleAfterSeconds`); Auto-bind binds every night while in game at base luck, no offerings or potions.
 - Luck potions are charges the player arms for the next bind (toggle in the Boosts panel or at the altar),
@@ -248,7 +253,7 @@ Doc and PDF last revised 2026-09-25. Changes since then (economy rebalance, appr
   (Starlight ×1.5, Moonfire ×2), armed by the player for the next bind.
 - **Offline income:** 100% → **50%** of online, still capped at 8 h/day; idling in game >20 min counts as offline.
   The 2x AFK Income pass doubles it.
-- **Rebirth cost:** 10M ×5 → first 50M, ×3.71 per rebirth to R10, ×2.66 to R50 (≈640 Oc), then weekly steps:
+- **Rebirth cost:** 10M ×5 → first 50M, ×3.71 per rebirth to R10, ×2.69 to R50, then weekly steps:
   one-time ×2.2 past each weekly cap, then ×2.17 per rebirth (bonus × level gain × 1.02). Open-ended; each weekly
   update adds +5 rebirths. At the cap, banked gold stops at one rebirth's cost ("Rebirth cap reached" message).
 - **Rebirth reward:** new permanent income bonus **×1.59 per rebirth** (multiplying), plus +5 level cap per rebirth.
@@ -267,7 +272,7 @@ Doc and PDF last revised 2026-09-25. Changes since then (economy rebalance, appr
   Dragon Index (+1%/species, ×1.3 per complete element, ×1.5 all 20, milestone items); Starborn variants
   (1/850, ×3 income, ×2 power); daily/weekly quests + login streak; weekly Spire leaderboard; weekly event
   constellation; Ascension (design only).
-- **Spire:** enemy power 10 × 1.21^floor (bosses ×1.5), 150 floors at launch + 10 per weekly update, first-clear
+- **Spire:** enemy power 10 × 1.215^floor (bosses ×1.5), 150 floors at launch + 10 per weekly update, first-clear
   drops guaranteed, re-clears only near the record; Moonfire from floor 50, Starlight every 20th floor.
 - **Build order** adds Phase 6 Monetization after the Spire.
 

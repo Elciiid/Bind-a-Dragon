@@ -15,7 +15,7 @@ return {
 	FirstCost = 50e6, -- R1: a new player rebirths ~5 min into their first session
 	EarlyGrowth = 3.71, -- R2..R10: fast early rebirths (R5 ~20 min, R10 ~35 min)
 	EarlyUntil = 10,
-	LateGrowth = 2.66, -- R11..R50: income growth per rebirth x 1.25, so each rebirth takes a bit longer than the last
+	LateGrowth = 2.69, -- R11..R50: above income growth per rebirth, so each rebirth takes a bit longer than the last (re-simulated with the built game)
 
 	-- The launch curve ends here. NEVER change this after launch: weekly updates raise RebirthCap instead.
 	CurveEnd = 50,

@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataService = require(script.Parent.DataService)
+local RoostService = require(script.Parent.RoostService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -16,6 +17,7 @@ local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 
 local MERCHANT_TAG = "StarMerchant"
 local MIN_REQUEST_INTERVAL = 0.25 -- seconds between economy requests per player (anti-spam)
+local UPGRADE_STAND_RANGE = 16 -- studs from the player's own upgrade stand (the client prompt reaches 10)
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 local buyRoostUpgrade = ReplicatedStorage.Remotes.BuyRoostUpgrade :: RemoteEvent
@@ -70,6 +72,19 @@ local function onBuyRoostUpgrade(player: Player, kind: unknown)
 	end
 	local data = DataService:GetData(player)
 	if data == nil then
+		return
+	end
+	-- Must be standing at the matching stand in front of their own roost.
+	local plot = RoostService:GetPlot(player)
+	local stand = plot and plot:FindFirstChild(if kind == "Slots" then "UpgradeSlots" else "UpgradeIncome", true)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local standPosition = if stand and stand:IsA("BasePart")
+		then stand.Position
+		elseif stand and stand:IsA("Model") then stand:GetPivot().Position
+		else nil
+	if standPosition == nil or root == nil or not root:IsA("BasePart") or (root.Position - standPosition).Magnitude > UPGRADE_STAND_RANGE then
+		notify:FireClient(player, "Buy roost upgrades at the stands in front of your roost.", "error")
 		return
 	end
 

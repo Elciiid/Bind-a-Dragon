@@ -1,10 +1,12 @@
 --!strict
 -- Boosts: a "Boosts" button opens a panel with every potion (count owned, effect, time left) and a Use / Arm button
 -- per potion, and a small HUD column (top right) shows active timers and the armed luck charge.
+-- The Boosts button shows a count and pulses while there are unused potions.
 -- The server checks everything (BoostService). Timers pause while offline. Placeholder UI.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local DataController = require(script.Parent.DataController)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
@@ -57,11 +59,29 @@ local function text(parent: Instance, value: string, color: Color3, bold: boolea
 	return l
 end
 
+local openButton: TextButton
+local badge: TextLabel
+
+-- Boosts button: a count badge and a pulsing outline while the player owns potions they haven't used.
+local function updateBadge(data: any)
+	local unused = 0
+	for potionId, count in data.Potions do
+		local potion = Boosts.ById[potionId]
+		if potion and not (potion.Kind == "LuckCharge" and data.ArmedLuckPotion == potionId) then
+			unused += count
+		end
+	end
+	badge.Text = tostring(unused)
+	badge.Visible = unused > 0
+	openButton:SetAttribute("Pulse", unused > 0)
+end
+
 local function refresh()
 	local data = DataController:Get()
 	if data == nil then
 		return
 	end
+	updateBadge(data)
 	for _, potion in Boosts.Potions do
 		local count = data.Potions[potion.Id] or 0
 		local left = data.ActiveBoosts[potion.Id] or 0
@@ -131,6 +151,7 @@ function BoostController:Init()
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 	local open = Instance.new("TextButton")
+	openButton = open
 	open.AnchorPoint = Vector2.new(0, 1)
 	open.Position = UDim2.new(0, 16, 1, -208) -- above the Dragons button
 	open.Size = UDim2.new(0, 160, 0, 40)
@@ -142,6 +163,27 @@ function BoostController:Init()
 	round(open)
 	pad(open, 6)
 	open.Parent = gui
+
+	badge = Instance.new("TextLabel")
+	badge.AnchorPoint = Vector2.new(0.5, 0.5)
+	badge.Position = UDim2.new(1, -4, 0, 4)
+	badge.Size = UDim2.new(0, 24, 0, 24)
+	badge.BackgroundColor3 = Color3.fromRGB(230, 70, 70)
+	badge.TextColor3 = Color3.new(1, 1, 1)
+	badge.Font = Enum.Font.GothamBold
+	badge.TextScaled = true
+	badge.Visible = false
+	badge.ZIndex = 2
+	local badgeCorner = Instance.new("UICorner")
+	badgeCorner.CornerRadius = UDim.new(1, 0)
+	badgeCorner.Parent = badge
+	pad(badge, 3)
+	badge.Parent = open
+	local pulse = Instance.new("UIStroke")
+	pulse.Color = Color3.new(1, 1, 1)
+	pulse.Thickness = 0
+	pulse.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	pulse.Parent = open
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -234,6 +276,18 @@ function BoostController:Init()
 	for _, key in { "Potions", "ActiveBoosts", "ArmedLuckPotion" } do
 		DataController:OnChanged(key, refresh)
 	end
+end
+
+function BoostController:Start()
+	-- Pulse the Boosts button's outline while there are unused potions.
+	local pulse = openButton:FindFirstChildOfClass("UIStroke") :: UIStroke
+	RunService.RenderStepped:Connect(function()
+		if openButton:GetAttribute("Pulse") == true then
+			pulse.Thickness = 1.5 + 1.5 * math.sin(os.clock() * 5)
+		else
+			pulse.Thickness = 0
+		end
+	end)
 end
 
 return BoostController

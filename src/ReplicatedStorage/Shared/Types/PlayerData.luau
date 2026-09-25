@@ -41,6 +41,7 @@ export type PlayerData = {
 	Potions: { [string]: number }, -- Config/Boosts potion Id -> count owned
 	ActiveBoosts: { [string]: number }, -- timed potion Id -> seconds left (ticks only while online)
 	ArmedLuckPotion: string, -- luck charge potion Id used by the next bind ("" = none)
+	PotionHintShown: boolean, -- the one-time "open Boosts to use it" hint was shown
 
 	QuestDay: number, -- UTC day (os.time() // 86400) DailyQuests belong to
 	DailyQuests: { QuestState },

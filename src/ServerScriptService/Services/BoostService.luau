@@ -123,6 +123,11 @@ function BoostService:Start()
 				local left = seconds - TICK_SECONDS
 				data.ActiveBoosts[potionId] = if left > 0 then left else nil
 			end
+			-- First potion ever (from any source): point the player to the Boosts panel once.
+			if not data.PotionHintShown and next(data.Potions) ~= nil then
+				data.PotionHintShown = true
+				notify:FireClient(player, "You got a potion! Open Boosts (left side) to use it.", "info")
+			end
 		end
 	end
 end

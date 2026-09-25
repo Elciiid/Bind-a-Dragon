@@ -187,6 +187,9 @@ local function climb(player: Player, useElevator: boolean)
 		local power = bestPower * BoostService:GetMultiplier(player, "SpirePower")
 		local enemyPower = DragonStats.GetEnemyPower(floor)
 		local species = Dragons[best.SpeciesId]
+		-- Far weaker enemies go fast; an already-cleared floor won that way gives nothing (no farming).
+		local fast = power >= enemyPower * SpireConfig.PowerFastRatio
+		local seconds = if fast then SpireConfig.FastFloorSeconds else SpireConfig.FightSeconds
 		spireUpdate:FireClient(player, {
 			Phase = "Fight",
 			Floor = floor,
@@ -195,10 +198,11 @@ local function climb(player: Player, useElevator: boolean)
 			Power = power,
 			Enemy = getEnemy(floor),
 			EnemyPower = enemyPower,
-			Seconds = SpireConfig.FightSeconds,
+			Seconds = seconds,
+			Fast = fast,
 			Record = data.SpireRecord,
 		})
-		if not waitClimbing(player, run, SpireConfig.FightSeconds) then
+		if not waitClimbing(player, run, seconds) then
 			break
 		end
 		if power < enemyPower then
@@ -209,12 +213,17 @@ local function climb(player: Player, useElevator: boolean)
 		-- Won: rewards.
 		local rewardMultiplier = BoostService:GetMultiplier(player, "SpireRewards")
 		local firstClear = floor > data.SpireRecord
-		local reward = rollDrops(if firstClear then SpireConfig.FirstClearDrops else SpireConfig.ReclearDrops, floor, rewardMultiplier)
+		local reward: Rewards.Reward = if firstClear
+			then rollDrops(SpireConfig.FirstClearDrops, floor, rewardMultiplier)
+			elseif fast then {}
+			else rollDrops(SpireConfig.ReclearDrops, floor, rewardMultiplier)
 		local gold = 0
 		if firstClear then
 			data.SpireRecord = floor
-			gold = math.floor(DragonStats.GetRoostIncome(data) * SpireConfig.FirstClearIncomeSeconds * rewardMultiplier)
-			data.Gold += gold
+			if not fast then -- fast-forwarded new floors keep their drops but give no gold
+				gold = math.floor(DragonStats.GetRoostIncome(data) * SpireConfig.FirstClearIncomeSeconds * rewardMultiplier)
+				data.Gold += gold
+			end
 		end
 		Rewards.Apply(data, reward)
 		local parts = {}

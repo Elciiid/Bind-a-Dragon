@@ -5,7 +5,7 @@
 -- A floor is won if the player's power (best dragon x Wyrmblood Tonic) >= the enemy's.
 -- Each climb starts at floor 1. Floors more than TopWindow below the player's record are "far below": they resolve
 -- in FastFloorSeconds each with no drops. The TopWindow floors below the record and every new floor are real fights
--- (FightSeconds each). A climb ends at the first lost floor, at MaxFloors, or if the player walks away.
+-- (FightSeconds each), unless the player's power is PowerFastRatio x the enemy's (FastFloorSeconds). A climb ends at the first lost floor, at MaxFloors, or if the player walks away.
 --
 -- Rewards: a first clear (floor above the record) pays FirstClearIncomeSeconds of roost income and its guaranteed
 -- drops; re-clears inside the TopWindow roll the Reclear chances. Conqueror's Brew doubles gold, Stardust,
@@ -26,13 +26,15 @@ export type Drop = {
 return {
 	MaxFloors = 150, -- +10 each weekly update
 	EnemyBase = 10,
-	EnemyGrowth = 1.21,
+	EnemyGrowth = 1.215, -- re-simulated with the built game: Dedicated week-1 floor median ~115, p90 ~119
 	BossEvery = 10,
 	BossMultiplier = 1.5,
 
 	FightSeconds = 20, -- per fought floor
 	FastFloorSeconds = 0.25, -- per far-below floor (no drops)
 	TopWindow = 10, -- re-clear window below the record
+	PowerFastRatio = 3, -- floors where power >= this x the enemy also take FastFloorSeconds: a new one still gives its
+	-- first-clear drops (no gold), an already-cleared one gives nothing
 
 	FirstClearIncomeSeconds = 30, -- first-clear gold = this many seconds of roost income
 

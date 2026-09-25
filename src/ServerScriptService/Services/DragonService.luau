@@ -74,6 +74,8 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 
 	local species = Dragons[dragon.SpeciesId]
 	local leveled = 0
+	local evolvedTo: Evolution.Stage? = nil -- final stage reached this request (one toast, not one per stage)
+	local evolvedUnder = ""
 	while leveled < wanted and dragon.Level < cap do
 		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 		if data.Gold < cost then
@@ -91,10 +93,14 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 			local evolutions = dragon.Evolutions or {}
 			evolutions[stageAfter.Id] = if state.IsNight then state.Constellation.Id else Evolution.DayBranchId
 			dragon.Evolutions = evolutions
-			local name = if species then species.Name else "Your dragon"
-			local under = if state.IsNight then ` under {state.Constellation.Name}` else " in daylight (no branch bonus)"
-			notify:FireClient(player, `{name} evolved into a {stageAfter.Name}{under}!`, "success")
+			evolvedTo = stageAfter
+			evolvedUnder = if state.IsNight then ` under {state.Constellation.Name}` else " in daylight (no branch bonus)"
 		end
+	end
+	if evolvedTo then
+		local name = if species then species.Name else "Your dragon"
+		local article = if evolvedTo.Name:match("^[AEIOUaeiou]") then "an" else "a"
+		notify:FireClient(player, `{name} evolved into {article} {evolvedTo.Name}{evolvedUnder}!`, "success")
 	end
 
 	QuestService:Progress(player, "Levels", leveled)

@@ -3,6 +3,7 @@
 -- resets gold, and adds a rebirth. Everything else is kept. Level caps and areas follow from data.Rebirths.
 -- Also shows a rebirth badge above each player's character.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -59,14 +60,26 @@ local function updateBadge(player: Player)
 end
 
 -- Areas unlocked by exactly this many rebirths, for the celebration message.
-local function newlyUnlocked(rebirths: number): { string }
-	local names = {}
-	for _, area in Areas do
-		if area.RebirthsRequired == rebirths then
-			table.insert(names, area.Name)
+-- An area is built once its AreaSpawn (tag "AreaSpawn" + AreaId attribute) exists in the world.
+local function isBuilt(areaId: string): boolean
+	for _, spawn in CollectionService:GetTagged("AreaSpawn") do
+		if spawn:GetAttribute("AreaId") == areaId then
+			return true
 		end
 	end
-	return names
+	return false
+end
+
+-- "Volcano Peak unlocked!" / "Frozen Cliffs unlocked, coming soon!" for areas this rebirth unlocks.
+local function newlyUnlocked(rebirths: number): { string }
+	local lines = {}
+	for areaId, area in Areas do
+		if area.RebirthsRequired == rebirths then
+			table.insert(lines, if isBuilt(areaId) then `{area.Name} unlocked!` else `{area.Name} unlocked, coming soon!`)
+		end
+	end
+	table.sort(lines)
+	return lines
 end
 
 local function onRequestRebirth(player: Player)
@@ -101,7 +114,7 @@ local function onRequestRebirth(player: Player)
 	end
 	local unlocked = newlyUnlocked(data.Rebirths)
 	if #unlocked > 0 then
-		table.insert(parts, `Unlocked {table.concat(unlocked, ", ")}!`)
+		table.insert(parts, table.concat(unlocked, " "))
 	end
 	notify:FireClient(player, table.concat(parts, " "), "success")
 	announcement:FireAllClients(`{player.DisplayName} reached Rebirth {data.Rebirths}!`)
