@@ -10,6 +10,7 @@ export type Dragon = {
 	Evolutions: { [string]: string }?, -- stageId -> constellationId in the sky when it evolved (its branch)
 	Trait: string?, -- Config/Traits trait Id (rolled with Wyrm Runes)
 	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
+	Starborn: boolean?, -- rare variant (Config/Index): x income, x power, its own Index entry
 }
 
 export type PlayerData = {
@@ -35,6 +36,9 @@ export type PlayerData = {
 	ArmedLuckPotion: string, -- luck charge potion Id used by the next bind ("" = none)
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
+	Index: { [string]: number }, -- Dragon Index entry (SpeciesId or "<SpeciesId>_Starborn") -> os.time() found
+	IndexMilestones: number, -- MilestoneEvery rewards already given
+	IndexElementsRewarded: { [string]: boolean }, -- element -> its completion reward was given
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)
 	OfferingNight: number, -- NightIndex the Offerings count belongs to (older nights = 0 offerings)
 	Offerings: number, -- Stardust offerings made on OfferingNight

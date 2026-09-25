@@ -8,6 +8,7 @@ local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Constellations = require(ReplicatedStorage.Shared.Config.Constellations)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
@@ -109,6 +110,7 @@ function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 		* DragonStats.GetBranchMultiplier(dragon)
 		* (if trait then trait.Income else 1)
 		* (if grade then grade.Multiplier else 1)
+		* (if dragon.Starborn then IndexConfig.StarbornIncome else 1)
 end
 
 -- Spire battle power: rarity base x level x stage x trait x grade.
@@ -125,9 +127,55 @@ function DragonStats.GetPower(dragon: Dragon): number
 		* DragonStats.GetStage(dragon.Level).PowerMultiplier
 		* (if trait then trait.Power else 1)
 		* (if grade then grade.Multiplier else 1)
+		* (if dragon.Starborn then IndexConfig.StarbornPower else 1)
 end
 
--- Permanent roost income multiplier from rebirths (x IncomeBonusPerRebirth per rebirth, multiplying).
+---------------------------------------------------------------------------------------------------------------
+-- Dragon Index (Config/Index)
+
+-- The Index entry a dragon fills: its SpeciesId, or "<SpeciesId>_Starborn".
+function DragonStats.GetIndexEntryId(dragon: Dragon): string
+	return if dragon.Starborn then `{dragon.SpeciesId}_Starborn` else dragon.SpeciesId
+end
+
+-- Elements whose every normal species is in the Index, and whether every normal species is.
+function DragonStats.GetIndexCompletion(data: PlayerData): ({ string }, boolean)
+	local missing: { [string]: boolean } = {}
+	local elements: { [string]: boolean } = {}
+	local all = true
+	for speciesId, species in Dragons do
+		elements[species.Element] = true
+		if data.Index[speciesId] == nil then
+			missing[species.Element] = true
+			all = false
+		end
+	end
+	local complete = {}
+	for element in elements do
+		if not missing[element] then
+			table.insert(complete, element)
+		end
+	end
+	table.sort(complete)
+	return complete, all
+end
+
+function DragonStats.GetIndexEntryCount(data: PlayerData): number
+	local count = 0
+	for _ in data.Index do
+		count += 1
+	end
+	return count
+end
+
+-- Roost income multiplier from the Index.
+function DragonStats.GetIndexMultiplier(data: PlayerData): number
+	local complete, all = DragonStats.GetIndexCompletion(data)
+	return (1 + IndexConfig.IncomePerEntry * DragonStats.GetIndexEntryCount(data))
+		* IndexConfig.ElementMultiplier ^ #complete
+		* (if all then IndexConfig.AllSpeciesMultiplier else 1)
+end
+
 -- Product of the player's active timed boosts on a stat (Config/Boosts), 1 if none.
 function DragonStats.GetBoostMultiplier(data: PlayerData, stat: string): number
 	local multiplier = 1
@@ -140,6 +188,7 @@ function DragonStats.GetBoostMultiplier(data: PlayerData, stat: string): number
 	return multiplier
 end
 
+-- Permanent roost income multiplier from rebirths (x IncomeBonusPerRebirth per rebirth, multiplying).
 function DragonStats.GetRebirthBonus(rebirths: number): number
 	return RebirthConfig.IncomeBonusPerRebirth ^ rebirths
 end
@@ -236,7 +285,8 @@ function DragonStats.GetMerchantPrice(data: PlayerData, dayIndex: number): numbe
 	)
 end
 
--- Total gold/sec from every dragon placed in the roost, including the roost income upgrade and the rebirth bonus.
+-- Total gold/sec from every dragon placed in the roost, including the roost income upgrade, the rebirth bonus
+-- and the Dragon Index.
 function DragonStats.GetRoostIncome(data: PlayerData): number
 	local total = 0
 	for _, dragonId in data.RoostDragonIds do
@@ -245,7 +295,10 @@ function DragonStats.GetRoostIncome(data: PlayerData): number
 			total += DragonStats.GetGoldPerSecond(dragon)
 		end
 	end
-	return total * DragonStats.GetRoostIncomeMultiplier(data) * DragonStats.GetRebirthBonus(data.Rebirths)
+	return total
+		* DragonStats.GetRoostIncomeMultiplier(data)
+		* DragonStats.GetRebirthBonus(data.Rebirths)
+		* DragonStats.GetIndexMultiplier(data)
 end
 
 return DragonStats

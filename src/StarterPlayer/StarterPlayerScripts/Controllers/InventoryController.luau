@@ -87,7 +87,8 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	stroke.Parent = card
 	card.Parent = list
 
-	label(card, if species then species.Name else dragon.SpeciesId, if rarity then rarity.Color else GREY, true, 6, 22)
+	local name = if species then species.Name else dragon.SpeciesId
+	label(card, if dragon.Starborn then `★ Starborn {name}` else name, if rarity then rarity.Color else GREY, true, 6, 22)
 	label(card, `{if species then species.Rarity else "?"} {if species then species.Element else ""} · {stage.Name}`, Color3.fromRGB(200, 200, 215), false, 30, 16)
 	label(card, `Lv {dragon.Level}/{cap} · {Format.Number(DragonStats.GetGoldPerSecond(dragon))} gold/s`, Color3.new(1, 1, 1), false, 48, 16)
 	local trait = DragonStats.GetTrait(dragon)

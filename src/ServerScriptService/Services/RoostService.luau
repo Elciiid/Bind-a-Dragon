@@ -18,7 +18,7 @@
 -- Dragon art: ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId> (Model), else .../<SpeciesId> (Model),
 -- else .../Placeholder, which is tinted by element (parts with a "Tint" attribute: Primary/Secondary/Accent).
 -- Evolution branch color: placeholder Accent parts, and any part in real art with attribute BranchAccent = true,
--- take the element color of the dragon's latest night branch.
+-- take the element color of the dragon's latest night branch. Starborn dragons get a gold tint + sparkles.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -30,6 +30,7 @@ local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
+local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -323,6 +324,17 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 		end
 		model:ScaleTo(model:GetScale() * stage.ModelScale) -- relative to the template's own scale
 	end
+	-- Starborn look (until real art exists): colors blend toward StarbornColor, plus sparkles.
+	if dragon.Starborn then
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.Color = part.Color:Lerp(IndexConfig.StarbornColor, IndexConfig.StarbornTint)
+			end
+		end
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = IndexConfig.StarbornColor
+		sparkles.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Anchored = true
@@ -348,7 +360,8 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	local rarity = DragonStats.GetRarity(species.Rarity)
 	local grade = DragonStats.GetGrade(dragon)
 	local gradeText = if grade then `  [{grade.Id}]` else ""
-	makeNameplate(model, `{species.Name}  Lv {dragon.Level}{gradeText}`, if rarity then rarity.Color else Color3.new(1, 1, 1))
+	local starText = if dragon.Starborn then "★ " else ""
+	makeNameplate(model, `{starText}{species.Name}  Lv {dragon.Level}{gradeText}`, if rarity then rarity.Color else Color3.new(1, 1, 1))
 	return model
 end
 

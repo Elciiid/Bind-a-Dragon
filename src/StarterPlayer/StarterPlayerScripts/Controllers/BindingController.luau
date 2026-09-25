@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local NotificationController = require(script.Parent.NotificationController)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 
 type BindResult = {
@@ -13,6 +14,7 @@ type BindResult = {
 	SpeciesId: string,
 	ConstellationId: string,
 	Luck: number,
+	Starborn: boolean,
 }
 
 local BindingController = {}
@@ -30,7 +32,11 @@ function BindingController:Start()
 				color = rarity.Color
 			end
 		end
-		NotificationController:Show(`You bound {species.Name}! ({species.Rarity} {species.Element})`, color)
+		if result.Starborn then
+			NotificationController:Show(`STARBORN! You bound a Starborn {species.Name}! ({species.Rarity} {species.Element})`, IndexConfig.StarbornColor)
+		else
+			NotificationController:Show(`You bound {species.Name}! ({species.Rarity} {species.Element})`, color)
+		end
 	end)
 end
 

@@ -6,7 +6,8 @@
 -- ProximityPrompt.Triggered fires on the server with the real player, so the client never sends any values.
 -- Every player gets their own roll; one bind per player per night (tracked by NightIndex, so it holds across servers).
 -- Luck comes from Shared/Luck, the same math the client uses to display it. An armed luck charge
--- (Config/Boosts) is included and used up by the bind.
+-- (Config/Boosts) is included and used up by the bind. Each bind may be Starborn (Config/Index StarbornChance)
+-- and is recorded in the Dragon Index (IndexService).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -14,11 +15,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local IndexService = require(script.Parent.IndexService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
@@ -133,6 +136,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		return
 	end
 
+	local starborn = rng:NextNumber() < IndexConfig.StarbornChance
 	local dragonId = tostring(data.NextDragonId)
 	data.NextDragonId += 1
 	data.Dragons[dragonId] = {
@@ -140,6 +144,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		SpeciesId = speciesId,
 		Level = 1,
 		ObtainedAt = os.time(),
+		Starborn = if starborn then true else nil,
 	}
 	data.LastBindNight = state.NightIndex
 	BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
@@ -151,10 +156,13 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		SpeciesId = speciesId,
 		ConstellationId = constellationId,
 		Luck = luck.Total,
+		Starborn = starborn,
 	})
+	IndexService:Sync(player, data)
 
-	if rarity.AnnounceOnBind then
-		announcement:FireAllClients(`{player.DisplayName} bound a {rarity.Name} {Dragons[speciesId].Name}!`)
+	if rarity.AnnounceOnBind or starborn then
+		local variant = if starborn then "STARBORN " else ""
+		announcement:FireAllClients(`{player.DisplayName} bound a {variant}{rarity.Name} {Dragons[speciesId].Name}!`)
 	end
 end
 

@@ -50,6 +50,9 @@ local TEMPLATE: PlayerData = {
 	ArmedLuckPotion = "",
 
 	StarAtlas = {},
+	Index = {},
+	IndexMilestones = 0,
+	IndexElementsRewarded = {},
 	LastBindNight = -1,
 	OfferingNight = -1,
 	Offerings = 0,

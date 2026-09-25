@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local IndexService = require(script.Parent.IndexService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -214,6 +215,7 @@ local function grantStarter(player: Player, data: PlayerDataTypes.PlayerData)
 	data.NextDragonId += 1
 	data.Dragons[dragonId] = { Id = dragonId, SpeciesId = speciesId, Level = 1, ObtainedAt = os.time() }
 	table.insert(data.RoostDragonIds, dragonId)
+	IndexService:Sync(player, data)
 	notify:FireClient(player, `Your first dragon, {Dragons[speciesId].Name}, has hatched in your roost!`, "success")
 end
 
