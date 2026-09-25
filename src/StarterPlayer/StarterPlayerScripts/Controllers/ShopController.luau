@@ -59,14 +59,18 @@ local function makeCard(list: Instance, key: string, order: number)
 
 	local card = Instance.new("Frame")
 	card.LayoutOrder = order
-	card.Size = UDim2.new(1, -8, 0, 62)
+	card.Size = UDim2.new(1, -8, 0, 76)
 	card.BackgroundColor3 = CARD
 	round(card)
 	card.Parent = list
 
 	label(card, item.Name, GOLD, true, UDim2.new(0, 10, 0, 6), UDim2.new(0.68, -10, 0, 22))
-	local detail = label(card, item.Description, Color3.fromRGB(200, 200, 215), false, UDim2.new(0, 10, 0, 32), UDim2.new(0.68, -10, 0, 22))
+	-- Descriptions say exactly what a pass does, so they wrap at a fixed readable size instead of shrinking.
+	local detail = label(card, item.Description, Color3.fromRGB(200, 200, 215), false, UDim2.new(0, 10, 0, 30), UDim2.new(0.68, -10, 0, 42))
+	detail.TextScaled = false
+	detail.TextSize = 13
 	detail.TextWrapped = true
+	detail.TextYAlignment = Enum.TextYAlignment.Top
 
 	local buy = Instance.new("TextButton")
 	buy.AnchorPoint = Vector2.new(1, 0.5)

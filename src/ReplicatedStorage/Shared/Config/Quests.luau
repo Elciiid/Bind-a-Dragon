@@ -57,14 +57,14 @@ return {
 		{ WyrmRunes = 3, Dragonstones = 3 },
 	} :: { Reward },
 
-	-- Login streak rewards, day 1..7 (then back to day 1).
+	-- Login streak rewards, day 1..7 (then back to day 1). Rising toward the day-7 Moonfire Tonic.
 	StreakRewards = {
-		{ Stardust = 5 },
-		{ Stardust = 5 },
-		{ Stardust = 10 },
-		{ Stardust = 10 },
-		{ Stardust = 15 },
-		{ Stardust = 15 },
+		{ Potions = { GildedDraught = 1 } },
+		{ Stardust = 30 },
+		{ WyrmRunes = 1, Dragonstones = 1 },
+		{ Potions = { GildedDraught = 2 } },
+		{ Potions = { HoardElixir = 1 } },
+		{ WyrmRunes = 2, Dragonstones = 2 },
 		{ Potions = { MoonfireTonic = 1 } },
 	} :: { Reward },
 }

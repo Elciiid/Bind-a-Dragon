@@ -22,13 +22,13 @@ return {
 		AfkIncome2x = {
 			Id = 0,
 			Name = "2x AFK Income",
-			Description = "Double offline and idle roost income",
+			Description = "Doubles roost income while offline or idle (20+ min without moving). Not active play.",
 			Robux = 199,
 		},
 		AutoBind = {
 			Id = 0,
 			Name = "Auto-bind",
-			Description = "Binds for you every night while you're in game (base luck)",
+			Description = "Binds for you near the end of each night while you're in the game. Base luck only: no area, moon, offering, group or potion bonuses.",
 			Robux = 149,
 		},
 	} :: { [string]: Item },
