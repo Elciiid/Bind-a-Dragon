@@ -10,6 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
+local Format = require(ReplicatedStorage.Shared.Format)
+local Luck = require(ReplicatedStorage.Shared.Luck)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
@@ -68,15 +70,16 @@ local function describe(dragon: PlayerDataTypes.Dragon, kind: Kind): (string, Co
 	return `Grade {grade.Id} (x{grade.Multiplier} gold and power)`, rarityColor(grade.Tier)
 end
 
-local function oddsText(kind: Kind): string
+local function oddsText(kind: Kind, rollLuck: number): string
 	local entries: { any } = if kind == "Trait" then TraitConfig.Traits else TraitConfig.Grades
+	local weights = Luck.GetTierWeights(entries, rollLuck)
 	local total = 0
-	for _, entry in entries do
-		total += entry.Weight
+	for _, weight in weights do
+		total += weight
 	end
-	local lines = { "Odds:" }
-	for _, entry in entries do
-		local chance = entry.Weight / total * 100
+	local lines = { if rollLuck > 1 then `Odds (Runebright {Format.Multiplier(rollLuck)} luck):` else "Odds:" }
+	for index, entry in entries do
+		local chance = weights[index] / total * 100
 		local chanceText = if chance >= 1
 			then string.format("%.0f%%", chance)
 			elseif chance >= 0.1 then string.format("%.1f%%", chance)
@@ -151,7 +154,7 @@ local function redraw()
 	local canRoll = selected ~= nil and currency >= cost
 	rollButton.Text = `Roll ({cost} {if kind == "Trait" then "Wyrm Rune" else "Dragonstone"})`
 	rollButton.BackgroundColor3 = if canRoll then GOLD else GREY
-	odds.Text = oddsText(kind)
+	odds.Text = oddsText(kind, DragonStats.GetBoostMultiplier(data, "RollLuck"))
 end
 
 local function close()
@@ -295,6 +298,18 @@ function RollStationController:Init()
 			end
 		end)
 	end
+	-- Timers change every second; only redraw when a Runebright Tonic starts or ends.
+	local lastRollLuck = 1
+	DataController:OnChanged("ActiveBoosts", function()
+		local data = DataController:Get()
+		local rollLuck = if data then DragonStats.GetBoostMultiplier(data, "RollLuck") else 1
+		if rollLuck ~= lastRollLuck then
+			lastRollLuck = rollLuck
+			if panel.Visible then
+				redraw()
+			end
+		end
+	end)
 end
 
 function RollStationController:Start()

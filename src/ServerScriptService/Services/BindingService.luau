@@ -5,12 +5,14 @@
 --
 -- ProximityPrompt.Triggered fires on the server with the real player, so the client never sends any values.
 -- Every player gets their own roll; one bind per player per night (tracked by NightIndex, so it holds across servers).
--- Luck comes from Shared/Luck, the same math the client uses to display it.
+-- Luck comes from Shared/Luck, the same math the client uses to display it. An armed luck charge
+-- (Config/Boosts) is included and used up by the bind.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Luck = require(ReplicatedStorage.Shared.Luck)
@@ -120,7 +122,8 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		getAreaId(altar),
 		state.NightIndex,
 		Luck.GetOfferingCount(data, state.NightIndex),
-		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius)
+		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
+		Luck.GetArmedPotionLuck(data)
 	)
 	local rarity = rollRarity(luck.Total)
 	local speciesId = pickSpecies(rarity.Id, state.Constellation.Element)
@@ -139,6 +142,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		ObtainedAt = os.time(),
 	}
 	data.LastBindNight = state.NightIndex
+	BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
 	local constellationId = state.Constellation.Id
 	data.StarAtlas[constellationId] = (data.StarAtlas[constellationId] or 0) + 1
 

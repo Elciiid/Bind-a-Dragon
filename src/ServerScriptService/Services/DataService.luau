@@ -45,6 +45,10 @@ local TEMPLATE: PlayerData = {
 	MerchantDay = -1,
 	MerchantPurchases = 0,
 
+	Potions = {},
+	ActiveBoosts = {},
+	ArmedLuckPotion = "",
+
 	StarAtlas = {},
 	LastBindNight = -1,
 	OfferingNight = -1,

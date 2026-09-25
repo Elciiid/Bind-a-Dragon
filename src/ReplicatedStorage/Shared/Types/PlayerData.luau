@@ -30,6 +30,10 @@ export type PlayerData = {
 	MerchantDay: number, -- Cycle NightIndex the MerchantPurchases count belongs to (resets at dawn)
 	MerchantPurchases: number, -- Stardust bundles bought on MerchantDay
 
+	Potions: { [string]: number }, -- Config/Boosts potion Id -> count owned
+	ActiveBoosts: { [string]: number }, -- timed potion Id -> seconds left (ticks only while online)
+	ArmedLuckPotion: string, -- luck charge potion Id used by the next bind ("" = none)
+
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)
 	OfferingNight: number, -- NightIndex the Offerings count belongs to (older nights = 0 offerings)

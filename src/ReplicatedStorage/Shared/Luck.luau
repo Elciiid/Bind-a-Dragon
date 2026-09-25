@@ -6,13 +6,15 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
+local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 
 export type Breakdown = {
 	Total: number, -- after the cap
-	Capped: boolean,
+	Capped: boolean, -- normal sources hit Cap (a luck charge can still go past it, up to PotionCap)
+	Potion: number, -- armed luck charge multiplier (1 = none)
 	Area: number,
 	Moon: number,
 	MoonName: string,
@@ -65,7 +67,30 @@ function Luck.GetRarityWeights(luck: number): { number }
 	return weights
 end
 
-function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number, groupSize: number): Breakdown
+-- Same idea for trait/grade rolls: each entry's Weight, boosted by roll luck (Runebright Tonic) by its Tier.
+function Luck.GetTierWeights(entries: { any }, luck: number): { number }
+	local tierIndex: { [string]: number } = {}
+	for index, rarity in Rarities do
+		tierIndex[rarity.Id] = index
+	end
+	local weights = {}
+	for index, entry in entries do
+		weights[index] = entry.Weight * luck ^ (LuckConfig.TierScaling * ((tierIndex[entry.Tier] or 1) - 1))
+	end
+	return weights
+end
+
+-- The armed luck charge's multiplier (Config/Boosts), or 1 if none is armed or the player has none left.
+function Luck.GetArmedPotionLuck(data: { ArmedLuckPotion: string, Potions: { [string]: number } }): number
+	local potion = Boosts.ById[data.ArmedLuckPotion]
+	if potion == nil or potion.Kind ~= "LuckCharge" or (data.Potions[potion.Id] or 0) <= 0 then
+		return 1
+	end
+	return potion.Multiplier
+end
+
+-- potionLuck (an armed luck charge) applies after the normal Cap, up to PotionCap.
+function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number, groupSize: number, potionLuck: number?): Breakdown
 	local area = Areas[areaId]
 	local areaLuck = if area then area.BindLuck else 1
 
@@ -81,9 +106,11 @@ function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number,
 	local groupLuck = 1 + LuckConfig.GroupLuckPerExtraPlayer * (counted - 1)
 
 	local raw = areaLuck * moon.Luck * constellationLuck * stardustLuck * groupLuck
+	local potion = potionLuck or 1
 	return {
-		Total = math.min(raw, LuckConfig.Cap),
+		Total = math.min(math.min(raw, LuckConfig.Cap) * potion, LuckConfig.PotionCap),
 		Capped = raw > LuckConfig.Cap,
+		Potion = potion,
 		Area = areaLuck,
 		Moon = moon.Luck,
 		MoonName = moon.Name,

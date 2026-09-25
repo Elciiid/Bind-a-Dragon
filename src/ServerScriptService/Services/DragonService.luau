@@ -4,12 +4,14 @@
 -- Crossing a stage's MinLevel evolves the dragon; the constellation in the sky at that moment is recorded
 -- as that stage's branch in dragon.Evolutions.
 -- Also trait rolls (RollTrait: dragonId, costs Wyrm Runes, at a "RuneShrine") and grade rolls
--- (RollGrade: dragonId, costs Dragonstones, at a "DragonstoneForge"); odds in Config/Traits.
+-- (RollGrade: dragonId, costs Dragonstones, at a "DragonstoneForge"); odds in Config/Traits, improved by an
+-- active Runebright Tonic (Config/Boosts).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
@@ -17,6 +19,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
+local Luck = require(ReplicatedStorage.Shared.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
@@ -120,15 +123,26 @@ local function isNearStation(player: Player, tag: string): boolean
 	return false
 end
 
--- Picks one entry at random, weighted by its Weight field.
-local function weightedPick(entries: { any }): any
+local function tierIndex(tierId: string): number
+	for index, rarity in Rarities do
+		if rarity.Id == tierId then
+			return index
+		end
+	end
+	return 1
+end
+
+-- Picks one entry at random by Weight. Roll luck (Runebright Tonic) boosts rarer tiers the same way bind luck
+-- does (Shared/Luck GetTierWeights, which the station UI also uses to show the odds).
+local function weightedPick(entries: { any }, luck: number): any
+	local weights = Luck.GetTierWeights(entries, luck)
 	local total = 0
-	for _, entry in entries do
-		total += entry.Weight
+	for _, weight in weights do
+		total += weight
 	end
 	local roll = rng:NextNumber() * total
-	for _, entry in entries do
-		roll -= entry.Weight
+	for index, entry in entries do
+		roll -= weights[index]
 		if roll < 0 then
 			return entry
 		end
@@ -137,16 +151,7 @@ local function weightedPick(entries: { any }): any
 end
 
 local function tierAtLeast(tierId: string, minimumId: string): boolean
-	local tierIndex, minimumIndex = 0, math.huge
-	for index, rarity in Rarities do
-		if rarity.Id == tierId then
-			tierIndex = index
-		end
-		if rarity.Id == minimumId then
-			minimumIndex = index
-		end
-	end
-	return tierIndex >= minimumIndex
+	return tierIndex(tierId) >= tierIndex(minimumId)
 end
 
 local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade")
@@ -178,7 +183,7 @@ local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade"
 			return
 		end
 		data.WyrmRunes -= TraitConfig.TraitRollCost
-		local trait = weightedPick(TraitConfig.Traits)
+		local trait = weightedPick(TraitConfig.Traits, BoostService:GetMultiplier(player, "RollLuck"))
 		dragon.Trait = trait.Id
 		notify:FireClient(player, `{name} gained the {trait.Name} trait!`, "success")
 		if tierAtLeast(trait.Tier, TraitConfig.AnnounceTier) then
@@ -190,7 +195,7 @@ local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade"
 			return
 		end
 		data.Dragonstones -= TraitConfig.GradeRollCost
-		local grade = weightedPick(TraitConfig.Grades)
+		local grade = weightedPick(TraitConfig.Grades, BoostService:GetMultiplier(player, "RollLuck"))
 		dragon.Grade = grade.Id
 		notify:FireClient(player, `{name} is now grade {grade.Id}!`, "success")
 		if tierAtLeast(grade.Tier, TraitConfig.AnnounceTier) then

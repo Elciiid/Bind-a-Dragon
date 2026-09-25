@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
+local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Constellations = require(ReplicatedStorage.Shared.Config.Constellations)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
@@ -127,6 +128,18 @@ function DragonStats.GetPower(dragon: Dragon): number
 end
 
 -- Permanent roost income multiplier from rebirths (x IncomeBonusPerRebirth per rebirth, multiplying).
+-- Product of the player's active timed boosts on a stat (Config/Boosts), 1 if none.
+function DragonStats.GetBoostMultiplier(data: PlayerData, stat: string): number
+	local multiplier = 1
+	for potionId, seconds in data.ActiveBoosts do
+		local potion = Boosts.ById[potionId]
+		if potion and potion.Stat == stat and seconds > 0 then
+			multiplier *= potion.Multiplier
+		end
+	end
+	return multiplier
+end
+
 function DragonStats.GetRebirthBonus(rebirths: number): number
 	return RebirthConfig.IncomeBonusPerRebirth ^ rebirths
 end

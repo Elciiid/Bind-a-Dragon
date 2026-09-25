@@ -18,7 +18,7 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
-**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phase 1 done, Phase 2 next).
+**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phases 1–2 done, Phase 3 next).
 _Update this section as work progresses._
 
 | System | Status |
@@ -35,7 +35,7 @@ _Update this section as work progresses._
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons now have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones not obtainable yet (Spire) |
 | Economy rebalance (big numbers, open-ended rebirths) | Phase 1 done: new configs, multiplicative levels/traits/grades, rebirth curve + weekly cap (`DragonStats.GetRebirthCost`, `IsAtRebirthCap`, gold clamps at the cap), ×1.59 rebirth income bonus, level cap 50 + 5/rebirth, idle >20 min = offline rate from the 8 h/day allowance (`RoostService`), starter dragon (`Config/Data.StarterDragon`), dusk warning. Phases 2–6 below |
-| Boosts / potions + Boosts panel | Proposed (Phase 2) |
+| Boosts / potions + Boosts panel | Done: `Config/Boosts` (7 potions), `BoostService` (UseBoost remote, timers tick only in game, 60 min max stored, Premium +10%, `GetMultiplier`/`GrantPotion`), gold boosts in `RoostService` (in game only), Runebright roll luck in `DragonService` (`Luck.GetTierWeights`), luck charges armed via Boosts panel or the altar luck panel and used up by the next bind (`Luck.GetArmedPotionLuck`, up to `PotionCap`). `BoostController` panel + HUD timers. Potions not obtainable yet (Spire/quests) |
 | Dragon Index + Starborn variants | Proposed (Phase 3) |
 | Daily/weekly quests + login streak | Proposed (Phase 4) |
 | Dragon Spire (tower) | Proposed (Phase 5): auto-battle, curve and drops in the approved proposal |

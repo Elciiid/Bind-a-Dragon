@@ -5,6 +5,7 @@
 -- Offline: on join, pays for the time since data.LastOnline (stamped on every save) at OfflineIncomeMultiplier.
 -- Idle: a player who hasn't moved for IdleAfterSeconds earns like offline. Offline + idle share one daily
 -- allowance of OfflineCapHours (data.AfkCreditDay / AfkCreditSeconds).
+-- Gold potions (BoostService) multiply in-game income, idle included.
 -- Weekly rebirth cap: at the cap, banked gold stops at one rebirth's cost, with a message.
 -- Slots: empty roost slots are filled automatically with the player's best-earning unplaced dragons.
 --
@@ -23,6 +24,7 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -53,9 +55,14 @@ local PLACE_INTERVAL = 0.25 -- seconds between PlaceInRoost requests per player 
 
 local RoostService = {}
 
--- TODO(MonetizationService): 2x AFK Income game pass multiplies here.
+-- Applies online and offline. TODO(MonetizationService): 2x AFK Income game pass multiplies here.
 local function getIncomeMultiplier(_player: Player): number
 	return 1
+end
+
+-- Timed gold potions (Config/Boosts); they only tick in game, so they never apply to offline income.
+local function getBoostMultiplier(player: Player): number
+	return BoostService:GetMultiplier(player, "Gold")
 end
 
 -- Drops roost entries for dragons that no longer exist, then fills empty slots with the best unplaced dragons.
@@ -465,7 +472,7 @@ function RoostService:Start()
 				rate = RoostConfig.OfflineIncomeMultiplier
 			end
 			local earned = (unpaid[player] or 0)
-				+ DragonStats.GetRoostIncome(data) * seconds * rate * getIncomeMultiplier(player)
+				+ DragonStats.GetRoostIncome(data) * seconds * rate * getIncomeMultiplier(player) * getBoostMultiplier(player)
 			local whole = math.floor(earned)
 			data.Gold += whole
 			unpaid[player] = earned - whole
