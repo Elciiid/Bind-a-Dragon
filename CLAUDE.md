@@ -18,7 +18,7 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
-**Phase:** Production. The core loop is playable in Studio; the Dragon Spire and monetization are next.
+**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phase 1).
 _Update this section as work progresses._
 
 | System | Status |
@@ -34,16 +34,33 @@ _Update this section as work progresses._
 | Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`; roost upgrades are bought at stands in front of the roost (`RoostUpgradeController`) |
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons now have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones not obtainable yet (Spire) |
-| Dragon Spire (tower) | Not started |
-| Game passes + developer products | Not started |
+| Economy rebalance (big numbers, open-ended rebirths) | In progress: Phase 1 of the build order below |
+| Boosts / potions + Boosts panel | Proposed (Phase 2) |
+| Dragon Index + Starborn variants | Proposed (Phase 3) |
+| Daily/weekly quests + login streak | Proposed (Phase 4) |
+| Dragon Spire (tower) | Proposed (Phase 5): auto-battle, curve and drops in the approved proposal |
+| Game passes + developer products | Proposed (Phase 6) |
+| Weekly Spire leaderboard | Proposed (weekly update) |
+| Weekly event constellation (event-only dragon, single model) | Proposed (weekly update) |
+| Ascension (second prestige) | Proposed (design only, post-launch) |
 | UI | Placeholder UI built in code: sky HUD, notifications, luck panel, currency, rebirth panel, dragon inventory (`InventoryController`: +1/+10/Max, Place in roost). Needs designer/artist polish |
 | Ranked PvP | Post-launch |
 
-**Next up:** the Dragon Spire (auto-battle, player's best dragon), then monetization.
+**Next up: approved build order** (full numbers in `E:\Roblox\Bind A Dragon - Economy Rebalance Proposal v5.md`,
+plus the changes approved after it, listed under Decisions made). Work phase by phase: after each phase, playtest in
+Studio, fix, commit, and send the user a short summary before starting the next.
+1. Economy core rebalance (configs, DragonStats, weekly rebirth cap, idle rule, starter dragon, dusk warning).
+2. Boosts and potions (`Config/Boosts`, `BoostService`, `BoostController`, UseBoost remote; luck potions are
+   charges the player arms for the next bind).
+3. Dragon Index + Starborn (`Config/Index`, `IndexService`, `IndexController`, Starborn roll in `BindingService`).
+4. Quests + login streak (`Config/Quests`, `QuestService`, `QuestController`).
+5. Dragon Spire (`Config/Spire`, `SpireService`, `SpireController`).
+6. Monetization (Tower Elevator Pass, Single Elevator Skip, 2x AFK Income, Auto-bind; `ProcessReceipt` with receipt IDs).
+Later weekly updates: Spire leaderboard, event constellations, then Ascension (design only).
 UI polish after the core loop is playable.
 
-**Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.4):
-Mythic 0.5% at x1 → 7.4% at the x10 cap.
+**Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.3):
+Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a potion.
 
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
 the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
@@ -197,8 +214,8 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 
 ## Open questions (ask before assuming)
 
-- Rebirth cost: using 10M gold, x5 per rebirth ("expensive", to lengthen play) unless told otherwise.
 - Evolution branch Spire battle perk: define when the Spire is built.
+- Starter dragon: `Cinderwing` is a placeholder in config; the user will decide later.
 
 ## Decisions made
 
@@ -210,10 +227,46 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
   the day gives a plain "Day" branch with no bonus. Numbers in `Config/Evolution`.
 - `E:\Roblox\Bind A Dragon.pdf` is the team's copy of the design doc (exported from the Claude Doc linked above).
   **Only revise the doc/PDF when the user asks.** Until then, track changes in "Pending design doc updates" below.
+- **Economy rebalance approved** (proposal v5 + follow-ups). Pacing targets: Dedicated (3–4 h/day + offline)
+  reaches this week's rebirth cap in a median ~8 days, fastest 10% ≥ 6 days; Casual clearly slower; AFK-only and
+  paying AFK (Auto-bind + 2x AFK) slower than Dedicated; each rebirth after R10 takes ≥ the previous one; a weekly
+  update's +5 rebirths lasts a veteran most of the week. Simulation scripts are not in the repo (scratchpad only).
+- Paid passes must not beat active play: idling in game counts as offline after 20 min without input
+  (`IdleAfterSeconds`); Auto-bind binds every night while in game at base luck, no offerings or potions.
+- Luck potions are charges the player arms for the next bind (toggle in the Boosts panel or at the altar),
+  not auto-consumed.
+- Event dragons use ONE model for all stages (`Assets/Dragons/<SpeciesId>`), 1 model per weekly update.
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 
-_None. Doc and PDF last revised 2026-09-25 (everything through traits/grades and the roaming roost)._
+Doc and PDF last revised 2026-09-25. Changes since then (economy rebalance, approved):
+- **Luck:** rare-tier scaling 0.4 → 0.3. Cap x10 without potions, **x20 hard cap** with one luck potion charge
+  (Starlight ×1.5, Moonfire ×2), armed by the player for the next bind.
+- **Offline income:** 100% → **50%** of online, still capped at 8 h/day; idling in game >20 min counts as offline.
+  The 2x AFK Income pass doubles it.
+- **Rebirth cost:** 10M ×5 → first 50M, ×3.71 per rebirth to R10, ×2.66 to R50 (≈640 Oc), then weekly steps:
+  one-time ×2.2 past each weekly cap, then ×2.17 per rebirth (bonus × level gain × 1.02). Open-ended; each weekly
+  update adds +5 rebirths. At the cap, banked gold stops at one rebirth's cost ("Rebirth cap reached" message).
+- **Rebirth reward:** new permanent income bonus **×1.59 per rebirth** (multiplying), plus +5 level cap per rebirth.
+- **Level cap:** per-area caps (50/60/70/80/100) → **50 + 5 per rebirth**. Areas keep luck bonus + unlocks.
+- **Levels:** income +15% of base per level → ×1.06 per level (compounding); power ×1.05 per level; cost base
+  1K/5K/20K/100K/500K × 1.08 per level × 1.59 per rebirth done.
+- **Base income** compressed: 750 / 1.8K / 4.4K / 11K / 29K gold/s (Mythic ≈ 40× Common, was 500×).
+- **Traits and grades** become multipliers (e.g. Hoarder ×1.25 … Dragonlord ×25; grades D ×1 … SSS ×25).
+- **Roost upgrades:** slots 250K / 25M / 2.5B / 250B / 25T; income +10% × 25 levels, 100K ×3.5 per level.
+- **Star Merchant:** bundle price = 0.06% of the next rebirth cost, ×1.5 per buy, resets at dawn.
+- **Day/night:** 8+4 min → **4 min day + 3 min night** (~8.6 binds/hour), "Night falls in 30s" warning,
+  moon stays 8 phases (full moon every ~56 min). Starborn odds 1/850.
+- **Starter dragon:** free Common Hatchling on first join (placeholder Cinderwing).
+- **New systems:** timed Spire boosts (×2 / ×5 gold potions, luck charges, Wyrmblood, Conqueror's Brew,
+  Runebright; stacking extends up to 60 min; timers pause offline; Premium +10% duration) with a Boosts panel;
+  Dragon Index (+1%/species, ×1.3 per complete element, ×1.5 all 20, milestone items); Starborn variants
+  (1/850, ×3 income, ×2 power); daily/weekly quests + login streak; weekly Spire leaderboard; weekly event
+  constellation; Ascension (design only).
+- **Spire:** enemy power 10 × 1.21^floor (bosses ×1.5), 150 floors at launch + 10 per weekly update, first-clear
+  drops guaranteed, re-clears only near the record; Moonfire from floor 50, Starlight every 20th floor.
+- **Build order** adds Phase 6 Monetization after the Spire.
+
 When revising: update the Claude Doc via the docs connector, export the tab as PDF, and overwrite
 `E:\Roblox\Bind A Dragon.pdf`.
 
