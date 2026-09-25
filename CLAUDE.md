@@ -18,20 +18,20 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
-**Phase:** Pre-production. Game design is complete. Project scaffolding is in place; no game systems yet.
+**Phase:** Production. The core loop is playable in Studio; the Dragon Spire and monetization are next.
 _Update this section as work progresses._
 
 | System | Status |
 | --- | --- |
-| Project setup (Rojo, Git, folder structure) | Done (Rojo 7.7.0, `default.project.json`, Init/Start bootstraps) |
+| Project setup (Rojo, Git, folder structure) | Done (Rojo 7.6.1, `default.project.json`, Init/Start bootstraps) |
 | Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData`. Studio uses a separate `PlayerData_Studio` store |
 | Client data sync | Done: snapshot + auto-diffed changes (`DataService` → `DataController`); `PRIVATE_KEYS` stay server-only. Gold/Stardust HUD in `CurrencyController` |
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons` |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
-| Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. No manual roost management UI yet |
-| Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`, upgrade buttons in the Dragons panel |
+| Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. Roost is a pen where dragons roam (`RoostAnimationController`); "Place in roost" in the Dragons panel |
+| Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`; roost upgrades are bought at stands in front of the roost (`RoostUpgradeController`) |
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
 | Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons now have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones not obtainable yet (Spire) |
 | Dragon Spire (tower) | Not started |
@@ -213,24 +213,9 @@ Stacked as multipliers with a **total cap**. Show the current luck multiplier in
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 
-- Title is Bind A Dragon; combat is auto-battle with the player's best dragon (answers 3 open questions).
-- Luck: 5 sources (Stardust offerings 3/night, 8-phase moon, rare constellation boost, group at altar, area), x10 cap,
-  scales harder for rarer tiers (TierScaling).
-- Evolution branches = option B (element income bonus + accent color; daytime = plain branch).
-- Roost: one plot per player (8 per server), 3 base slots, auto-fill with best dragons, offline income capped 8h.
-- Leveling cost formula (per-rarity base x 1.2^level); rebirth cost 10M x5 per rebirth.
-- Day/night: 8 min day + 4 min night, same night and constellation on every server.
-- Rebirth: ★ badge above the character; areas are reached by portals (locked ones refuse), not walked to.
-- Dragon inventory: +1/+10/Max leveling; "Place in roost" swaps out the weakest roost dragon when full.
-- Star Merchant: 10 Stardust per bundle, 500 gold x1.5 per purchase, resets at dawn (stall near the spawn).
-- Roost upgrades: 5 extra slots (25K → 250M, x10 each), income +10%/level up to +100% (10K x2.5 per level),
-  bought at stands in front of your own roost (not a shop/menu).
-- Roost is a pen where dragons roam (like the house in Steal an Egg): Hatchlings hop, Drakes walk,
-  Dragons fly low, Elders fly high.
-- Only binding gives new dragons (1 per night). Possible later: dragon eggs from Spire bosses.
-- NEW: traits and grades (inspired by Anime Dice, renamed to dragon themes). Wyrm Runes roll a trait at the
-  Rune Shrine; Dragonstones roll a grade (D..SSS) at the Dragonstone Forge. Traits boost income and/or Spire power;
-  grades multiply both. Both currencies come from the Dragon Spire. Dragons gain a Power stat for the Spire.
+_None. Doc and PDF last revised 2026-09-25 (everything through traits/grades and the roaming roost)._
+When revising: update the Claude Doc via the docs connector, export the tab as PDF, and overwrite
+`E:\Roblox\Bind A Dragon.pdf`.
 
 ## Working agreements for Claude Code
 
