@@ -18,7 +18,7 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
-**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phases 1–3 done, Phase 4 next).
+**Phase:** Production. The core loop is playable in Studio; now building the approved economy rebalance (Phases 1–4 done, Phase 5 next).
 _Update this section as work progresses._
 
 | System | Status |
@@ -37,7 +37,7 @@ _Update this section as work progresses._
 | Economy rebalance (big numbers, open-ended rebirths) | Phase 1 done: new configs, multiplicative levels/traits/grades, rebirth curve + weekly cap (`DragonStats.GetRebirthCost`, `IsAtRebirthCap`, gold clamps at the cap), ×1.59 rebirth income bonus, level cap 50 + 5/rebirth, idle >20 min = offline rate from the 8 h/day allowance (`RoostService`), starter dragon (`Config/Data.StarterDragon`), dusk warning. Phases 2–6 below |
 | Boosts / potions + Boosts panel | Done: `Config/Boosts` (7 potions), `BoostService` (UseBoost remote, timers tick only in game, 60 min max stored, Premium +10%, `GetMultiplier`/`GrantPotion`), gold boosts in `RoostService` (in game only), Runebright roll luck in `DragonService` (`Luck.GetTierWeights`), luck charges armed via Boosts panel or the altar luck panel and used up by the next bind (`Luck.GetArmedPotionLuck`, up to `PotionCap`). `BoostController` panel + HUD timers. Potions not obtainable yet (Spire/quests) |
 | Dragon Index + Starborn variants | Done: `Config/Index`, `IndexService` (Sync: records owned species incl. `<SpeciesId>_Starborn`, backfills old saves, auto-grants 5-entry + complete-element rewards once), Index income in `DragonStats.GetIndexMultiplier` (roost income). Starborn rolled in `BindingService` (1/850, ×3 income, ×2 power, announcement, tint + sparkles + ★ nameplate). `IndexController` panel (grid + Star Atlas) |
-| Daily/weekly quests + login streak | Proposed (Phase 4) |
+| Daily/weekly quests + login streak | Done: `Config/Quests` (pools, per-slot rewards, streak rewards), `QuestService` (3 daily / 2 weekly picked per UTC day / Monday week, auto-granted on completion, `Progress(player, kind, amount)` from Binding/Dragon/Roost services; Gold targets = minutes of roost income), login streak on first join per UTC day. `Shared/Rewards` (Describe/Apply) shared with the Index. `QuestController` panel. Days 1–6 streak rewards are placeholder Stardust |
 | Dragon Spire (tower) | Proposed (Phase 5): auto-battle, curve and drops in the approved proposal |
 | Game passes + developer products | Proposed (Phase 6) |
 | Weekly Spire leaderboard | Proposed (weekly update) |

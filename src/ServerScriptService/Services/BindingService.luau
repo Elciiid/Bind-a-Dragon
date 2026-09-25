@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
+local QuestService = require(script.Parent.QuestService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -159,6 +160,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		Starborn = starborn,
 	})
 	IndexService:Sync(player, data)
+	QuestService:Progress(player, "Bind", 1)
 
 	if rarity.AnnounceOnBind or starborn then
 		local variant = if starborn then "STARBORN " else ""
@@ -189,6 +191,7 @@ local function tryOffer(player: Player, altar: Instance)
 		data.Offerings = 0
 	end
 	data.Offerings += 1
+	QuestService:Progress(player, "Offer", 1)
 
 	local stardustLuck = Luck.Compute(getAreaId(altar), state.NightIndex, data.Offerings, 1).Stardust
 	notify:FireClient(player, `The stars accept your offering. Stardust luck x{stardustLuck}`, "success")

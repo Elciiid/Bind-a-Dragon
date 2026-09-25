@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
+local QuestService = require(script.Parent.QuestService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -96,6 +97,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 		end
 	end
 
+	QuestService:Progress(player, "Levels", leveled)
 	if leveled == 0 then
 		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 		notify:FireClient(player, `Not enough gold. You need {Format.Number(cost)}.`, "error")

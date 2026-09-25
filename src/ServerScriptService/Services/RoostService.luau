@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local QuestService = require(script.Parent.QuestService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
@@ -489,6 +490,7 @@ function RoostService:Start()
 			local whole = math.floor(earned)
 			data.Gold += whole
 			unpaid[player] = earned - whole
+			QuestService:Progress(player, "Gold", whole) -- in-game income only (offline pay doesn't count)
 			clampAtRebirthCap(player, data)
 			refreshPlot(player, data)
 		end

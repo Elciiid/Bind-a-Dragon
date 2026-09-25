@@ -10,11 +10,10 @@
 -- Starborn: a rare variant rolled on every bind (not the starter). Multiplies that dragon's income and power.
 -- PLACEHOLDER numbers.
 
-export type Reward = {
-	Potions: { [string]: number }?, -- Config/Boosts potion Id -> count
-	WyrmRunes: number?,
-	Dragonstones: number?,
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Rewards = require(ReplicatedStorage.Shared.Rewards)
+
+type Reward = Rewards.Reward
 
 return {
 	IncomePerEntry = 0.01, -- +1% roost income per Index entry

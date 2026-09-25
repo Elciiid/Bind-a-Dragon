@@ -49,6 +49,13 @@ local TEMPLATE: PlayerData = {
 	ActiveBoosts = {},
 	ArmedLuckPotion = "",
 
+	QuestDay = -1,
+	DailyQuests = {},
+	QuestWeek = -1,
+	WeeklyQuests = {},
+	LoginDay = -1,
+	LoginStreak = 0,
+
 	StarAtlas = {},
 	Index = {},
 	IndexMilestones = 0,

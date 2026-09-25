@@ -7,11 +7,10 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
-local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
+local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
@@ -19,30 +18,6 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 
 local IndexService = {}
-
-local function describeReward(reward: IndexConfig.Reward): string
-	local parts = {}
-	for potionId, count in reward.Potions or {} do
-		local potion = Boosts.ById[potionId]
-		table.insert(parts, `{count} {if potion then potion.Name else potionId}`)
-	end
-	if reward.WyrmRunes then
-		table.insert(parts, `{reward.WyrmRunes} Wyrm Runes`)
-	end
-	if reward.Dragonstones then
-		table.insert(parts, `{reward.Dragonstones} Dragonstones`)
-	end
-	table.sort(parts)
-	return table.concat(parts, ", ")
-end
-
-local function grant(player: Player, data: PlayerDataTypes.PlayerData, reward: IndexConfig.Reward)
-	for potionId, count in reward.Potions or {} do
-		BoostService:GrantPotion(player, potionId, count)
-	end
-	data.WyrmRunes += reward.WyrmRunes or 0
-	data.Dragonstones += reward.Dragonstones or 0
-end
 
 function IndexService:Sync(player: Player, data: PlayerDataTypes.PlayerData)
 	local now = os.time()
@@ -64,10 +39,10 @@ function IndexService:Sync(player: Player, data: PlayerDataTypes.PlayerData)
 	local reached = DragonStats.GetIndexEntryCount(data) // IndexConfig.MilestoneEvery
 	while data.IndexMilestones < reached do
 		data.IndexMilestones += 1
-		grant(player, data, IndexConfig.MilestoneReward)
+		Rewards.Apply(data, IndexConfig.MilestoneReward)
 		notify:FireClient(
 			player,
-			`Index milestone: {data.IndexMilestones * IndexConfig.MilestoneEvery} entries! +{describeReward(IndexConfig.MilestoneReward)}`,
+			`Index milestone: {data.IndexMilestones * IndexConfig.MilestoneEvery} entries! +{Rewards.Describe(IndexConfig.MilestoneReward)}`,
 			"success"
 		)
 	end
@@ -77,10 +52,10 @@ function IndexService:Sync(player: Player, data: PlayerDataTypes.PlayerData)
 	for _, element in complete do
 		if not data.IndexElementsRewarded[element] then
 			data.IndexElementsRewarded[element] = true
-			grant(player, data, IndexConfig.ElementReward)
+			Rewards.Apply(data, IndexConfig.ElementReward)
 			notify:FireClient(
 				player,
-				`All {element} dragons found! Income x{IndexConfig.ElementMultiplier}, +{describeReward(IndexConfig.ElementReward)}`,
+				`All {element} dragons found! Income x{IndexConfig.ElementMultiplier}, +{Rewards.Describe(IndexConfig.ElementReward)}`,
 				"success"
 			)
 		end

@@ -13,6 +13,13 @@ export type Dragon = {
 	Starborn: boolean?, -- rare variant (Config/Index): x income, x power, its own Index entry
 }
 
+export type QuestState = {
+	Id: string, -- Config/Quests quest Id
+	Target: number,
+	Progress: number,
+	Done: boolean, -- reward granted
+}
+
 export type PlayerData = {
 	DataVersion: number,
 
@@ -34,6 +41,13 @@ export type PlayerData = {
 	Potions: { [string]: number }, -- Config/Boosts potion Id -> count owned
 	ActiveBoosts: { [string]: number }, -- timed potion Id -> seconds left (ticks only while online)
 	ArmedLuckPotion: string, -- luck charge potion Id used by the next bind ("" = none)
+
+	QuestDay: number, -- UTC day (os.time() // 86400) DailyQuests belong to
+	DailyQuests: { QuestState },
+	QuestWeek: number, -- UTC week (Monday start) WeeklyQuests belong to
+	WeeklyQuests: { QuestState },
+	LoginDay: number, -- UTC day of the last counted login
+	LoginStreak: number, -- current streak day (1..#StreakRewards)
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	Index: { [string]: number }, -- Dragon Index entry (SpeciesId or "<SpeciesId>_Starborn") -> os.time() found
