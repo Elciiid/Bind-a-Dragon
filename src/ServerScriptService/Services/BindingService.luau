@@ -7,7 +7,8 @@
 -- Every player gets their own roll; one bind per player per night (tracked by NightIndex, so it holds across servers).
 -- Luck comes from Shared/Luck, the same math the client uses to display it. An armed luck charge
 -- (Config/Boosts) is included and used up by the bind. Each bind may be Starborn (Config/Index StarbornChance)
--- and is recorded in the Dragon Index (IndexService).
+-- and is recorded in the Dragon Index (IndexService). The Auto-bind pass binds for its owner at base luck near the
+-- end of any night they haven't bound (Config/Products AutoBindSecondsLeft).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -16,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
+local MonetizationService = require(script.Parent.MonetizationService)
 local QuestService = require(script.Parent.QuestService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Luck = require(ReplicatedStorage.Shared.Luck)
@@ -24,6 +26,7 @@ local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
+local Products = require(ReplicatedStorage.Shared.Config.Products)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -116,20 +119,9 @@ local function checkAltarUse(player: Player, altar: Instance): (PlayerDataTypes.
 	return data, state
 end
 
-local function tryBind(player: Player, altar: Instance, part: BasePart)
-	local data, state = checkAltarUse(player, altar)
-	if data == nil or state == nil then
-		return
-	end
-
-	local luck = Luck.Compute(
-		getAreaId(altar),
-		state.NightIndex,
-		Luck.GetOfferingCount(data, state.NightIndex),
-		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
-		Luck.GetArmedPotionLuck(data)
-	)
-	local rarity = rollRarity(luck.Total)
+-- Rolls and grants tonight's dragon. usePotion: an armed luck charge is used up (not for Auto-bind).
+local function performBind(player: Player, data: PlayerDataTypes.PlayerData, state: Cycle.State, luck: number, usePotion: boolean)
+	local rarity = rollRarity(luck)
 	local speciesId = pickSpecies(rarity.Id, state.Constellation.Element)
 	if speciesId == nil then
 		warn(`[BindingService] No species with rarity {rarity.Id} in Config/Dragons`)
@@ -148,7 +140,9 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		Starborn = if starborn then true else nil,
 	}
 	data.LastBindNight = state.NightIndex
-	BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
+	if usePotion then
+		BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
+	end
 	local constellationId = state.Constellation.Id
 	data.StarAtlas[constellationId] = (data.StarAtlas[constellationId] or 0) + 1
 
@@ -156,8 +150,9 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		DragonId = dragonId,
 		SpeciesId = speciesId,
 		ConstellationId = constellationId,
-		Luck = luck.Total,
+		Luck = luck,
 		Starborn = starborn,
+		Auto = not usePotion,
 	})
 	IndexService:Sync(player, data)
 	QuestService:Progress(player, "Bind", 1)
@@ -166,6 +161,22 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		local variant = if starborn then "STARBORN " else ""
 		announcement:FireAllClients(`{player.DisplayName} bound a {variant}{rarity.Name} {Dragons[speciesId].Name}!`)
 	end
+end
+
+local function tryBind(player: Player, altar: Instance, part: BasePart)
+	local data, state = checkAltarUse(player, altar)
+	if data == nil or state == nil then
+		return
+	end
+
+	local luck = Luck.Compute(
+		getAreaId(altar),
+		state.NightIndex,
+		Luck.GetOfferingCount(data, state.NightIndex),
+		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
+		Luck.GetArmedPotionLuck(data)
+	)
+	performBind(player, data, state, luck.Total, true)
 end
 
 local function tryOffer(player: Player, altar: Instance)
@@ -268,11 +279,24 @@ function BindingService:Start()
 		setupAltar(altar)
 	end
 
-	-- Open the altars at night, close them during the day.
+	-- Open the altars at night, close them during the day. Near the end of each night, Auto-bind pass owners who
+	-- haven't bound yet bind at base luck (no area, moon, offering, group or potion bonuses).
 	while true do
-		local isNight = Cycle.GetState().IsNight
+		local state = Cycle.GetState()
 		for _, prompt in prompts do
-			prompt.Enabled = isNight
+			prompt.Enabled = state.IsNight
+		end
+		if state.IsNight and state.SecondsLeft <= Products.AutoBindSecondsLeft then
+			for _, player in Players:GetPlayers() do
+				local data = DataService:GetData(player)
+				if data and data.LastBindNight ~= state.NightIndex and MonetizationService:OwnsPass(player, "AutoBind") then
+					guarded(player, function()
+						if data.LastBindNight ~= state.NightIndex then
+							performBind(player, data, state, Products.AutoBindLuck, false)
+						end
+					end)
+				end
+			end
 		end
 		task.wait(1)
 	end

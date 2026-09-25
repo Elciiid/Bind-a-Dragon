@@ -5,7 +5,8 @@
 -- Offline: on join, pays for the time since data.LastOnline (stamped on every save) at OfflineIncomeMultiplier.
 -- Idle: a player who hasn't moved for IdleAfterSeconds earns like offline. Offline + idle share one daily
 -- allowance of OfflineCapHours (data.AfkCreditDay / AfkCreditSeconds).
--- Gold potions (BoostService) multiply in-game income, idle included.
+-- Gold potions (BoostService) multiply in-game income, idle included. The 2x AFK Income pass doubles offline
+-- and idle income only.
 -- Weekly rebirth cap: at the cap, banked gold stops at one rebirth's cost, with a message.
 -- Slots: empty roost slots are filled automatically with the player's best-earning unplaced dragons.
 --
@@ -26,12 +27,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local MonetizationService = require(script.Parent.MonetizationService)
 local QuestService = require(script.Parent.QuestService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
+local Products = require(ReplicatedStorage.Shared.Config.Products)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -57,9 +60,9 @@ local PLACE_INTERVAL = 0.25 -- seconds between PlaceInRoost requests per player 
 
 local RoostService = {}
 
--- Applies online and offline. TODO(MonetizationService): 2x AFK Income game pass multiplies here.
-local function getIncomeMultiplier(_player: Player): number
-	return 1
+-- AFK income (offline and idle only): the 2x AFK Income game pass.
+local function getAfkMultiplier(player: Player): number
+	return if MonetizationService:OwnsPass(player, "AfkIncome2x") then Products.AfkIncomeMultiplier else 1
 end
 
 -- Timed gold potions (Config/Boosts); they only tick in game, so they never apply to offline income.
@@ -172,11 +175,12 @@ local function payOffline(player: Player, data: PlayerData)
 	if data.LastOnline <= 0 then
 		return -- first session
 	end
+	MonetizationService:WaitForPasses(player) -- the 2x AFK Income pass applies to offline income
 	local seconds = math.clamp(os.time() - data.LastOnline, 0, afkSecondsLeft(data))
 	data.AfkCreditSeconds += seconds
 	fillSlots(data)
 	local earned = math.floor(
-		DragonStats.GetRoostIncome(data) * seconds * RoostConfig.OfflineIncomeMultiplier * getIncomeMultiplier(player)
+		DragonStats.GetRoostIncome(data) * seconds * RoostConfig.OfflineIncomeMultiplier * getAfkMultiplier(player)
 	)
 	if earned > 0 then
 		data.Gold += earned
@@ -483,10 +487,10 @@ function RoostService:Start()
 			if isIdle(player) then
 				seconds = math.min(seconds, afkSecondsLeft(data))
 				data.AfkCreditSeconds += seconds
-				rate = RoostConfig.OfflineIncomeMultiplier
+				rate = RoostConfig.OfflineIncomeMultiplier * getAfkMultiplier(player)
 			end
 			local earned = (unpaid[player] or 0)
-				+ DragonStats.GetRoostIncome(data) * seconds * rate * getIncomeMultiplier(player) * getBoostMultiplier(player)
+				+ DragonStats.GetRoostIncome(data) * seconds * rate * getBoostMultiplier(player)
 			local whole = math.floor(earned)
 			data.Gold += whole
 			unpaid[player] = earned - whole

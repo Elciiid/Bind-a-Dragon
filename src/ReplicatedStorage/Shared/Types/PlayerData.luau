@@ -50,6 +50,7 @@ export type PlayerData = {
 	LoginStreak: number, -- current streak day (1..#StreakRewards)
 
 	SpireRecord: number, -- highest Dragon Spire floor cleared
+	ElevatorSkips: number, -- Single Elevator Skip developer products owned (one climb each)
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	Index: { [string]: number }, -- Dragon Index entry (SpeciesId or "<SpeciesId>_Starborn") -> os.time() found

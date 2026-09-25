@@ -15,6 +15,7 @@ type BindResult = {
 	ConstellationId: string,
 	Luck: number,
 	Starborn: boolean,
+	Auto: boolean, -- bound by the Auto-bind pass
 }
 
 local BindingController = {}
@@ -32,10 +33,11 @@ function BindingController:Start()
 				color = rarity.Color
 			end
 		end
+		local prefix = if result.Auto then "Auto-bind: " else ""
 		if result.Starborn then
-			NotificationController:Show(`STARBORN! You bound a Starborn {species.Name}! ({species.Rarity} {species.Element})`, IndexConfig.StarbornColor)
+			NotificationController:Show(`{prefix}STARBORN! You bound a Starborn {species.Name}! ({species.Rarity} {species.Element})`, IndexConfig.StarbornColor)
 		else
-			NotificationController:Show(`You bound {species.Name}! ({species.Rarity} {species.Element})`, color)
+			NotificationController:Show(`{prefix}You bound {species.Name}! ({species.Rarity} {species.Element})`, color)
 		end
 	end)
 end

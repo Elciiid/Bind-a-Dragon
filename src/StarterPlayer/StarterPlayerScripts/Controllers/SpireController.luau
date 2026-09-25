@@ -1,12 +1,15 @@
 --!strict
 -- Dragon Spire display: a panel (bottom center) that follows the server's climb (SpireUpdate): the current floor,
--- your dragon vs the enemy with a fight timer, rewards per floor, and the result. Buttons: Stop, Climb again.
+-- your dragon vs the enemy with a fight timer, rewards per floor, and the result. Buttons: Stop, Climb again,
+-- Elevator (Tower Elevator pass or an Elevator Skip: starts above the record).
 -- The server decides every result; this only shows it. Placeholder UI until the Spire interior exists.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local DataController = require(script.Parent.DataController)
 local Format = require(ReplicatedStorage.Shared.Format)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 
@@ -29,6 +32,8 @@ local barFill: Frame
 local logLabel: TextLabel
 local stopButton: TextButton
 local againButton: TextButton
+local elevatorButton: TextButton
+local record = 0
 
 local timerStart = 0
 local timerSeconds = 0
@@ -81,8 +86,58 @@ local function startTimer(seconds: number)
 	timerSeconds = seconds
 end
 
+-- Elevator: shown between climbs when the player has the pass or an Elevator Skip.
+local function updateElevator()
+	local data = DataController:Get()
+	local hasPass = Players.LocalPlayer:GetAttribute("Pass_ElevatorPass") == true
+	local skips = if data then data.ElevatorSkips else 0
+	elevatorButton.Visible = againButton.Visible
+		and (hasPass or skips > 0)
+		and record > 0
+		and record < SpireConfig.MaxFloors
+	elevatorButton.Text = if hasPass then `Elevator to {record + 1}` else `Elevator to {record + 1} ({skips} left)`
+end
+
+local climbing = false
+local hiddenHere = false -- the player pressed Hide at the Spire; stay hidden until they walk away
+
+-- Between climbs, near the Spire: a ready panel with Climb / Elevator.
+local function showReady()
+	local data = DataController:Get()
+	record = if data then data.SpireRecord else record
+	title.Text = `Dragon Spire  ·  record {record}/{SpireConfig.MaxFloors}`
+	matchup.Text = "Your strongest dragon fights one enemy per floor."
+	matchup.TextColor3 = Color3.fromRGB(190, 190, 205)
+	logLabel.Text = ""
+	log = {}
+	timerSeconds = 0
+	barFill.Size = UDim2.fromScale(0, 1)
+	stopButton.Visible, againButton.Visible = false, true
+	againButton.Text = "Climb"
+	panel.Visible = true
+	updateElevator()
+end
+
+local function isNearSpire(): boolean
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		return false
+	end
+	for _, spire in CollectionService:GetTagged("DragonSpire") do
+		local position = if spire:IsA("Model") then spire:GetPivot().Position elseif spire:IsA("BasePart") then spire.Position else nil
+		if position and (root.Position - position).Magnitude <= SpireConfig.EntranceRange then
+			return true
+		end
+	end
+	return false
+end
+
 local function onUpdate(update: { [string]: any })
 	panel.Visible = true
+	climbing = update.Phase ~= "Ended"
+	againButton.Text = "Climb again"
+	record = update.Record or record
 	local phase = update.Phase
 	if phase == "Fast" then
 		log = {}
@@ -116,6 +171,7 @@ local function onUpdate(update: { [string]: any })
 		timerSeconds = 0
 		stopButton.Visible, againButton.Visible = false, true
 	end
+	updateElevator()
 end
 
 function SpireController:Init()
@@ -169,8 +225,16 @@ function SpireController:Init()
 	againButton = button(panel, "Climb again", GREEN, function()
 		spireAction:FireServer("Start")
 	end)
+	elevatorButton = button(panel, "Elevator", Color3.fromRGB(200, 150, 255), function()
+		spireAction:FireServer("Start", true)
+	end)
+	elevatorButton.AnchorPoint = Vector2.new(0, 1)
+	elevatorButton.Size = UDim2.new(0.35, -8, 0, 32)
+	elevatorButton.Position = UDim2.new(0.37, 0, 1, -8)
+	elevatorButton.Visible = false
 	local close = button(panel, "Hide", Color3.fromRGB(170, 170, 185), function()
 		panel.Visible = false
+		hiddenHere = true
 	end)
 	-- Stop and Climb again share the left spot (only one shows at a time); Hide sits on the right.
 	for _, b in { stopButton, againButton, close } do
@@ -181,6 +245,8 @@ function SpireController:Init()
 	againButton.Visible = false
 
 	spireUpdate.OnClientEvent:Connect(onUpdate)
+	DataController:OnChanged("ElevatorSkips", updateElevator)
+	Players.LocalPlayer:GetAttributeChangedSignal("Pass_ElevatorPass"):Connect(updateElevator)
 end
 
 function SpireController:Start()
@@ -189,6 +255,21 @@ function SpireController:Start()
 			barFill.Size = UDim2.fromScale(math.clamp((os.clock() - timerStart) / timerSeconds, 0, 1), 1)
 		end
 	end)
+	-- Show the ready panel on arrival at the Spire; hide it on leaving (unless a climb result is showing).
+	local wasNear = false
+	while true do
+		local near = isNearSpire()
+		if near and not wasNear and not climbing and not hiddenHere then
+			showReady()
+		elseif not near and wasNear then
+			hiddenHere = false
+			if not climbing then
+				panel.Visible = false
+			end
+		end
+		wasNear = near
+		task.wait(0.5)
+	end
 end
 
 return SpireController

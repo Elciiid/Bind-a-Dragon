@@ -2,7 +2,8 @@
 -- Dragon Spire: server-run auto-battle climbs (numbers in Config/Spire).
 --
 -- A climb starts from the "Climb the Spire" prompt on any instance tagged "DragonSpire" (a BasePart, or a Model with
--- a PrimaryPart), or SpireAction("Start") while standing near one. SpireAction("Stop") ends it. The player must
+-- a PrimaryPart), or SpireAction("Start", useElevator) while standing near one. The Tower Elevator (pass or
+-- Elevator Skip product, MonetizationService) starts the climb above the record. SpireAction("Stop") ends it. The player must
 -- stay within EntranceRange; walking away ends the climb.
 -- The server fights floor by floor with the player's most powerful dragon (x Wyrmblood Tonic) and sends each step
 -- to the client (SpireUpdate) for display. Results and rewards are decided here only.
@@ -13,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local MonetizationService = require(script.Parent.MonetizationService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
@@ -126,12 +128,23 @@ local function getEnemy(floor: number): string
 	return if species then species.Name else "Wild Dragon"
 end
 
--- TODO(MonetizationService): Tower Elevator Pass starts from the record instead of floor 1.
-local function getStartFloor(_player: Player, _data: PlayerData): number
-	return 1
+-- The Tower Elevator (pass, or one Elevator Skip) starts above the record: no fast floors and no re-clears.
+local function getStartFloor(player: Player, data: PlayerData, useElevator: boolean): number?
+	if not useElevator then
+		return 1
+	end
+	if data.SpireRecord <= 0 or data.SpireRecord >= SpireConfig.MaxFloors then
+		notify:FireClient(player, "The elevator opens once you've cleared a floor, and stops below the top.", "error")
+		return nil
+	end
+	if not MonetizationService:UseElevator(player, data) then
+		notify:FireClient(player, "You need the Tower Elevator pass or an Elevator Skip.", "error")
+		return nil
+	end
+	return data.SpireRecord + 1
 end
 
-local function climb(player: Player)
+local function climb(player: Player, useElevator: boolean)
 	local data = DataService:GetData(player)
 	if data == nil or runs[player] then
 		return
@@ -145,7 +158,12 @@ local function climb(player: Player)
 	runs[player] = run
 
 	local record = data.SpireRecord
-	local floor = getStartFloor(player, data)
+	local startFloor = getStartFloor(player, data, useElevator)
+	if startFloor == nil then
+		runs[player] = nil
+		return
+	end
+	local floor = startFloor
 	local fastUntil = math.max(floor - 1, record - SpireConfig.TopWindow)
 	local result = "Stopped"
 
@@ -224,7 +242,7 @@ local function climb(player: Player)
 	spireUpdate:FireClient(player, { Phase = "Ended", Result = result, Floor = floor, Record = data.SpireRecord })
 end
 
-local function tryStart(player: Player)
+local function tryStart(player: Player, useElevator: boolean)
 	if runs[player] then
 		return
 	end
@@ -232,10 +250,11 @@ local function tryStart(player: Player)
 		notify:FireClient(player, "Go to the Dragon Spire to climb.", "error")
 		return
 	end
-	task.spawn(climb, player)
+	task.spawn(climb, player, useElevator)
 end
 
-local function onSpireAction(player: Player, action: unknown)
+-- SpireAction(action, useElevator?)
+local function onSpireAction(player: Player, action: unknown, useElevator: unknown)
 	if action ~= "Start" and action ~= "Stop" then
 		return
 	end
@@ -245,7 +264,7 @@ local function onSpireAction(player: Player, action: unknown)
 	end
 	lastAction[player] = now
 	if action == "Start" then
-		tryStart(player)
+		tryStart(player, useElevator == true)
 	elseif runs[player] then
 		runs[player].Stop = true
 	end
@@ -267,7 +286,9 @@ local function setupSpire(spire: Instance)
 	prompt.MaxActivationDistance = 15
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
-	prompt.Triggered:Connect(tryStart)
+	prompt.Triggered:Connect(function(player)
+		tryStart(player, false)
+	end)
 end
 
 function SpireService:IsClimbing(player: Player): boolean
