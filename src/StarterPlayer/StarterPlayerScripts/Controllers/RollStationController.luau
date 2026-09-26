@@ -1,8 +1,8 @@
 --!strict
 -- Rune Shrine (traits, costs Wyrm Runes) and Dragonstone Forge (grades, costs Dragonstones).
 -- Stations are instances tagged "RuneShrine" / "DragonstoneForge" (BasePart, or Model with a PrimaryPart).
--- Walking up and pressing E opens a panel: pick one of your dragons, see its current trait/grade, roll,
--- and see the odds. The server checks the player is at the station and has the currency. Placeholder UI.
+-- Walking up and pressing E opens a window: pick one of your dragons, see its current trait/grade, roll,
+-- and see the odds. The server checks the player is at the station and has the currency. Styled with the UI kit.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -10,6 +10,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
+local Style = require(script.Parent.UI.Style)
+local Icon = require(script.Parent.UI.Icon)
+local Button = require(script.Parent.UI.Button)
+local Window = require(script.Parent.UI.Window)
+local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
@@ -20,24 +25,20 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 type Kind = "Trait" | "Grade"
 
 local STATIONS: { [string]: Kind } = { RuneShrine = "Trait", DragonstoneForge = "Grade" }
-local CLOSE_DISTANCE = 25 -- the panel closes when you walk this far from the station
-local DARK = Color3.fromRGB(15, 15, 30)
-local ROW = Color3.fromRGB(32, 32, 55)
-local SELECTED = Color3.fromRGB(70, 70, 120)
-local GOLD = Color3.fromRGB(255, 210, 70)
-local GREY = Color3.fromRGB(120, 120, 130)
+local CLOSE_DISTANCE = 25 -- the window closes when you walk this far from the station
+local GREY = UITheme.Colors.TextMuted
 
 local rollTrait = ReplicatedStorage.Remotes.RollTrait :: RemoteEvent
 local rollGrade = ReplicatedStorage.Remotes.RollGrade :: RemoteEvent
 
 local RollStationController = {}
 
-local panel: Frame
-local title: TextLabel
+local window: Window.Window
 local owned: TextLabel
+local ownedIcon: ImageLabel
 local list: ScrollingFrame
 local detail: TextLabel
-local rollButton: TextButton
+local rollButton: Button.Button
 local odds: TextLabel
 
 local openKind: Kind? = nil
@@ -99,11 +100,15 @@ local function redraw()
 	local currency = if kind == "Trait" then data.WyrmRunes else data.Dragonstones
 	local currencyName = if kind == "Trait" then "Wyrm Runes" else "Dragonstones"
 	local cost = if kind == "Trait" then TraitConfig.TraitRollCost else TraitConfig.GradeRollCost
-	title.Text = if kind == "Trait" then "Rune Shrine: roll a trait" else "Dragonstone Forge: roll a grade"
-	owned.Text = `You have {currency} {currencyName}. Pick a dragon:`
+	window:SetTitle(if kind == "Trait" then "Rune Shrine" else "Dragonstone Forge")
+	owned.Text = `{currency} {currencyName} · pick a dragon to roll its {if kind == "Trait" then "trait" else "grade"}`
+	local iconKey = if kind == "Trait" then "WyrmRune" else "Dragonstone"
+	if ownedIcon.Image ~= UITheme.Icons[iconKey] then
+		ownedIcon.Image = UITheme.Icons[iconKey]
+	end
 
 	for _, child in list:GetChildren() do
-		if child:IsA("TextButton") then
+		if child:IsA("Frame") then
 			child:Destroy()
 		end
 	end
@@ -121,21 +126,24 @@ local function redraw()
 	for index, dragon in sorted do
 		local species = Dragons[dragon.SpeciesId]
 		local current, color = describe(dragon, kind)
-		local row = Instance.new("TextButton")
+		-- Row: a card (gold outline when selected) with a transparent button over it.
+		local row = Instance.new("Frame")
 		row.LayoutOrder = index
-		row.Size = UDim2.new(1, -8, 0, 34)
-		row.BackgroundColor3 = if dragon.Id == selectedId then SELECTED else ROW
-		row.TextColor3 = color
-		row.Font = Enum.Font.Gotham
-		row.TextScaled = true
-		row.TextXAlignment = Enum.TextXAlignment.Left
-		row.Text = `  {if species then species.Name else "?"}  Lv {dragon.Level}  ·  {current}`
-		Instance.new("UICorner").Parent = row
-		local pad = Instance.new("UIPadding")
-		pad.PaddingTop = UDim.new(0, 6)
-		pad.PaddingBottom = UDim.new(0, 6)
-		pad.Parent = row
-		row.Activated:Connect(function()
+		row.Size = UDim2.new(1, -8, 0, 36)
+		Style.CardLook(row, if dragon.Id == selectedId then UITheme.Colors.Title else nil)
+		local text = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}  ·  {current}`, "Bold", 15, color)
+		text.Position = UDim2.fromOffset(16, 0)
+		text.Size = UDim2.new(1, -20, 1, 0)
+		text.TextXAlignment = Enum.TextXAlignment.Left
+		text.TextTruncate = Enum.TextTruncate.AtEnd
+		local hit = Instance.new("TextButton")
+		hit.Size = UDim2.fromScale(1, 1)
+		hit.BackgroundTransparency = 1
+		hit.Text = ""
+		hit.ZIndex = 3
+		hit.Parent = row
+		Style.AttachPress(hit)
+		hit.Activated:Connect(function()
 			selectedId = dragon.Id
 			redraw()
 		end)
@@ -153,13 +161,13 @@ local function redraw()
 		detail.TextColor3 = GREY
 	end
 	local canRoll = selected ~= nil and currency >= cost
-	rollButton.Text = `Roll ({cost} {if kind == "Trait" then "Wyrm Rune" else "Dragonstone"})`
-	rollButton.BackgroundColor3 = if canRoll then GOLD else GREY
+	rollButton:SetText(`Roll ({cost} {if kind == "Trait" then "Wyrm Rune" else "Dragonstone"})`)
+	rollButton:SetEnabled(canRoll)
 	odds.Text = oddsText(kind, DragonStats.GetBoostMultiplier(data, "RollLuck"))
 end
 
 local function close()
-	panel.Visible = false
+	window:Close()
 	openKind = nil
 	openStation = nil
 end
@@ -167,7 +175,7 @@ end
 local function open(kind: Kind, station: BasePart)
 	openKind = kind
 	openStation = station
-	panel.Visible = true
+	window:Open()
 	redraw()
 end
 
@@ -194,116 +202,89 @@ local function setupStation(instance: Instance, kind: Kind)
 	prompt.Parent = part
 end
 
-local function makeLabel(parent: Instance, y: number, height: number, bold: boolean): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Position = UDim2.new(0, 14, 0, y)
-	l.Size = UDim2.new(1, -28, 0, height)
-	l.Font = if bold then Enum.Font.GothamBold else Enum.Font.Gotham
-	l.TextScaled = true
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextColor3 = Color3.new(1, 1, 1)
-	l.Parent = parent
-	return l
-end
-
 function RollStationController:Init()
-	local gui = HudLayout.MakeScreenGui("RollStation", "Popups")
+	window = Window.new({
+		Name = "RollStation",
+		Title = "Rune Shrine", -- set per station on open; the currency row shows the rune/stone icon
+		Size = UDim2.new(0.92, 0, 0.8, 0),
+		MaxSize = Vector2.new(580, 540),
+	})
+	window:OnClose(function()
+		openKind = nil
+		openStation = nil
+	end)
+	local content = window.Content
 
-	panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.92, 0, 0.8, 0)
-	panel.BackgroundColor3 = DARK
-	panel.BackgroundTransparency = 0.05
-	panel.Visible = false
-	panel.Parent = gui
-	Instance.new("UICorner").Parent = panel
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(560, 540)
-	limit.Parent = panel
-	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.8, 0))
-
-	title = makeLabel(panel, 10, 28, true)
-	title.Size = UDim2.new(1, -70, 0, 28)
-	owned = makeLabel(panel, 42, 20, false)
-
-	local closeButton = Instance.new("TextButton")
-	closeButton.AnchorPoint = Vector2.new(1, 0)
-	closeButton.Position = UDim2.new(1, -10, 0, 8)
-	closeButton.Size = UDim2.new(0, 36, 0, 30)
-	closeButton.BackgroundColor3 = GOLD
-	closeButton.TextColor3 = DARK
-	closeButton.Font = Enum.Font.GothamBold
-	closeButton.TextScaled = true
-	closeButton.Text = "X"
-	Instance.new("UICorner").Parent = closeButton
-	closeButton.Activated:Connect(close)
-	closeButton.Parent = panel
+	local ownedRow = Instance.new("Frame")
+	ownedRow.BackgroundTransparency = 1
+	ownedRow.Size = UDim2.new(1, 0, 0, 24)
+	ownedRow.Parent = content
+	ownedIcon = Icon.new(ownedRow, "WyrmRune") :: ImageLabel
+	ownedIcon.Size = UDim2.fromOffset(24, 24)
+	owned = Style.Label(ownedRow, "", "Heavy", 16, UITheme.Colors.Gold)
+	owned.Position = UDim2.fromOffset(30, 0)
+	owned.Size = UDim2.new(1, -30, 1, 0)
+	owned.TextXAlignment = Enum.TextXAlignment.Left
 
 	list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.new(0, 10, 0, 70)
-	list.Size = UDim2.new(1, -20, 0.55, -70)
+	list.Position = UDim2.new(0, 0, 0, 30)
+	list.Size = UDim2.new(1, 0, 0.55, -30)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = UITheme.Colors.Trim
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
-	list.Parent = panel
+	list.Parent = content
+	Style.Pad(list, 2, 3)
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 4)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
 
-	detail = makeLabel(panel, 0, 24, true)
-	detail.Position = UDim2.new(0, 14, 0.55, 8)
+	detail = Style.Label(content, "", "Heavy", 17)
+	detail.Position = UDim2.new(0, 2, 0.55, 6)
+	detail.Size = UDim2.new(1, -4, 0, 22)
+	detail.TextXAlignment = Enum.TextXAlignment.Left
+	detail.TextTruncate = Enum.TextTruncate.AtEnd
 
-	rollButton = Instance.new("TextButton")
-	rollButton.Position = UDim2.new(0, 14, 0.55, 40)
-	rollButton.Size = UDim2.new(1, -28, 0, 44)
-	rollButton.TextColor3 = DARK
-	rollButton.Font = Enum.Font.GothamBold
-	rollButton.TextScaled = true
-	Instance.new("UICorner").Parent = rollButton
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 8)
-	pad.PaddingBottom = UDim.new(0, 8)
-	pad.Parent = rollButton
-	rollButton.Activated:Connect(function()
-		if selectedId == nil or openKind == nil then
-			return
-		end
-		if openKind == "Trait" then
-			rollTrait:FireServer(selectedId)
-		else
-			rollGrade:FireServer(selectedId)
-		end
-	end)
-	rollButton.Parent = panel
+	rollButton = Button.new(content, {
+		Text = "Roll",
+		Kind = "Primary",
+		OnClick = function()
+			if selectedId == nil or openKind == nil then
+				return
+			end
+			if openKind == "Trait" then
+				rollTrait:FireServer(selectedId)
+			else
+				rollGrade:FireServer(selectedId)
+			end
+		end,
+	})
+	rollButton.Instance.Position = UDim2.new(0, 0, 0.55, 34)
+	rollButton.Instance.Size = UDim2.new(1, 0, 0, 44)
 
-	-- The odds scroll, so they stay readable when the panel is short (phones).
+	-- The odds scroll, so they stay readable when the window is short (phones).
 	local oddsScroll = Instance.new("ScrollingFrame")
-	oddsScroll.Position = UDim2.new(0, 14, 0.55, 94)
-	oddsScroll.Size = UDim2.new(1, -28, 0.45, -100)
+	oddsScroll.Position = UDim2.new(0, 0, 0.55, 86)
+	oddsScroll.Size = UDim2.new(1, 0, 0.45, -86)
 	oddsScroll.BackgroundTransparency = 1
 	oddsScroll.BorderSizePixel = 0
 	oddsScroll.ScrollBarThickness = 4
+	oddsScroll.ScrollBarImageColor3 = UITheme.Colors.Trim
 	oddsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	oddsScroll.CanvasSize = UDim2.new()
-	oddsScroll.Parent = panel
-	odds = makeLabel(oddsScroll, 0, 0, false)
-	odds.Position = UDim2.new()
+	oddsScroll.Parent = content
+	odds = Style.Label(oddsScroll, "", "Body", 14, UITheme.Colors.TextMuted)
 	odds.Size = UDim2.new(1, -8, 0, 0)
 	odds.AutomaticSize = Enum.AutomaticSize.Y
-	odds.TextScaled = false
-	odds.TextSize = 14
-	odds.TextWrapped = true
+	odds.TextXAlignment = Enum.TextXAlignment.Left
 	odds.TextYAlignment = Enum.TextYAlignment.Top
-	odds.TextColor3 = Color3.fromRGB(190, 190, 205)
 
 	for _, key in { "Dragons", "WyrmRunes", "Dragonstones" } do
 		DataController:OnChanged(key, function()
-			if panel.Visible then
+			if window.IsOpen then
 				redraw()
 			end
 		end)
@@ -315,7 +296,7 @@ function RollStationController:Init()
 		local rollLuck = if data then DragonStats.GetBoostMultiplier(data, "RollLuck") else 1
 		if rollLuck ~= lastRollLuck then
 			lastRollLuck = rollLuck
-			if panel.Visible then
+			if window.IsOpen then
 				redraw()
 			end
 		end
@@ -341,7 +322,7 @@ function RollStationController:Start()
 			end
 		end
 
-		-- Close the panel when the player walks away from the station.
+		-- Close the window when the player walks away from the station.
 		local station = openStation
 		local character = Players.LocalPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")

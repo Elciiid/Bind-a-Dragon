@@ -2,7 +2,8 @@
 -- Dragon Spire display: a panel (bottom center) that follows the server's climb (SpireUpdate): the current floor,
 -- your dragon vs the enemy with a fight timer, rewards per floor, and the result. Buttons: Stop, Climb again,
 -- Elevator (Tower Elevator pass or an Elevator Skip: starts above the record).
--- The server decides every result; this only shows it. Placeholder UI until the Spire interior exists.
+-- The server decides every result; this only shows it. Styled with the UI kit; the fight itself is a timer bar
+-- until the Spire battle visuals exist.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -11,18 +12,15 @@ local RunService = game:GetService("RunService")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
+local Style = require(script.Parent.UI.Style)
+local Button = require(script.Parent.UI.Button)
 local Format = require(ReplicatedStorage.Shared.Format)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
-local Theme = require(ReplicatedStorage.Shared.Config.Theme)
+local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local spireAction = ReplicatedStorage.Remotes.SpireAction :: RemoteEvent
 local spireUpdate = ReplicatedStorage.Remotes.SpireUpdate :: RemoteEvent
 
-local DARK = Color3.fromRGB(15, 15, 30)
-local GOLD = Color3.fromRGB(255, 210, 70)
-local RED = Color3.fromRGB(230, 80, 80)
-local GREEN = Color3.fromRGB(130, 230, 140)
-local SPIRE_COLOR = Color3.fromRGB(230, 120, 90)
 local LOG_LINES = 4
 
 local SpireController = {}
@@ -43,38 +41,26 @@ local timerStart = 0
 local timerSeconds = 0
 local log: { string } = {}
 
-local function round(instance: GuiObject)
-	Instance.new("UICorner").Parent = instance
-end
+local buttons: { [TextButton]: Button.Button } = {}
 
-local function label(parent: Instance, color: Color3, bold: boolean, y: number, height: number): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Position = UDim2.new(0, 12, 0, y)
-	l.Size = UDim2.new(1, -24, 0, height)
-	l.Font = if bold then Enum.Font.GothamBold else Enum.Font.Gotham
+local function label(parent: Instance, kind: Style.TextKind, color: Color3, y: number, height: number): TextLabel
+	local l = Style.Label(parent, "", kind, 16, color)
+	l.Position = UDim2.new(0, 14, 0, y)
+	l.Size = UDim2.new(1, -28, 0, height)
 	l.TextScaled = true
-	l.TextColor3 = color
-	l.Text = ""
-	l.Parent = parent
+	l.ZIndex = 2
 	return l
 end
 
-local function button(parent: Instance, text: string, color: Color3, onClick: () -> ()): TextButton
-	local b = Instance.new("TextButton")
-	b.BackgroundColor3 = color
-	b.TextColor3 = DARK
-	b.Font = Enum.Font.GothamBold
-	b.TextScaled = true
-	b.Text = text
-	round(b)
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 5)
-	pad.PaddingBottom = UDim.new(0, 5)
-	pad.Parent = b
-	b.Parent = parent
-	b.Activated:Connect(onClick)
-	return b
+local function button(parent: Instance, text: string, kind: Button.Kind, onClick: () -> ()): TextButton
+	local b = Button.new(parent, { Text = text, Kind = kind, TextSize = 15, OnClick = onClick })
+	b.Instance.ZIndex = 2
+	buttons[b.Instance] = b
+	return b.Instance
+end
+
+local function setText(b: TextButton, text: string)
+	buttons[b]:SetText(text)
 end
 
 local function addLog(line: string)
@@ -99,7 +85,7 @@ local function updateElevator()
 		and (hasPass or skips > 0)
 		and record > 0
 		and record < SpireConfig.MaxFloors
-	elevatorButton.Text = if hasPass then `Elevator to {record + 1}` else `Elevator to {record + 1} ({skips} left)`
+	setText(elevatorButton, if hasPass then `Elevator to {record + 1}` else `Elevator to {record + 1} ({skips} left)`)
 end
 
 local climbing = false
@@ -117,7 +103,7 @@ local function showReady()
 	timerSeconds = 0
 	barFill.Size = UDim2.fromScale(0, 1)
 	stopButton.Visible, againButton.Visible = false, true
-	againButton.Text = "Climb"
+	setText(againButton, "Climb")
 	panel.Visible = true
 	updateElevator()
 end
@@ -140,7 +126,7 @@ end
 local function onUpdate(update: { [string]: any })
 	panel.Visible = true
 	climbing = update.Phase ~= "Ended"
-	againButton.Text = "Climb again"
+	setText(againButton, "Climb again")
 	record = update.Record or record
 	local phase = update.Phase
 	if phase == "Fast" then
@@ -158,7 +144,7 @@ local function onUpdate(update: { [string]: any })
 		end
 		title.Text = `Floor {update.Floor}{if update.Boss then "  ·  BOSS" else ""}{if update.Fast then "  ·  fast" else ""}  ·  record {update.Record}/{SpireConfig.MaxFloors}`
 		matchup.Text = `{update.Dragon} ({Format.Number(update.Power)})  vs  {update.Enemy} ({Format.Number(update.EnemyPower)})`
-		matchup.TextColor3 = if update.Power >= update.EnemyPower then GREEN else RED
+		matchup.TextColor3 = if update.Power >= update.EnemyPower then Theme.Colors.Positive else Theme.Colors.Negative
 		startTimer(update.Seconds)
 		stopButton.Visible, againButton.Visible = true, false
 	elseif phase == "Won" then
@@ -182,58 +168,57 @@ function SpireController:Init()
 	local gui = HudLayout.MakeScreenGui("Spire", "Cards")
 
 	panel = Instance.new("Frame")
+	panel.Name = "SpireCard"
 	panel.AnchorPoint = Vector2.new(0.5, 1)
 	panel.Position = UDim2.new(0.5, 0, 1, -16)
 	panel.Size = UDim2.new(0.6, 0, 0, 200)
-	panel.BackgroundColor3 = DARK
-	panel.BackgroundTransparency = 0.1
 	panel.Visible = false
-	round(panel)
+	Style.PanelLook(panel, 6)
 	panel.Parent = gui
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(560, 200)
 	limit.Parent = panel
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = SPIRE_COLOR
-	stroke.Thickness = 1.5
-	stroke.Parent = panel
 
-	title = label(panel, SPIRE_COLOR, true, 8, 24)
-	matchup = label(panel, Color3.new(1, 1, 1), true, 36, 20)
+	title = label(panel, "Title", Theme.Colors.Title, 8, 24)
+	title.TextStrokeTransparency = 0
+	matchup = label(panel, "Heavy", Theme.Colors.Text, 36, 20)
 
 	local bar = Instance.new("Frame")
-	bar.Position = UDim2.new(0, 12, 0, 62)
-	bar.Size = UDim2.new(1, -24, 0, 10)
-	bar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-	round(bar)
+	bar.Position = UDim2.new(0, 14, 0, 62)
+	bar.Size = UDim2.new(1, -28, 0, 10)
+	bar.BackgroundColor3 = Theme.Colors.PanelInnerLine
+	bar.ZIndex = 2
+	Style.Round(bar)
 	bar.Parent = panel
 	barFill = Instance.new("Frame")
 	barFill.Size = UDim2.fromScale(0, 1)
-	barFill.BackgroundColor3 = SPIRE_COLOR
-	round(barFill)
+	barFill.BackgroundColor3 = Color3.new(1, 1, 1)
+	barFill.ZIndex = 2
+	Style.Gradient(barFill, Theme.Colors.Trim, Theme.Colors.TrimDark)
+	Style.Round(barFill)
 	barFill.Parent = bar
 
-	logLabel = label(panel, GOLD, false, 78, 76)
+	logLabel = label(panel, "Bold", Theme.Colors.Gold, 78, 76)
 	logLabel.TextScaled = false
 	logLabel.TextSize = 14
 	logLabel.TextWrapped = true
 	logLabel.TextXAlignment = Enum.TextXAlignment.Left
 	logLabel.TextYAlignment = Enum.TextYAlignment.Top
 
-	stopButton = button(panel, "Stop climbing", RED, function()
+	stopButton = button(panel, "Stop climbing", "Cancel", function()
 		spireAction:FireServer("Stop")
 	end)
-	againButton = button(panel, "Climb again", GREEN, function()
+	againButton = button(panel, "Climb again", "Confirm", function()
 		spireAction:FireServer("Start")
 	end)
-	elevatorButton = button(panel, "Elevator", Color3.fromRGB(200, 150, 255), function()
+	elevatorButton = button(panel, "Elevator", "Neutral", function()
 		spireAction:FireServer("Start", true)
 	end)
 	elevatorButton.AnchorPoint = Vector2.new(0, 1)
 	elevatorButton.Size = UDim2.new(0.35, -8, 0, 32)
 	elevatorButton.Position = UDim2.new(0.37, 0, 1, -8)
 	elevatorButton.Visible = false
-	closeButton = button(panel, "Hide", Color3.fromRGB(170, 170, 185), function()
+	closeButton = button(panel, "Hide", "Neutral", function()
 		panel.Visible = false
 		hiddenHere = true
 	end)

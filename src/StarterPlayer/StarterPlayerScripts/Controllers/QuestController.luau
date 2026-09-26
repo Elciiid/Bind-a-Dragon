@@ -1,26 +1,25 @@
 --!strict
--- Quests panel: a "Quests" button opens today's daily quests and this week's weekly quests (progress bars, rewards,
--- time until reset) and the login streak. Rewards are granted by the server when a quest completes. Placeholder UI.
+-- Quests window: the "Quests" menu tile opens the login streak (a 7-day strip with reward icons), today's daily
+-- quests and this week's weekly quests (progress bars, reward icons, time until reset). Rewards are granted by the
+-- server when a quest completes.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
+local Style = require(script.Parent.UI.Style)
+local ProgressBar = require(script.Parent.UI.ProgressBar)
+local RewardRow = require(script.Parent.UI.RewardRow)
+local Window = require(script.Parent.UI.Window)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local QuestConfig = require(ReplicatedStorage.Shared.Config.Quests)
+local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
-
-local DARK = Color3.fromRGB(15, 15, 30)
-local CARD = Color3.fromRGB(32, 32, 55)
-local GOLD = Color3.fromRGB(255, 210, 70)
-local GREEN = Color3.fromRGB(130, 230, 140)
-local QUEST_COLOR = Color3.fromRGB(130, 230, 140)
 
 local QuestController = {}
 
-local panel: Frame
-local streakLabel: TextLabel
+local window: Window.Window
 local list: ScrollingFrame
 local resetLabels: { daily: TextLabel?, weekly: TextLabel? } = {}
 
@@ -30,31 +29,6 @@ for _, quest in QuestConfig.DailyPool do
 end
 for _, quest in QuestConfig.WeeklyPool do
 	questById[quest.Id] = quest
-end
-
-local function round(instance: GuiObject)
-	Instance.new("UICorner").Parent = instance
-end
-
-local function pad(instance: GuiObject, amount: number)
-	local p = Instance.new("UIPadding")
-	p.PaddingTop = UDim.new(0, amount)
-	p.PaddingBottom = UDim.new(0, amount)
-	p.PaddingLeft = UDim.new(0, amount)
-	p.PaddingRight = UDim.new(0, amount)
-	p.Parent = instance
-end
-
-local function label(parent: Instance, text: string, color: Color3, bold: boolean): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Font = if bold then Enum.Font.GothamBold else Enum.Font.Gotham
-	l.TextScaled = true
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextColor3 = color
-	l.Text = text
-	l.Parent = parent
-	return l
 end
 
 local function formatDuration(seconds: number): string
@@ -85,40 +59,79 @@ local function updateResetTimers()
 	end
 end
 
+local function sectionTitle(order: number): TextLabel
+	local label = Style.Label(list, "", "Title", 18, UITheme.Colors.Title)
+	label.LayoutOrder = order
+	label.Size = UDim2.new(1, -8, 0, 26)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	return label
+end
+
+-- The login streak: 7 day cards, claimed days checked, today highlighted.
+local function addStreak(data: PlayerDataTypes.PlayerData)
+	local theme = UITheme
+	local days = #QuestConfig.StreakRewards
+	local title = sectionTitle(-2)
+	title.Text = `Login streak · day {data.LoginStreak}/{days}`
+
+	local strip = Instance.new("Frame")
+	strip.LayoutOrder = -1
+	strip.BackgroundTransparency = 1
+	strip.Size = UDim2.new(1, -8, 0, 62)
+	strip.Parent = list
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Padding = UDim.new(0, 5)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = strip
+	for day = 1, days do
+		local claimed = day <= data.LoginStreak
+		local today = day == data.LoginStreak
+		local card = Instance.new("Frame")
+		card.LayoutOrder = day
+		card.Size = UDim2.new(1 / days, -5, 1, 0)
+		Style.CardLook(card)
+		local stroke = card:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = if today then theme.Colors.Title elseif claimed then theme.Colors.Positive else theme.Colors.PanelInnerLine
+			stroke.Thickness = if today then 3 else 2
+		end
+		card.Parent = strip
+		local label = Style.Label(card, if claimed then `✓ Day {day}` else `Day {day}`, "Heavy", 12, if claimed then theme.Colors.Positive else theme.Colors.TextMuted)
+		label.Size = UDim2.new(1, 0, 0, 18)
+		local rewards = RewardRow.new(card, QuestConfig.StreakRewards[day], 18) -- small: day 3 and 6 show two items
+		rewards.AnchorPoint = Vector2.new(0.5, 0)
+		rewards.Position = UDim2.new(0.5, 0, 0, 22)
+	end
+end
+
 local function addQuest(order: number, state: PlayerDataTypes.QuestState, reward: Rewards.Reward?)
+	local theme = UITheme
 	local quest = questById[state.Id]
 	local card = Instance.new("Frame")
 	card.LayoutOrder = order
-	card.Size = UDim2.new(1, -8, 0, 56)
-	card.BackgroundColor3 = CARD
-	round(card)
+	card.Size = UDim2.new(1, -8, 0, 66)
+	Style.CardLook(card, if state.Done then theme.Colors.Positive else theme.Colors.Primary)
 	card.Parent = list
 
 	local text = if quest then quest.Text:gsub("{n}", Format.Number(state.Target)) else state.Id
-	local title = label(card, if state.Done then `✓ {text}` else text, if state.Done then GREEN else Color3.new(1, 1, 1), true)
-	title.Position = UDim2.new(0, 10, 0, 6)
-	title.Size = UDim2.new(0.65, -10, 0, 20)
+	local title = Style.Label(card, if state.Done then `✓ {text}` else text, "Heavy", 17, if state.Done then theme.Colors.Positive else theme.Colors.Text)
+	title.Position = UDim2.fromOffset(16, 6)
+	title.Size = UDim2.new(0.6, -16, 0, 22)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextTruncate = Enum.TextTruncate.AtEnd
+	title.TextWrapped = false
 
-	local rewardText = label(card, if reward then Rewards.Describe(reward) else "", GOLD, false)
-	rewardText.Position = UDim2.new(0.65, 0, 0, 6)
-	rewardText.Size = UDim2.new(0.35, -10, 0, 18)
-	rewardText.TextXAlignment = Enum.TextXAlignment.Right
+	if reward then
+		local rewards = RewardRow.new(card, reward, 24)
+		rewards.AnchorPoint = Vector2.new(1, 0)
+		rewards.Position = UDim2.new(1, -10, 0, 5)
+	end
 
-	local bar = Instance.new("Frame")
-	bar.Position = UDim2.new(0, 10, 0, 32)
-	bar.Size = UDim2.new(1, -20, 0, 16)
-	bar.BackgroundColor3 = DARK
-	round(bar)
-	bar.Parent = card
-	local fill = Instance.new("Frame")
-	fill.Size = UDim2.new(math.clamp(state.Progress / math.max(state.Target, 1), 0, 1), 0, 1, 0)
-	fill.BackgroundColor3 = if state.Done then GREEN else QUEST_COLOR:Lerp(DARK, 0.3)
-	round(fill)
-	fill.Parent = bar
-	local count = label(bar, `{Format.Number(state.Progress)} / {Format.Number(state.Target)}`, Color3.new(1, 1, 1), true)
-	count.Size = UDim2.fromScale(1, 1)
-	count.TextXAlignment = Enum.TextXAlignment.Center
-	count.ZIndex = 2
+	local bar = ProgressBar.new(card, if state.Done then theme.Colors.Positive else theme.Colors.Primary)
+	bar.Instance.Position = UDim2.fromOffset(16, 36)
+	bar.Instance.Size = UDim2.new(1, -28, 0, 20)
+	bar:Set(state.Progress / math.max(state.Target, 1), `{Format.Number(state.Progress)} / {Format.Number(state.Target)}`)
 end
 
 local function redraw()
@@ -132,23 +145,12 @@ local function redraw()
 		end
 	end
 
-	local days = #QuestConfig.StreakRewards
-	local nextDay = if data.LoginStreak >= days then 1 else data.LoginStreak + 1
-	streakLabel.Text = `Login streak: day {data.LoginStreak}/{days}  ·  tomorrow: {Rewards.Describe(QuestConfig.StreakRewards[nextDay])}`
-		.. (if nextDay ~= days then `  ·  day {days}: {Rewards.Describe(QuestConfig.StreakRewards[days])}` else "")
-
-	local daily = label(list, "", Color3.new(1, 1, 1), true)
-	daily.LayoutOrder = 0
-	daily.Size = UDim2.new(1, -8, 0, 22)
-	resetLabels.daily = daily
+	addStreak(data)
+	resetLabels.daily = sectionTitle(0)
 	for slot, state in data.DailyQuests do
 		addQuest(slot, state, QuestConfig.DailyRewards[slot])
 	end
-
-	local weekly = label(list, "", Color3.new(1, 1, 1), true)
-	weekly.LayoutOrder = 100
-	weekly.Size = UDim2.new(1, -8, 0, 22)
-	resetLabels.weekly = weekly
+	resetLabels.weekly = sectionTitle(100)
 	for slot, state in data.WeeklyQuests do
 		addQuest(100 + slot, state, QuestConfig.WeeklyRewards[slot])
 	end
@@ -156,70 +158,37 @@ local function redraw()
 end
 
 function QuestController:Init()
-	local gui = HudLayout.MakeScreenGui("Quests", "Popups")
 	local open = HudLayout.AddMenuButton("Quests")
-
-	panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.92, 0, 0.75, 0)
-	panel.BackgroundColor3 = DARK
-	panel.BackgroundTransparency = 0.05
-	panel.Visible = false
-	round(panel)
-	panel.Parent = gui
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(560, 520)
-	limit.Parent = panel
-	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.75, 0))
-
-	local title = label(panel, "Quests", Color3.new(1, 1, 1), true)
-	title.Position = UDim2.new(0, 14, 0, 10)
-	title.Size = UDim2.new(1, -70, 0, 26)
-
-	streakLabel = label(panel, "", GOLD, false)
-	streakLabel.Position = UDim2.new(0, 14, 0, 40)
-	streakLabel.Size = UDim2.new(1, -28, 0, 16)
-
-	local close = Instance.new("TextButton")
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -10, 0, 8)
-	close.Size = UDim2.new(0, 36, 0, 30)
-	close.BackgroundColor3 = GOLD
-	close.TextColor3 = DARK
-	close.Font = Enum.Font.GothamBold
-	close.TextScaled = true
-	close.Text = "X"
-	round(close)
-	pad(close, 4)
-	close.Parent = panel
-	close.Activated:Connect(function()
-		panel.Visible = false
-	end)
+	window = Window.new({
+		Name = "Quests",
+		Title = "Quests",
+		Icon = "Menu_Quests",
+		Size = UDim2.new(0.92, 0, 0.8, 0),
+		MaxSize = Vector2.new(600, 560),
+	})
 
 	list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.new(0, 10, 0, 64)
-	list.Size = UDim2.new(1, -20, 1, -74)
+	list.Size = UDim2.fromScale(1, 1)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = UITheme.Colors.Trim
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
-	list.Parent = panel
+	list.Parent = window.Content
+	Style.Pad(list, 2, 3)
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
 
 	open.Activated:Connect(function()
-		panel.Visible = not panel.Visible
-		if panel.Visible then
-			redraw()
-		end
+		window:Toggle()
 	end)
+	window:OnOpen(redraw)
 	for _, key in { "DailyQuests", "WeeklyQuests", "LoginStreak" } do
 		DataController:OnChanged(key, function()
-			if panel.Visible then
+			if window.IsOpen then
 				redraw()
 			end
 		end)
@@ -228,7 +197,7 @@ end
 
 function QuestController:Start()
 	while true do
-		if panel.Visible then
+		if window.IsOpen then
 			updateResetTimers()
 		end
 		task.wait(1)

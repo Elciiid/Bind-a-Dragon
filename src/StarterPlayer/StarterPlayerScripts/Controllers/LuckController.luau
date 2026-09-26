@@ -1,7 +1,7 @@
 --!strict
 -- At night, near a Star Altar: shows the player's current bind luck with a breakdown of every source (on phones a
 -- "Bind luck x…" pill top-right that opens the panel), and keeps
--- the altar prompts up to date for this player (offer cost, hidden once they've bound). Placeholder UI.
+-- the altar prompts up to date for this player (offer cost, hidden once they've bound). Styled with the UI kit.
 -- Uses Shared/Luck, the same math the server rolls with. A button cycles which luck charge (Config/Boosts) is
 -- armed for this bind: none -> each owned charge -> none.
 
@@ -11,12 +11,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
+local Style = require(script.Parent.UI.Style)
+local Icon = require(script.Parent.UI.Icon)
+local Button = require(script.Parent.UI.Button)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
-local Theme = require(ReplicatedStorage.Shared.Config.Theme)
+local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 
 local ALTAR_TAG = "StarAltar"
@@ -30,11 +33,12 @@ local LuckController = {}
 local panel: Frame
 local title: TextLabel
 local details: TextLabel
-local pill: TextButton
+local pill: Frame -- phone pill (gradient frame holding a transparent button)
+local pillButton: TextButton
 local active = false -- at an altar at night
 local expanded = false -- phone: pill tapped open
 local phone = false
-local armButton: TextButton
+local armButton: Button.Button
 
 local function getAltarPart(altar: Instance): BasePart?
 	return if altar:IsA("BasePart") then altar elseif altar:IsA("Model") then altar.PrimaryPart else nil
@@ -99,7 +103,7 @@ local function setActive(on: boolean)
 	active = on
 	pill.Visible = phone and active
 	panel.Visible = active and (not phone or expanded)
-	pill.Text = `{title.Text}  {if expanded then "-" else "+"}` -- ASCII: Gotham has no arrow glyphs
+	pillButton.Text = `{title.Text}  {if expanded then "-" else "+"}` -- ASCII: the fonts have no arrow glyphs
 end
 
 local function update()
@@ -135,7 +139,7 @@ local function update()
 		end
 	end
 
-	armButton.Visible = not boundTonight
+	armButton.Instance.Visible = not boundTonight
 	if boundTonight then
 		title.Text = "Bound tonight"
 		details.Text = "Come back next night to bind again."
@@ -168,13 +172,14 @@ local function update()
 	end
 	local owned = ownedCharges(data)
 	if #owned == 0 then
-		armButton.Text = "No luck potions"
-		armButton.AutoButtonColor = false
+		armButton:SetText("No luck potions")
+		armButton:SetEnabled(false)
 	else
-		armButton.AutoButtonColor = true
-		armButton.Text = if luck.Potion > 1 and armed
-			then `Armed: {armed.Name} ({data.Potions[armed.Id]}) · tap to change`
-			else `Arm a luck potion ({#owned} kind{if #owned > 1 then "s" else ""})`
+		armButton:SetEnabled(true)
+		-- Short texts: the button is one line on a 250 px panel.
+		armButton.Label.Text = if luck.Potion > 1 and armed
+			then `Armed: {armed.Name} x{data.Potions[armed.Id]}`
+			else `Arm a luck potion ({#owned})`
 	end
 	details.Text = table.concat(lines, "\n")
 	setActive(true)
@@ -185,70 +190,59 @@ function LuckController:Init()
 	gui.DisplayOrder += 1 -- the opened panel draws over the boost timers (phones)
 
 	panel = Instance.new("Frame")
+	panel.Name = "LuckPanel"
 	panel.Size = UDim2.new(0, 250, 0, 240)
-	panel.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
-	panel.BackgroundTransparency = 0.25
 	panel.Visible = false
+	Style.PanelLook(panel, 5)
 	panel.Parent = gui
-	Instance.new("UICorner").Parent = panel
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 10)
-	padding.PaddingBottom = UDim.new(0, 10)
-	padding.PaddingLeft = UDim.new(0, 12)
-	padding.PaddingRight = UDim.new(0, 12)
-	padding.Parent = panel
+	local inner = Instance.new("Frame")
+	inner.Name = "Inner"
+	inner.BackgroundTransparency = 1
+	inner.Position = UDim2.fromOffset(12, 10)
+	inner.Size = UDim2.new(1, -24, 1, -20)
+	inner.ZIndex = 2
+	inner.Parent = panel
 
-	title = Instance.new("TextLabel")
+	title = Style.Label(inner, "", "Title", 22, Theme.Colors.Title)
 	title.Size = UDim2.new(1, 0, 0, 28)
-	title.BackgroundTransparency = 1
-	title.TextColor3 = Color3.fromRGB(170, 220, 255)
-	title.Font = Enum.Font.GothamBold
 	title.TextScaled = true
 	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Parent = panel
+	title.TextStrokeTransparency = 0
 
-	details = Instance.new("TextLabel")
+	details = Style.Label(inner, "", "Bold", 16, Theme.Colors.Text)
 	details.Position = UDim2.new(0, 0, 0, 34)
 	details.Size = UDim2.new(1, 0, 1, -72)
-	details.BackgroundTransparency = 1
-	details.TextColor3 = Color3.new(1, 1, 1)
-	details.Font = Enum.Font.Gotham
-	details.TextSize = 16
 	details.TextXAlignment = Enum.TextXAlignment.Left
 	details.TextYAlignment = Enum.TextYAlignment.Top
-	details.Parent = panel
 
-	armButton = Instance.new("TextButton")
-	armButton.AnchorPoint = Vector2.new(0, 1)
-	armButton.Position = UDim2.new(0, 0, 1, 0)
-	armButton.Size = UDim2.new(1, 0, 0, 32)
-	armButton.BackgroundColor3 = Color3.fromRGB(200, 150, 255)
-	armButton.TextColor3 = Color3.fromRGB(15, 15, 30)
-	armButton.Font = Enum.Font.GothamBold
-	armButton.TextScaled = true
-	armButton.Parent = panel
-	Instance.new("UICorner").Parent = armButton
-	local armPad = Instance.new("UIPadding")
-	armPad.PaddingTop = UDim.new(0, 6)
-	armPad.PaddingBottom = UDim.new(0, 6)
-	armPad.PaddingLeft = UDim.new(0, 6)
-	armPad.PaddingRight = UDim.new(0, 6)
-	armPad.Parent = armButton
-	armButton.Activated:Connect(cycleCharge)
+	armButton = Button.new(inner, { Text = "Arm a luck potion", Kind = "Primary", TextSize = 14, Icon = "Potion_MoonfireTonic", OnClick = cycleCharge })
+	armButton.Instance.AnchorPoint = Vector2.new(0, 1)
+	armButton.Instance.Position = UDim2.new(0, 0, 1, 0)
+	armButton.Instance.Size = UDim2.new(1, 0, 0, 32)
 
-	pill = Instance.new("TextButton")
+	-- Phone pill: gradient pill with the Stardust icon; the whole pill is the tap target.
+	pill = Instance.new("Frame")
 	pill.Name = "LuckPill"
 	pill.AnchorPoint = Vector2.new(1, 0)
-	pill.BackgroundColor3 = Theme.Colors.Panel
-	pill.BackgroundTransparency = 0.2
-	pill.TextColor3 = Theme.Colors.Stardust
-	pill.Font = Theme.Fonts.Bold
-	pill.TextScaled = true
 	pill.Visible = false
-	HudLayout.Corner(pill)
-	HudLayout.Pad(pill, 5)
+	pill.BackgroundColor3 = Color3.new(1, 1, 1)
+	Style.Gradient(pill, Theme.Colors.PanelTop, Theme.Colors.PanelBottom)
+	Style.Round(pill)
+	Style.Stroke(pill, Theme.Colors.Trim, 2)
 	pill.Parent = gui
-	pill.Activated:Connect(function()
+	local pillIcon = Icon.new(pill, "Stardust", Theme.Colors.Stardust)
+	pillIcon.AnchorPoint = Vector2.new(0, 0.5)
+	pillIcon.Position = UDim2.new(0, -4, 0.5, 0)
+	pillIcon.Size = UDim2.fromOffset(32, 32)
+	pillButton = Instance.new("TextButton")
+	pillButton.Name = "Tap"
+	pillButton.Position = UDim2.fromOffset(26, 0)
+	pillButton.Size = UDim2.new(1, -32, 1, 0)
+	pillButton.TextScaled = true
+	Style.Text(pillButton, "Heavy", nil, Theme.Colors.Stardust)
+	pillButton.Parent = pill
+	Style.AttachPress(pillButton)
+	pillButton.Activated:Connect(function()
 		expanded = not expanded
 		setActive(active)
 	end)
@@ -264,9 +258,9 @@ function LuckController:Init()
 			panel.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
 			panel.Size = UDim2.fromOffset(250, 180)
 			title.Size = UDim2.new(1, 0, 0, 20)
-			details.Position, details.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -56)
+			details.Position, details.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -54)
 			details.TextSize = 13
-			armButton.Size = UDim2.new(1, 0, 0, 26)
+			armButton.Instance.Size = UDim2.new(1, 0, 0, 26)
 		else
 			panel.AnchorPoint = Vector2.new(1, 0.5)
 			panel.Position = UDim2.new(1, -sizes.Margin, 0.5, 0)
@@ -274,7 +268,7 @@ function LuckController:Init()
 			title.Size = UDim2.new(1, 0, 0, 28)
 			details.Position, details.Size = UDim2.fromOffset(0, 34), UDim2.new(1, 0, 1, -72)
 			details.TextSize = 16
-			armButton.Size = UDim2.new(1, 0, 0, 32)
+			armButton.Instance.Size = UDim2.new(1, 0, 0, 32)
 		end
 		setActive(active)
 	end)

@@ -1,7 +1,6 @@
 --!strict
 -- Drives the local sky from the shared cycle: Lighting.ClockTime, a night tint in tonight's element color,
 -- and a small HUD label with the phase, constellation and time left. Warns DuskWarningSeconds before night.
--- Placeholder UI.
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,7 +15,8 @@ local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local DayNight = require(ReplicatedStorage.Shared.Config.DayNight)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
-local Theme = require(ReplicatedStorage.Shared.Config.Theme)
+local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Style = require(script.Parent.UI.Style)
 
 local NIGHT_TINT = 0.35 -- how strongly tonight's element colors the ambient light
 local RARE_NIGHT_TINT = 0.6
@@ -46,22 +46,19 @@ function DayNightController:Init()
 	local gui = HudLayout.MakeScreenGui("SkyHud", "Hud")
 
 	label = Instance.new("TextLabel")
-	label.AnchorPoint = Vector2.new(0.5, 0)
-	label.Position = UDim2.new(0.5, 0, 0, 12)
-	label.Size = UDim2.new(0.9, 0, 0, 44)
-	label.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
-	label.BackgroundTransparency = 0.35
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
+	Style.Text(label, "Heavy")
 	label.Parent = gui
-	Instance.new("UICorner").Parent = label
+	local bar = Style.Backdrop(label, UITheme.Colors.PanelTop, UITheme.Colors.PanelBottom)
+	bar.Name = "SkyBar"
+	bar.AnchorPoint = Vector2.new(0.5, 0)
+	Style.Stroke(bar, UITheme.Colors.TrimDark, 2)
 	local sizeLimit = Instance.new("UISizeConstraint")
 	sizeLimit.MaxSize = Vector2.new(440, 44)
-	sizeLimit.Parent = label
+	sizeLimit.Parent = bar
 	HudLayout.OnLayoutChanged(function(isPhone)
-		label.Position = UDim2.new(0.5, 0, 0, if isPhone then Theme.Sizes.PhoneMargin else 12)
-		label.Size = UDim2.new(0.9, 0, 0, if isPhone then 36 else 44)
+		bar.Position = UDim2.new(0.5, 0, 0, if isPhone then UITheme.Sizes.PhoneMargin else 12)
+		bar.Size = UDim2.new(0.9, 0, 0, if isPhone then 36 else 44)
 		sizeLimit.MaxSize = if isPhone then Vector2.new(340, 36) else Vector2.new(440, 44)
 	end)
 	local padding = Instance.new("UIPadding")

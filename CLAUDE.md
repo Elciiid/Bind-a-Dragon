@@ -43,7 +43,7 @@ _Update this section as work progresses._
 | Weekly Spire leaderboard | Proposed (weekly update) |
 | Weekly event constellation (event-only dragon, single model) | Proposed (weekly update) |
 | Ascension (second prestige) | Proposed (design only, post-launch) |
-| UI | Placeholder UI built in code. `Controllers/HudLayout` + `Config/Theme` (colors, fonts, sizes, layers in one place; the future component kit builds on them): menu buttons (`AddMenuButton`, badges, pulse), currency (`AddCurrencyLabel`), popups (`RegisterPopup`: drawn above the HUD, near full screen on phones), `OnLayoutChanged`. PC = labeled column bottom-left; phone (short side ≤ 500 px) = 2×3 grid left-middle, currency top-left, luck pill + boost timers top-right, Spire card top-center; the thumbstick/jump corners stay clear. Landscape only (`PlayerGui.ScreenOrientation`). Studio test: LocalPlayer attribute `ForceLayout` = "Phone"/"PC". Needs designer/artist styling |
+| UI | Themed UI kit. `Config/UITheme` holds every color (incl. per rarity/element), font (Luckiest Guy titles, Builder Sans body), size, motion timing, sound ID, icon ID and art slot; empty icon = styled fallback tile, empty sound = silent, empty art slot = procedural look. Kit in `Controllers/UI` (Style, Icon, Button, IconButton, Window, ProgressBar, Toast, Tooltip, CurrencyPill, RarityTag, RewardRow); every panel uses it. `HudLayout`: menu tiles, currency pills, popups (Windows register themselves), `OnLayoutChanged`. PC = icon grid left-middle + currency bottom-left; phone (short side ≤ 500 px) = same grid smaller, currency top-left, luck pill + boost timers top-right, Spire card top-center; thumbstick/jump corners stay clear. Landscape only. ScreenGuis use Sibling ZIndex. Studio test: LocalPlayer attribute `ForceLayout` = "Phone"/"PC"; `ReplicatedStorage.DevTools.PhoneMock` (Studio only, not in Git) renders the UI in a phone frame. Waiting on art: panel frame (dragon scales), title ornament, panel texture, shop pass icons |
 | Ranked PvP | Post-launch |
 
 **Next up: approved build order** (full numbers in `E:\Roblox\Bind A Dragon - Economy Rebalance Proposal v5.md`,
@@ -60,7 +60,7 @@ Later weekly updates: Spire leaderboard, event constellations, then Ascension (d
 UI polish after the core loop is playable. **UI polish list (in order):**
 1. ~~Phone layout of the left button column~~ Done: `HudLayout` (phone grid, popups above the HUD, luck pill, Spire
    card, scaled Rebirth confirm, scrolling station odds). Menu buttons still use text labels until the artist's icons.
-2. Full UI styling pass on top of `Config/Theme` / `HudLayout` (theme values, components, icons).
+2. ~~Full UI styling pass~~ Done: `Config/UITheme` + the `Controllers/UI` kit (all panels migrated). Remaining: the artist's panel frame / title ornament / texture art (`UITheme.Art`) and shop pass icons (`UITheme.ShopIcons`).
 3. Spire battle visuals (see Open questions): a visible dragon-vs-dragon fight instead of the timer bar.
 
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.3):

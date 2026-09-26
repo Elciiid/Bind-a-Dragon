@@ -1,7 +1,8 @@
 --!strict
--- Shop: the "Shop" menu button (HudLayout) opens the game passes and developer products from Config/Products with a Buy
--- button each (Roblox's purchase prompt). Owned passes show "Owned" (Player attribute "Pass_<Key>", set by the
--- server). Items whose Id is still 0 show "Coming soon". Granting happens on the server. Placeholder UI.
+-- Shop window: the "Shop" menu tile opens the game passes and developer products from Config/Products, each as a
+-- card with its icon (UITheme.ShopIcons), what it does, and a green Robux buy button (Roblox's purchase prompt).
+-- Owned passes show "Owned" (Player attribute "Pass_<Key>", set by the server). Items whose Id is still 0 show
+-- "Coming soon". Granting happens on the server.
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -9,47 +10,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
+local Style = require(script.Parent.UI.Style)
+local Icon = require(script.Parent.UI.Icon)
+local Button = require(script.Parent.UI.Button)
+local Window = require(script.Parent.UI.Window)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
-
-local DARK = Color3.fromRGB(15, 15, 30)
-local CARD = Color3.fromRGB(32, 32, 55)
-local GREY = Color3.fromRGB(120, 120, 130)
-local GOLD = Color3.fromRGB(255, 210, 70)
-local GREEN = Color3.fromRGB(130, 230, 140)
+local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local ShopController = {}
 
 local player = Players.LocalPlayer
 local refreshers: { () -> () } = {}
 
-local function round(instance: GuiObject)
-	Instance.new("UICorner").Parent = instance
-end
-
-local function pad(instance: GuiObject, amount: number)
-	local p = Instance.new("UIPadding")
-	p.PaddingTop = UDim.new(0, amount)
-	p.PaddingBottom = UDim.new(0, amount)
-	p.PaddingLeft = UDim.new(0, amount)
-	p.PaddingRight = UDim.new(0, amount)
-	p.Parent = instance
-end
-
-local function label(parent: Instance, text: string, color: Color3, bold: boolean, position: UDim2, size: UDim2): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Position = position
-	l.Size = size
-	l.Font = if bold then Enum.Font.GothamBold else Enum.Font.Gotham
-	l.TextScaled = true
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextColor3 = color
-	l.Text = text
-	l.Parent = parent
-	return l
-end
-
 local function makeCard(list: Instance, key: string, order: number)
+	local theme = UITheme
 	local pass = Products.Passes[key]
 	local product = Products.Products[key]
 	local item = pass or product
@@ -59,43 +33,61 @@ local function makeCard(list: Instance, key: string, order: number)
 	end
 
 	local card = Instance.new("Frame")
+	card.Name = key
 	card.LayoutOrder = order
-	card.Size = UDim2.new(1, -8, 0, 76)
-	card.BackgroundColor3 = CARD
-	round(card)
+	card.Size = UDim2.new(1, -8, 0, 84)
+	Style.CardLook(card, theme.Colors.Primary)
 	card.Parent = list
 
-	label(card, item.Name, GOLD, true, UDim2.new(0, 10, 0, 6), UDim2.new(0.68, -10, 0, 22))
+	local icon = Icon.new(card, theme.ShopIcons[key] or "", theme.Colors.Neutral, item.Name)
+	icon.Position = UDim2.fromOffset(14, 12)
+	icon.Size = UDim2.fromOffset(60, 60)
+
+	local name = Style.Label(card, item.Name, "Heavy", 18, theme.Colors.Gold)
+	name.Position = UDim2.fromOffset(84, 6)
+	name.Size = UDim2.new(0.68, -84, 0, 22)
+	name.TextXAlignment = Enum.TextXAlignment.Left
 	-- Descriptions say exactly what a pass does, so they wrap at a fixed readable size instead of shrinking.
-	local detail = label(card, item.Description, Color3.fromRGB(200, 200, 215), false, UDim2.new(0, 10, 0, 30), UDim2.new(0.68, -10, 0, 42))
-	detail.TextScaled = false
-	detail.TextSize = 13
-	detail.TextWrapped = true
+	local detail = Style.Label(card, item.Description, "Body", 13, theme.Colors.TextMuted)
+	detail.Position = UDim2.fromOffset(84, 30)
+	detail.Size = UDim2.new(0.68, -84, 0, 48)
+	detail.TextXAlignment = Enum.TextXAlignment.Left
 	detail.TextYAlignment = Enum.TextYAlignment.Top
 
-	local buy = Instance.new("TextButton")
-	buy.AnchorPoint = Vector2.new(1, 0.5)
-	buy.Position = UDim2.new(1, -10, 0.5, 0)
-	buy.Size = UDim2.new(0.3, 0, 0, 38)
-	buy.TextColor3 = DARK
-	buy.Font = Enum.Font.GothamBold
-	buy.TextScaled = true
-	round(buy)
-	pad(buy, 6)
-	buy.Parent = card
+	local buy = Button.new(card, {
+		Text = `R$ {item.Robux}`,
+		Kind = "Confirm",
+		Sound = "Click",
+		OnClick = function()
+			if item.Id == 0 or (pass and player:GetAttribute(`Pass_{key}`) == true) then
+				return
+			end
+			if pass then
+				MarketplaceService:PromptGamePassPurchase(player, item.Id)
+			else
+				MarketplaceService:PromptProductPurchase(player, item.Id)
+			end
+		end,
+	})
+	buy.Instance.AnchorPoint = Vector2.new(1, 0.5)
+	buy.Instance.Position = UDim2.new(1, -12, 0.5, 0)
+	buy.Instance.Size = UDim2.new(0.26, 0, 0, 44)
 
 	local function refresh()
 		local ownsPass = pass ~= nil and player:GetAttribute(`Pass_{key}`) == true
 		if item.Id == 0 then
-			buy.Text, buy.BackgroundColor3, buy.AutoButtonColor = "Coming soon", GREY, false
+			buy:SetText("Coming soon")
+			buy:SetEnabled(false)
 		elseif ownsPass then
-			buy.Text, buy.BackgroundColor3, buy.AutoButtonColor = "Owned", GREEN, false
+			buy:SetText("Owned")
+			buy:SetEnabled(false)
 		else
-			buy.Text, buy.BackgroundColor3, buy.AutoButtonColor = `R$ {item.Robux}`, GOLD, true
+			buy:SetText(`R$ {item.Robux}`)
+			buy:SetEnabled(true)
 		end
 		if key == "ElevatorSkip" then
 			local data = DataController:Get()
-			detail.Text = `{item.Description}  ·  you have {if data then data.ElevatorSkips else 0}`
+			detail.Text = `{item.Description} · you have {if data then data.ElevatorSkips else 0}`
 		end
 	end
 	table.insert(refreshers, refresh)
@@ -103,64 +95,28 @@ local function makeCard(list: Instance, key: string, order: number)
 	if pass then
 		player:GetAttributeChangedSignal(`Pass_{key}`):Connect(refresh)
 	end
-
-	buy.Activated:Connect(function()
-		if item.Id == 0 or (pass and player:GetAttribute(`Pass_{key}`) == true) then
-			return
-		end
-		if pass then
-			MarketplaceService:PromptGamePassPurchase(player, item.Id)
-		else
-			MarketplaceService:PromptProductPurchase(player, item.Id)
-		end
-	end)
 end
 
 function ShopController:Init()
-	local gui = HudLayout.MakeScreenGui("Shop", "Popups")
 	local open = HudLayout.AddMenuButton("Shop")
-
-	local panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.92, 0, 0.7, 0)
-	panel.BackgroundColor3 = DARK
-	panel.BackgroundTransparency = 0.05
-	panel.Visible = false
-	round(panel)
-	panel.Parent = gui
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(520, 420)
-	limit.Parent = panel
-	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.7, 0))
-
-	label(panel, "Shop", Color3.new(1, 1, 1), true, UDim2.new(0, 14, 0, 10), UDim2.new(1, -70, 0, 26))
-
-	local close = Instance.new("TextButton")
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -10, 0, 8)
-	close.Size = UDim2.new(0, 36, 0, 30)
-	close.BackgroundColor3 = GOLD
-	close.TextColor3 = DARK
-	close.Font = Enum.Font.GothamBold
-	close.TextScaled = true
-	close.Text = "X"
-	round(close)
-	pad(close, 4)
-	close.Parent = panel
-	close.Activated:Connect(function()
-		panel.Visible = false
-	end)
+	local window = Window.new({
+		Name = "Shop",
+		Title = "Shop",
+		Icon = "Menu_Shop",
+		Size = UDim2.new(0.92, 0, 0.72, 0),
+		MaxSize = Vector2.new(580, 460),
+	})
 
 	local list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.new(0, 10, 0, 46)
-	list.Size = UDim2.new(1, -20, 1, -56)
+	list.Size = UDim2.fromScale(1, 1)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = UITheme.Colors.Trim
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
-	list.Parent = panel
+	list.Parent = window.Content
+	Style.Pad(list, 2, 3)
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -171,7 +127,7 @@ function ShopController:Init()
 	end
 
 	open.Activated:Connect(function()
-		panel.Visible = not panel.Visible
+		window:Toggle()
 	end)
 	DataController:OnChanged("ElevatorSkips", function()
 		for _, refresh in refreshers do

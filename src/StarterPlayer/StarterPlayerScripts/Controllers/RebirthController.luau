@@ -1,11 +1,14 @@
 --!strict
--- Rebirth menu button (HudLayout) and a confirm panel that spells out the cost, what is kept, and what the rebirth
--- unlocks. The panel scales with the screen (phones). The server decides; this only asks. Placeholder UI.
+-- Rebirth menu tile (HudLayout) and a confirm window (UI/Window) that spells out the cost, what is kept, and what the
+-- rebirth unlocks, with green Rebirth / red Cancel. The window scales with the screen (phones). The server decides.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
+local Style = require(script.Parent.UI.Style)
+local Button = require(script.Parent.UI.Button)
+local Window = require(script.Parent.UI.Window)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -13,38 +16,12 @@ local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 
 local requestRebirth = ReplicatedStorage.Remotes.RequestRebirth :: RemoteEvent
 
-local DARK = Color3.fromRGB(15, 15, 30)
-local GOLD = Color3.fromRGB(255, 210, 70)
-
 local RebirthController = {}
 
 local button: TextButton
-local panel: Frame
+local window: Window.Window
 local body: TextLabel
-local confirm: TextButton
-
-local function style(instance: GuiObject, padding: number)
-	Instance.new("UICorner").Parent = instance
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, padding)
-	pad.PaddingBottom = UDim.new(0, padding)
-	pad.PaddingLeft = UDim.new(0, padding + 4)
-	pad.PaddingRight = UDim.new(0, padding + 4)
-	pad.Parent = instance
-end
-
-local function makeButton(parent: Instance, text: string, color: Color3): TextButton
-	local b = Instance.new("TextButton")
-	b.BackgroundColor3 = color
-	b.TextColor3 = DARK
-	b.Font = Enum.Font.GothamBold
-	b.TextScaled = true
-	b.Text = text
-	b.AutoButtonColor = true
-	style(b, 6)
-	b.Parent = parent
-	return b
-end
+local confirm: Button.Button
 
 local function refresh()
 	local data = DataController:Get()
@@ -54,7 +31,7 @@ local function refresh()
 	local cost = DragonStats.GetRebirthCost(data.Rebirths)
 	local next = data.Rebirths + 1
 	if data.Rebirths > 0 then
-		HudLayout.SetMenuText("Rebirth", `Rebirth  ★{data.Rebirths}`, `Rebirth\n★{data.Rebirths}`)
+		HudLayout.SetMenuText("Rebirth", `Rebirth ★{data.Rebirths}`, `★{data.Rebirths}`)
 	end
 
 	if DragonStats.IsAtRebirthCap(data) then
@@ -64,8 +41,8 @@ local function refresh()
 			"More rebirths arrive in the next update.",
 			"Your gold is saved up to the cost of one rebirth until then.",
 		}, "\n")
-		confirm.Text = "Cap reached"
-		confirm.BackgroundColor3 = Color3.fromRGB(120, 120, 130)
+		confirm:SetText("Cap reached")
+		confirm:SetEnabled(false)
 		return
 	end
 
@@ -92,66 +69,61 @@ local function refresh()
 	body.Text = table.concat(lines, "\n")
 
 	local affordable = data.Gold >= cost
-	confirm.Text = if affordable then "Rebirth now" else "Not enough gold"
-	confirm.BackgroundColor3 = if affordable then GOLD else Color3.fromRGB(120, 120, 130)
+	confirm:SetText(if affordable then "Rebirth now" else "Not enough gold")
+	confirm:SetEnabled(affordable)
 end
 
 function RebirthController:Init()
-	local gui = HudLayout.MakeScreenGui("Rebirth", "Popups")
 	button = HudLayout.AddMenuButton("Rebirth")
+	window = Window.new({
+		Name = "Rebirth",
+		Title = "Rebirth",
+		Icon = "Menu_Rebirth",
+		Size = UDim2.new(0.9, 0, 0.9, 0), -- height scales with the screen, up to MaxSize
+		MaxSize = Vector2.new(460, 360),
+	})
+	local content = window.Content
 
-	panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.9, 0, 0.9, 0) -- height scales with the screen, up to MaxSize
-	panel.BackgroundColor3 = DARK
-	panel.BackgroundTransparency = 0.1
-	panel.Visible = false
-	panel.Parent = gui
-	style(panel, 14)
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(420, 300)
-	limit.Parent = panel
-
-	body = Instance.new("TextLabel")
-	body.Size = UDim2.new(1, 0, 1, -56)
-	body.BackgroundTransparency = 1
-	body.TextColor3 = Color3.new(1, 1, 1)
-	body.Font = Enum.Font.Gotham
+	body = Style.Label(content, "", "Bold", 18)
+	body.Size = UDim2.new(1, 0, 1, -54)
 	body.TextScaled = true -- shrinks on small screens, up to 18
-	body.TextWrapped = true
+	body.TextXAlignment = Enum.TextXAlignment.Left
+	body.TextYAlignment = Enum.TextYAlignment.Top
 	local textLimit = Instance.new("UITextSizeConstraint")
 	textLimit.MaxTextSize = 18
 	textLimit.Parent = body
-	body.TextXAlignment = Enum.TextXAlignment.Left
-	body.TextYAlignment = Enum.TextYAlignment.Top
-	body.Parent = panel
 
-	HudLayout.RegisterPopup(panel, UDim2.new(0.9, 0, 0.9, 0))
+	confirm = Button.new(content, {
+		Text = "Rebirth now",
+		Kind = "Confirm",
+		Icon = "Menu_Rebirth",
+		Sound = "Confirm",
+		OnClick = function()
+			local data = DataController:Get()
+			if data and data.Gold >= DragonStats.GetRebirthCost(data.Rebirths) then
+				requestRebirth:FireServer()
+				window:Close()
+			end
+		end,
+	})
+	confirm.Instance.AnchorPoint = Vector2.new(0, 1)
+	confirm.Instance.Position = UDim2.new(0, 0, 1, 0)
+	confirm.Instance.Size = UDim2.new(0.5, -6, 0, 46)
 
-	confirm = makeButton(panel, "Rebirth now", GOLD)
-	confirm.AnchorPoint = Vector2.new(0, 1)
-	confirm.Position = UDim2.new(0, 0, 1, 0)
-	confirm.Size = UDim2.new(0.5, -6, 0, 44)
-
-	local cancel = makeButton(panel, "Cancel", Color3.fromRGB(200, 200, 210))
-	cancel.AnchorPoint = Vector2.new(1, 1)
-	cancel.Position = UDim2.new(1, 0, 1, 0)
-	cancel.Size = UDim2.new(0.5, -6, 0, 44)
+	local cancel = Button.new(content, {
+		Text = "Cancel",
+		Kind = "Cancel",
+		OnClick = function()
+			window:Close()
+		end,
+	})
+	cancel.Instance.AnchorPoint = Vector2.new(1, 1)
+	cancel.Instance.Position = UDim2.new(1, 0, 1, 0)
+	cancel.Instance.Size = UDim2.new(0.5, -6, 0, 46)
 
 	button.Activated:Connect(function()
 		refresh()
-		panel.Visible = not panel.Visible
-	end)
-	cancel.Activated:Connect(function()
-		panel.Visible = false
-	end)
-	confirm.Activated:Connect(function()
-		local data = DataController:Get()
-		if data and data.Gold >= DragonStats.GetRebirthCost(data.Rebirths) then
-			requestRebirth:FireServer()
-			panel.Visible = false
-		end
+		window:Toggle()
 	end)
 
 	DataController:OnChanged("Gold", refresh)

@@ -1,65 +1,37 @@
 --!strict
--- Boosts: the "Boosts" menu button (HudLayout) opens a panel with every potion (count owned, effect, time left) and a
--- Use / Arm button per potion, and a small HUD column (top right, under the luck pill on phones) shows active timers
--- and the armed luck charge. The Boosts button shows a count and pulses while there are unused potions.
--- The server checks everything (BoostService). Timers pause while offline. Placeholder UI.
+-- Boosts: the "Boosts" menu tile opens a window (UI/Window) listing every potion (icon, count, effect, time left)
+-- with a Use / Arm / Disarm button, and timer pills (top right; under the luck pill on phones) show active boosts
+-- and the armed luck charge. The Boosts tile shows a count and pulses while there are unused potions.
+-- The server checks everything (BoostService). Timers pause while offline.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
-local Theme = require(ReplicatedStorage.Shared.Config.Theme)
+local Style = require(script.Parent.UI.Style)
+local Icon = require(script.Parent.UI.Icon)
+local Button = require(script.Parent.UI.Button)
+local Window = require(script.Parent.UI.Window)
+local Tooltip = require(script.Parent.UI.Tooltip)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
+local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local useBoost = ReplicatedStorage.Remotes.UseBoost :: RemoteEvent
 
-local DARK = Color3.fromRGB(15, 15, 30)
-local CARD = Color3.fromRGB(32, 32, 55)
-local GREY = Color3.fromRGB(120, 120, 130)
-local GOLD = Color3.fromRGB(255, 210, 70)
-
 local BoostController = {}
 
-type Row = { Count: TextLabel, Timer: TextLabel, Button: TextButton }
+type Row = { Count: TextLabel, Timer: TextLabel, Button: Button.Button }
 
-local panel: Frame
-local hud: Frame
+local window: Window.Window
 local rows: { [string]: Row } = {}
-local hudLabels: { [string]: TextLabel } = {}
+local timerPills: { [string]: { Frame: Frame, Label: TextLabel } } = {}
 
 local function formatTime(seconds: number): string
 	local s = math.max(0, math.floor(seconds))
 	return string.format("%d:%02d", s // 60, s % 60)
 end
 
-local function round(instance: GuiObject)
-	Instance.new("UICorner").Parent = instance
-end
-
-local function pad(instance: GuiObject, amount: number)
-	local p = Instance.new("UIPadding")
-	p.PaddingTop = UDim.new(0, amount)
-	p.PaddingBottom = UDim.new(0, amount)
-	p.PaddingLeft = UDim.new(0, amount)
-	p.PaddingRight = UDim.new(0, amount)
-	p.Parent = instance
-end
-
-local function text(parent: Instance, value: string, color: Color3, bold: boolean, position: UDim2, size: UDim2): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Position = position
-	l.Size = size
-	l.Font = if bold then Enum.Font.GothamBold else Enum.Font.Gotham
-	l.TextScaled = true
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.TextColor3 = color
-	l.Text = value
-	l.Parent = parent
-	return l
-end
-
--- Boosts button: a count badge and a pulsing outline while the player owns potions they haven't used.
+-- Boosts tile: a count badge and a pulsing outline while the player owns potions they haven't used.
 local function updateBadge(data: any)
 	local unused = 0
 	for potionId, count in data.Potions do
@@ -87,161 +59,172 @@ local function refresh()
 		row.Count.Text = `x{count}`
 		if potion.Kind == "LuckCharge" then
 			row.Timer.Text = if armed then "Armed for your next bind" else "Arm it, then bind at night"
-			row.Button.Text = if armed then "Disarm" else "Arm"
-			row.Button.BackgroundColor3 = if armed or count > 0 then potion.Color else GREY
+			row.Button:SetText(if armed then "Disarm" else "Arm")
+			row.Button:SetKind(if armed then "Cancel" else "Primary")
+			row.Button:SetEnabled(armed or count > 0)
 		else
 			row.Timer.Text = if left > 0 then `Active: {formatTime(left)} left` else `{potion.Minutes} min per potion`
-			row.Button.Text = "Use"
-			row.Button.BackgroundColor3 = if count > 0 then potion.Color else GREY
+			row.Button:SetText("Use")
+			row.Button:SetEnabled(count > 0)
 		end
 
-		-- HUD: active timers and the armed charge.
-		local hudLabel = hudLabels[potion.Id]
+		-- Timer pills: active timers and the armed charge.
+		local pill = timerPills[potion.Id]
 		if left > 0 then
-			hudLabel.Text = `{potion.Name}  {formatTime(left)}`
-			hudLabel.Visible = true
+			pill.Label.Text = formatTime(left)
+			pill.Frame.Visible = true
 		elseif armed then
-			hudLabel.Text = `{potion.Name}  armed`
-			hudLabel.Visible = true
+			pill.Label.Text = "Armed"
+			pill.Frame.Visible = true
 		else
-			hudLabel.Visible = false
+			pill.Frame.Visible = false
 		end
 	end
 end
 
 local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
+	local theme = UITheme
 	local card = Instance.new("Frame")
+	card.Name = potion.Id
 	card.LayoutOrder = order
-	card.Size = UDim2.new(1, -8, 0, 58)
-	card.BackgroundColor3 = CARD
-	round(card)
+	card.Size = UDim2.new(1, -8, 0, 64)
+	Style.CardLook(card, potion.Color)
 	card.Parent = list
 
-	text(card, potion.Name, potion.Color, true, UDim2.new(0, 10, 0, 6), UDim2.new(0.5, -10, 0, 20))
-	local count = text(card, "x0", Color3.new(1, 1, 1), true, UDim2.new(0.5, 0, 0, 6), UDim2.new(0.2, 0, 0, 20))
-	text(card, potion.Description, Color3.fromRGB(200, 200, 215), false, UDim2.new(0, 10, 0, 28), UDim2.new(0.7, -10, 0, 12))
-	local timer = text(card, "", Color3.fromRGB(170, 220, 255), false, UDim2.new(0, 10, 0, 42), UDim2.new(0.7, -10, 0, 12))
+	local icon = Icon.new(card, `Potion_{potion.Id}`, potion.Color, potion.Name)
+	icon.Position = UDim2.fromOffset(14, 6)
+	icon.Size = UDim2.fromOffset(52, 52)
 
-	local button = Instance.new("TextButton")
-	button.AnchorPoint = Vector2.new(1, 0.5)
-	button.Position = UDim2.new(1, -10, 0.5, 0)
-	button.Size = UDim2.new(0.25, 0, 0, 36)
-	button.TextColor3 = DARK
-	button.Font = Enum.Font.GothamBold
-	button.TextScaled = true
-	button.BackgroundColor3 = GREY
-	round(button)
-	pad(button, 6)
-	button.Parent = card
-	button.Activated:Connect(function()
-		useBoost:FireServer(potion.Id) -- the server checks the count and the 60-minute limit
+	local name = Style.Label(card, potion.Name, "Heavy", 18, potion.Color)
+	name.Position = UDim2.fromOffset(74, 5)
+	name.Size = UDim2.new(0.55, -74, 0, 20)
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	local count = Style.Label(card, "x0", "Heavy", 18)
+	count.Position = UDim2.new(0.55, 0, 0, 5)
+	count.Size = UDim2.new(0.12, 0, 0, 20)
+	local description = Style.Label(card, potion.Description, "Body", theme.TextSizes.Small, theme.Colors.TextMuted)
+	description.Position = UDim2.fromOffset(74, 26)
+	description.Size = UDim2.new(0.67, -74, 0, 16)
+	description.TextXAlignment = Enum.TextXAlignment.Left
+	description.TextTruncate = Enum.TextTruncate.AtEnd
+	local timer = Style.Label(card, "", "Bold", theme.TextSizes.Small, theme.Colors.Info)
+	timer.Position = UDim2.fromOffset(74, 43)
+	timer.Size = UDim2.new(0.67, -74, 0, 16)
+	timer.TextXAlignment = Enum.TextXAlignment.Left
+
+	local button = Button.new(card, {
+		Text = "Use",
+		Kind = "Confirm",
+		OnClick = function()
+			useBoost:FireServer(potion.Id) -- the server checks the count and the 60-minute limit
+		end,
+	})
+	button.Instance.AnchorPoint = Vector2.new(1, 0.5)
+	button.Instance.Position = UDim2.new(1, -10, 0.5, 0)
+	button.Instance.Size = UDim2.new(0.28, 0, 0, 40)
+	Tooltip.Attach(card, function()
+		return potion.Description
 	end)
 
 	rows[potion.Id] = { Count = count, Timer = timer, Button = button }
 end
 
-function BoostController:Init()
-	local gui = HudLayout.MakeScreenGui("Boosts", "Popups")
-	local timersGui = HudLayout.MakeScreenGui("BoostTimers", "Cards")
-	local open = HudLayout.AddMenuButton("Boosts")
-
-	panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.92, 0, 0.75, 0)
-	panel.BackgroundColor3 = DARK
-	panel.BackgroundTransparency = 0.05
-	panel.Visible = false
-	round(panel)
-	panel.Parent = gui
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(520, 520)
-	limit.Parent = panel
-	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.75, 0))
-
-	text(panel, "Boosts", Color3.new(1, 1, 1), true, UDim2.new(0, 14, 0, 10), UDim2.new(1, -70, 0, 26))
-	text(
-		panel,
-		`Timers pause while you're offline. Up to {Boosts.MaxStoredMinutes} min per potion. Premium: +{math.floor(Boosts.PremiumDurationBonus * 100)}% time.`,
-		Color3.fromRGB(190, 190, 205),
-		false,
-		UDim2.new(0, 14, 0, 38),
-		UDim2.new(1, -28, 0, 14)
-	)
-
-	local close = Instance.new("TextButton")
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -10, 0, 8)
-	close.Size = UDim2.new(0, 36, 0, 30)
-	close.BackgroundColor3 = GOLD
-	close.TextColor3 = DARK
-	close.Font = Enum.Font.GothamBold
-	close.TextScaled = true
-	close.Text = "X"
-	round(close)
-	pad(close, 4)
-	close.Parent = panel
-	close.Activated:Connect(function()
-		panel.Visible = false
+-- A timer pill: potion icon + time left.
+local function makeTimerPill(parent: Instance, potion: Boosts.Potion, order: number)
+	local pill = Instance.new("Frame")
+	pill.Name = potion.Id
+	pill.LayoutOrder = order
+	pill.Size = UDim2.new(1, 0, 0, 26)
+	pill.Visible = false
+	pill.BackgroundColor3 = Color3.new(1, 1, 1)
+	Style.Gradient(pill, UITheme.Colors.PanelTop, UITheme.Colors.PanelBottom)
+	Style.Round(pill)
+	Style.Stroke(pill, potion.Color, 2)
+	pill.Parent = parent
+	local icon = Icon.new(pill, `Potion_{potion.Id}`, potion.Color, potion.Name)
+	icon.AnchorPoint = Vector2.new(0, 0.5)
+	icon.Position = UDim2.new(0, -4, 0.5, 0)
+	icon.Size = UDim2.fromOffset(32, 32)
+	local label = Style.Label(pill, "", "Heavy", 15, potion.Color)
+	label.Position = UDim2.fromOffset(30, 0)
+	label.Size = UDim2.new(1, -36, 1, 0)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	Tooltip.Attach(pill, function()
+		return `{potion.Name}: {potion.Description}`
 	end)
+	timerPills[potion.Id] = { Frame = pill, Label = label }
+end
+
+function BoostController:Init()
+	local open = HudLayout.AddMenuButton("Boosts")
+	window = Window.new({
+		Name = "Boosts",
+		Title = "Boosts",
+		Icon = "Menu_Boosts",
+		Size = UDim2.new(0.92, 0, 0.75, 0),
+		MaxSize = Vector2.new(560, 540),
+	})
+	local content = window.Content
+
+	local note = Style.Label(
+		content,
+		`Timers pause while you're offline · up to {Boosts.MaxStoredMinutes} min per potion · Premium +{math.floor(Boosts.PremiumDurationBonus * 100)}% time`,
+		"Body",
+		UITheme.TextSizes.Small,
+		UITheme.Colors.TextMuted
+	)
+	note.Size = UDim2.new(1, 0, 0, 16)
+	note.TextXAlignment = Enum.TextXAlignment.Left
+	note.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.new(0, 10, 0, 60)
-	list.Size = UDim2.new(1, -20, 1, -70)
+	list.Position = UDim2.fromOffset(0, 22)
+	list.Size = UDim2.new(1, 0, 1, -22)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = UITheme.Colors.Trim
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
-	list.Parent = panel
+	list.Parent = content
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
+	Style.Pad(list, 2, 3)
 
-	-- HUD column, top right: below the sky bar on PC, under the luck pill on phones.
-	hud = Instance.new("Frame")
+	-- Timer pills: top right, below the sky bar on PC, under the luck pill on phones.
+	local timersGui = HudLayout.MakeScreenGui("BoostTimers", "Cards")
+	local hud = Instance.new("Frame")
+	hud.Name = "Timers"
 	hud.AnchorPoint = Vector2.new(1, 0)
 	hud.AutomaticSize = Enum.AutomaticSize.Y
 	hud.BackgroundTransparency = 1
 	hud.Parent = timersGui
-	HudLayout.OnLayoutChanged(function(isPhone)
-		local sizes = Theme.Sizes
-		if isPhone then
-			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
-			hud.Size = UDim2.fromOffset(sizes.PhonePillWidth, 0)
-		else
-			hud.Position = UDim2.new(1, -sizes.Margin, 0, 70)
-			hud.Size = UDim2.fromOffset(200, 0)
-		end
-	end)
 	local hudLayout = Instance.new("UIListLayout")
-	hudLayout.Padding = UDim.new(0, 4)
+	hudLayout.Padding = UDim.new(0, 5)
 	hudLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	hudLayout.Parent = hud
+	HudLayout.OnLayoutChanged(function(isPhone)
+		local sizes = UITheme.Sizes
+		if isPhone then
+			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
+			hud.Size = UDim2.fromOffset(110, 0)
+		else
+			hud.Position = UDim2.new(1, -sizes.Margin, 0, 70)
+			hud.Size = UDim2.fromOffset(130, 0)
+		end
+	end)
 
 	for index, potion in Boosts.Potions do
 		makeRow(list, potion, index)
-
-		local hudLabel = Instance.new("TextLabel")
-		hudLabel.LayoutOrder = index
-		hudLabel.Size = UDim2.new(1, 0, 0, 22)
-		hudLabel.BackgroundColor3 = DARK
-		hudLabel.BackgroundTransparency = 0.3
-		hudLabel.TextColor3 = potion.Color
-		hudLabel.Font = Enum.Font.GothamBold
-		hudLabel.TextScaled = true
-		hudLabel.Visible = false
-		round(hudLabel)
-		pad(hudLabel, 4)
-		hudLabel.Parent = hud
-		hudLabels[potion.Id] = hudLabel
+		makeTimerPill(hud, potion, index)
 	end
 
 	open.Activated:Connect(function()
-		panel.Visible = not panel.Visible
-		refresh()
+		window:Toggle()
 	end)
+	window:OnOpen(refresh)
 	for _, key in { "Potions", "ActiveBoosts", "ArmedLuckPotion" } do
 		DataController:OnChanged(key, refresh)
 	end
