@@ -1,0 +1,306 @@
+"""Stylized tileable terrain textures (pure Python, no dependencies).
+Usage: python gen.py [name ...]   (writes <name>.png next to this file)
+"""
+import math, random, struct, sys, zlib, os, time
+
+N = 512
+OUT = os.path.dirname(os.path.abspath(__file__))
+
+
+def write_png(path, pixels):
+    raw = bytearray()
+    for y in range(N):
+        raw.append(0)
+        row = pixels[y * N:(y + 1) * N]
+        for r, g, b in row:
+            raw += bytes((r, g, b))
+    def chunk(tag, data):
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", N, N, 8, 2, 0, 0, 0))
+    png += chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+    open(path, "wb").write(png)
+
+
+class ValueNoise:
+    """Tileable value noise; period in cells must divide N."""
+    def __init__(self, cells, seed):
+        rnd = random.Random(seed)
+        self.c = cells
+        self.v = [[rnd.random() for _ in range(cells)] for _ in range(cells)]
+
+    def at(self, x, y):
+        c = self.c
+        fx = x / N * c
+        fy = y / N * c
+        x0 = int(fx) % c
+        y0 = int(fy) % c
+        tx = fx - int(fx)
+        ty = fy - int(fy)
+        tx = tx * tx * (3 - 2 * tx)
+        ty = ty * ty * (3 - 2 * ty)
+        x1 = (x0 + 1) % c
+        y1 = (y0 + 1) % c
+        v = self.v
+        a = v[y0][x0] + (v[y0][x1] - v[y0][x0]) * tx
+        b = v[y1][x0] + (v[y1][x1] - v[y1][x0]) * tx
+        return a + (b - a) * ty
+
+
+def fbm(layers, x, y):
+    total, amp, norm = 0.0, 1.0, 0.0
+    for n in layers:
+        total += n.at(x, y) * amp
+        norm += amp
+        amp *= 0.5
+    return total / norm
+
+
+class Voronoi:
+    """Tileable cellular noise: returns (cell id, f1, f2) in pixels."""
+    def __init__(self, cells, seed, jitter=0.9):
+        rnd = random.Random(seed)
+        self.c = cells
+        self.size = N / cells
+        self.p = [[((i + 0.5 + (rnd.random() - 0.5) * jitter) * self.size,
+                    (j + 0.5 + (rnd.random() - 0.5) * jitter) * self.size,
+                    rnd.random()) for i in range(cells)] for j in range(cells)]
+
+    def at(self, x, y):
+        c, s = self.c, self.size
+        cx, cy = int(x / s), int(y / s)
+        f1 = f2 = 1e9
+        cid = 0.0
+        for dj in (-1, 0, 1):
+            for di in (-1, 0, 1):
+                i, j = cx + di, cy + dj
+                px, py, r = self.p[j % c][i % c]
+                px += (i - (i % c)) * s
+                py += (j - (j % c)) * s
+                d = math.hypot(x - px, y - py)
+                if d < f1:
+                    f2 = f1
+                    f1 = d
+                    cid = r
+                elif d < f2:
+                    f2 = d
+        return cid, f1, f2
+
+
+def lerp(a, b, t):
+    return a + (b - a) * t
+
+
+def mix(c1, c2, t):
+    t = max(0.0, min(1.0, t))
+    return (lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t))
+
+
+def clamp8(c):
+    return tuple(max(0, min(255, int(round(v)))) for v in c)
+
+
+def hexc(h):
+    h = h.lstrip("#")
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+def speckle_map(count, seed, rmin, rmax):
+    """Tileable dots: dict pixel -> strength."""
+    rnd = random.Random(seed)
+    m = {}
+    for _ in range(count):
+        cx, cy = rnd.random() * N, rnd.random() * N
+        r = rnd.uniform(rmin, rmax)
+        for dy in range(-int(r) - 1, int(r) + 2):
+            for dx in range(-int(r) - 1, int(r) + 2):
+                d = math.hypot(dx, dy)
+                if d <= r:
+                    k = ((int(cy) + dy) % N) * N + (int(cx) + dx) % N
+                    m[k] = max(m.get(k, 0.0), 1 - (d / r) ** 2)
+    return m
+
+
+def strokes_map(count, seed, length, width, angle_spread=0.6):
+    """Short soft brush strokes (blade-like), tileable."""
+    rnd = random.Random(seed)
+    m = {}
+    for _ in range(count):
+        cx, cy = rnd.random() * N, rnd.random() * N
+        ang = -math.pi / 2 + rnd.uniform(-angle_spread, angle_spread)
+        L = rnd.uniform(length * 0.6, length)
+        steps = int(L)
+        for s in range(steps):
+            t = s / max(1, steps - 1)
+            w = width * (1 - t) + 0.5
+            px = cx + math.cos(ang) * s
+            py = cy + math.sin(ang) * s
+            for dy in range(-int(w) - 1, int(w) + 2):
+                for dx in range(-int(w) - 1, int(w) + 2):
+                    d = math.hypot(dx, dy)
+                    if d <= w:
+                        k = ((int(py) + dy) % N) * N + (int(px) + dx) % N
+                        m[k] = max(m.get(k, 0.0), (1 - d / w) * (0.6 + 0.4 * (1 - t)))
+    return m
+
+
+def normal_facets(seed, cells, tilt_deg=22):
+    vor = Voronoi(cells, seed)
+    rnd = random.Random(seed + 99)
+    tilts = {}
+    px = []
+    for y in range(N):
+        for x in range(N):
+            cid, f1, f2 = vor.at(x, y)
+            t = tilts.get(cid)
+            if t is None:
+                a = rnd.uniform(0, 2 * math.pi)
+                m = math.radians(rnd.uniform(tilt_deg * 0.3, tilt_deg))
+                t = (math.cos(a) * math.sin(m), math.sin(a) * math.sin(m), math.cos(m))
+                tilts[cid] = t
+            e = f2 - f1
+            nx, ny, nz = t
+            if e < 2.0:  # soften the crease
+                k = e / 2.0
+                nx, ny = nx * k, ny * k
+                nz = math.sqrt(max(0.0, 1 - nx * nx - ny * ny))
+            px.append(clamp8(((nx + 1) * 127.5, (ny + 1) * 127.5, (nz + 1) * 127.5)))
+    return px
+
+
+# ---------------------------------------------------------------- textures
+
+def tex_grass_like(base, light, dark, stroke, seed):
+    layers = [ValueNoise(4, seed), ValueNoise(8, seed + 1), ValueNoise(16, seed + 2), ValueNoise(32, seed + 3)]
+    strokes = strokes_map(900, seed + 4, 14, 1.6)
+    specks = speckle_map(160, seed + 5, 1.2, 2.4)
+    px = []
+    for y in range(N):
+        for x in range(N):
+            n = fbm(layers, x, y)
+            c = mix(dark, base, (n - 0.25) * 2.2)
+            c = mix(c, light, (n - 0.62) * 3.0)
+            k = y * N + x
+            s = strokes.get(k)
+            if s:
+                c = mix(c, stroke, s * 0.55)
+            p = specks.get(k)
+            if p:
+                c = mix(c, light, p * 0.5)
+            px.append(clamp8(c))
+    return px
+
+
+def tex_facets(base, light, shadow, edge, seed, cells=8, edge_w=2.5, crack=None, crack_w=1.6, crack_share=0.35, specks=None):
+    vor = Voronoi(cells, seed)
+    layers = [ValueNoise(4, seed + 1), ValueNoise(16, seed + 2)]
+    spk = speckle_map(specks[0], seed + 7, specks[1], specks[2]) if specks else {}
+    px = []
+    for y in range(N):
+        for x in range(N):
+            cid, f1, f2 = vor.at(x, y)
+            n = fbm(layers, x, y)
+            # flat shade per facet with a soft gradient inside, like painted planes
+            shade = cid * 0.5 + n * 0.5
+            c = mix(shadow, base, 0.35 + shade * 1.1)
+            c = mix(c, light, (shade - 0.62) * 2.2)
+            e = f2 - f1
+            if crack and cid < crack_share and e < crack_w * 2.2:
+                c = mix(c, crack, 1 - e / (crack_w * 2.2))
+            elif e < edge_w:
+                c = mix(c, edge, (1 - e / edge_w) * 0.8)
+            p = spk.get(y * N + x)
+            if p:
+                c = mix(c, specks[3], p)
+            px.append(clamp8(c))
+    return px
+
+
+def tex_soft(base, light, dark, seed, specks=None, speck_color=None, pebbles=None):
+    layers = [ValueNoise(4, seed), ValueNoise(8, seed + 1), ValueNoise(16, seed + 2), ValueNoise(64, seed + 3)]
+    spk = speckle_map(specks[0], seed + 4, specks[1], specks[2]) if specks else {}
+    peb = speckle_map(pebbles[0], seed + 5, pebbles[1], pebbles[2]) if pebbles else {}
+    px = []
+    for y in range(N):
+        for x in range(N):
+            n = fbm(layers, x, y)
+            c = mix(dark, base, (n - 0.2) * 2.0)
+            c = mix(c, light, (n - 0.62) * 3.0)
+            k = y * N + x
+            p = peb.get(k)
+            if p:
+                rim = 1 - abs(p - 0.25) * 4 if p < 0.5 else 0
+                c = mix(c, pebbles[3], min(1, p * 2.5))
+                if p < 0.25:
+                    c = mix(c, dark, 0.5 * (1 - p * 4))
+            s = spk.get(k)
+            if s:
+                c = mix(c, speck_color, s)
+            px.append(clamp8(c))
+    return px
+
+
+def tex_strata(colors, seed, band=22):
+    layers = [ValueNoise(4, seed), ValueNoise(16, seed + 1)]
+    wob = ValueNoise(8, seed + 2)
+    vor = Voronoi(6, seed + 3)
+    px = []
+    for y in range(N):
+        for x in range(N):
+            w = (wob.at(x, y) - 0.5) * 30
+            idx = int((y + w) / band) % len(colors)
+            nxt = colors[(idx + 1) % len(colors)]
+            c = colors[idx]
+            n = fbm(layers, x, y)
+            c = mix(c, nxt, max(0.0, (n - 0.6) * 1.5))
+            cid, f1, f2 = vor.at(x, y)
+            if f2 - f1 < 1.8:
+                c = mix(c, (c[0] * 0.7, c[1] * 0.7, c[2] * 0.75), 0.6)
+            frac = ((y + w) / band) % 1.0
+            if frac < 0.08:
+                c = mix(c, (c[0] * 0.78, c[1] * 0.78, c[2] * 0.8), 0.8)
+            px.append(clamp8(c))
+    return px
+
+
+TEXTURES = {
+    # Starter Meadow
+    # grass is near white: its hue comes from the terrain Grass color, so the ground matches the grass blades
+    "grass": lambda: tex_grass_like(hexc("E6EDDD"), hexc("FFFFF4"), hexc("BFCBB2"), hexc("FAFFE6"), 11),
+    "ground": lambda: tex_soft(hexc("CFA872"), hexc("E0C08E"), hexc("A9844F"), 21, pebbles=(70, 2.0, 4.2, hexc("E8D7B0"))),
+    "rock": lambda: tex_facets(hexc("A39C94"), hexc("C2BBB0"), hexc("8A8D9C"), hexc("7A7479"), 31, cells=10, edge_w=1.5),
+    "mud": lambda: tex_soft(hexc("7E6246"), hexc("977A5A"), hexc("5E4632"), 41, pebbles=(40, 1.5, 3.0, hexc("9C8466"))),
+    "sand": lambda: tex_soft(hexc("E8D8A0"), hexc("F4E8BE"), hexc("CDBB84"), 51, specks=(120, 0.8, 1.6), speck_color=hexc("C9B37A")),
+    # Volcano Peak
+    "basalt": lambda: tex_facets(hexc("4C403E"), hexc("62524E"), hexc("352C2C"), hexc("2A2222"), 61, cells=9, crack=hexc("E0642A"), crack_w=1.3, crack_share=0.22),
+    "asphalt": lambda: tex_facets(hexc("40363A"), hexc("54474A"), hexc("2C2427"), hexc("221B1D"), 71, cells=6),
+    "lava": lambda: tex_facets(hexc("5A2C22"), hexc("6E3A2A"), hexc("3E1E18"), hexc("FF8A2A"), 81, cells=7, edge_w=5.5, crack=hexc("FFB347"), crack_w=3.5, crack_share=0.5),
+    # Frozen Cliffs
+    "snow": lambda: tex_soft(hexc("F3F8FD"), hexc("FFFFFF"), hexc("D5E3F2"), 91, specks=(90, 0.7, 1.4), speck_color=hexc("FFFFFF")),
+    "glacier": lambda: tex_facets(hexc("A6DDF3"), hexc("D8F3FF"), hexc("7FC0E0"), hexc("E8FAFF"), 101, cells=5, edge_w=1.4),
+    "limestone": lambda: tex_facets(hexc("C5D2E4"), hexc("E2EAF4"), hexc("9DAEC6"), hexc("8494AE"), 111, cells=7),
+    "ice": lambda: tex_soft(hexc("BDE8FF"), hexc("E6F7FF"), hexc("8FCDEE"), 121),
+    # Storm Canyon
+    "slate": lambda: tex_facets(hexc("61637C"), hexc("777A94"), hexc("4A4C62"), hexc("3C3E52"), 131, cells=8),
+    "canyon": lambda: tex_strata([hexc("7E7A94"), hexc("6A6682"), hexc("8E8AA4"), hexc("73708C")], 141),
+    # Eclipse Isles
+    "violetmoss": lambda: tex_grass_like(hexc("7C5BA8"), hexc("A688D4"), hexc("5A3F86"), hexc("9677C6"), 151),
+    "voidstone": lambda: tex_facets(hexc("42325E"), hexc("56437A"), hexc("2E2244"), hexc("241A36"), 161, cells=7, specks=(70, 0.8, 1.6, hexc("CDBDF2"))),
+    "templestone": lambda: tex_facets(hexc("9A8EB6"), hexc("B6ACCE"), hexc("7C7098"), hexc("675C84"), 171, cells=5, edge_w=2.0),
+}
+
+# normal maps (name -> (seed, cells)) matching the facet color maps above
+NORMALS = {
+    "rock": (31, 10), "basalt": (61, 9), "asphalt": (71, 6), "lava": (81, 7), "glacier": (101, 5),
+    "limestone": (111, 7), "slate": (131, 8), "voidstone": (161, 7), "templestone": (171, 5),
+}
+
+if __name__ == "__main__":
+    names = sys.argv[1:] or list(TEXTURES)
+    for name in names:
+        t = time.time()
+        write_png(os.path.join(OUT, name + ".png"), TEXTURES[name]())
+        if name in NORMALS:
+            seed, cells = NORMALS[name]
+            write_png(os.path.join(OUT, name + "_n.png"), normal_facets(seed, cells))
+        print(name, round(time.time() - t, 1), "s")
