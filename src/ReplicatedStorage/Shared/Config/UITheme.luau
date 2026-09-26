@@ -100,12 +100,12 @@ return {
 		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(235, 90, 150), Order = 6, Icon = Icons.Menu_Rebirth },
 	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string } },
 
-	-- Shop item icons (Config/Products keys). "" = styled placeholder tile until there's art for passes.
+	-- Shop item icons (Config/Products keys). "" = styled placeholder tile.
 	ShopIcons = {
-		ElevatorPass = "",
-		ElevatorSkip = "",
-		AfkIncome2x = Icons.Gold,
-		AutoBind = Icons.Stardust,
+		ElevatorPass = "rbxassetid://134740752067580",
+		ElevatorSkip = "rbxassetid://100198617713618",
+		AfkIncome2x = "rbxassetid://121189065531863",
+		AutoBind = "rbxassetid://129574556776206",
 	} :: { [string]: string },
 
 	Fonts = {
