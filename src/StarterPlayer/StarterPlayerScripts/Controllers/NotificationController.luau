@@ -1,9 +1,11 @@
 --!strict
 -- Toast messages at the top of the screen, plus server-wide announcements. Placeholder UI.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+
+local HudLayout = require(script.Parent.HudLayout)
+local Theme = require(ReplicatedStorage.Shared.Config.Theme)
 
 local TOAST_SECONDS = 4
 
@@ -38,10 +40,7 @@ function NotificationController:Show(text: string, color: Color3?)
 end
 
 function NotificationController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Notifications"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = HudLayout.MakeScreenGui("Notifications", "Notifications")
 
 	container = Instance.new("Frame")
 	container.AnchorPoint = Vector2.new(0.5, 0)
@@ -56,6 +55,9 @@ function NotificationController:Init()
 	layout.Padding = UDim.new(0, 6)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.Parent = container
+	HudLayout.OnLayoutChanged(function(isPhone)
+		container.Position = UDim2.new(0.5, 0, 0, if isPhone then Theme.Sizes.PhoneCardTop + 120 else 70)
+	end)
 end
 
 local KIND_COLORS: { [string]: Color3 } = {

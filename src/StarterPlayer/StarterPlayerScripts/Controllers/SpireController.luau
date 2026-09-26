@@ -10,8 +10,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local Format = require(ReplicatedStorage.Shared.Format)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
+local Theme = require(ReplicatedStorage.Shared.Config.Theme)
 
 local spireAction = ReplicatedStorage.Remotes.SpireAction :: RemoteEvent
 local spireUpdate = ReplicatedStorage.Remotes.SpireUpdate :: RemoteEvent
@@ -33,6 +35,8 @@ local logLabel: TextLabel
 local stopButton: TextButton
 local againButton: TextButton
 local elevatorButton: TextButton
+local closeButton: TextButton
+local logLines = LOG_LINES -- 1 on phones
 local record = 0
 
 local timerStart = 0
@@ -75,7 +79,7 @@ end
 
 local function addLog(line: string)
 	table.insert(log, 1, line)
-	while #log > LOG_LINES do
+	while #log > logLines do
 		table.remove(log)
 	end
 	logLabel.Text = table.concat(log, "\n")
@@ -175,10 +179,7 @@ local function onUpdate(update: { [string]: any })
 end
 
 function SpireController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Spire"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = HudLayout.MakeScreenGui("Spire", "Cards")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 1)
@@ -232,17 +233,56 @@ function SpireController:Init()
 	elevatorButton.Size = UDim2.new(0.35, -8, 0, 32)
 	elevatorButton.Position = UDim2.new(0.37, 0, 1, -8)
 	elevatorButton.Visible = false
-	local close = button(panel, "Hide", Color3.fromRGB(170, 170, 185), function()
+	closeButton = button(panel, "Hide", Color3.fromRGB(170, 170, 185), function()
 		panel.Visible = false
 		hiddenHere = true
 	end)
 	-- Stop and Climb again share the left spot (only one shows at a time); Hide sits on the right.
-	for _, b in { stopButton, againButton, close } do
+	for _, b in { stopButton, againButton, closeButton } do
 		b.AnchorPoint = Vector2.new(0, 1)
-		b.Size = UDim2.new(if b == close then 0.25 else 0.35, -8, 0, 32)
-		b.Position = if b == close then UDim2.new(0.75, 0, 1, -8) else UDim2.new(0, 12, 1, -8)
+		b.Size = UDim2.new(if b == closeButton then 0.25 else 0.35, -8, 0, 32)
+		b.Position = if b == closeButton then UDim2.new(0.75, 0, 1, -8) else UDim2.new(0, 12, 1, -8)
 	end
 	againButton.Visible = false
+
+	-- PC: a panel bottom-center. Phone: a compact card top-center under the sky HUD (the thumbstick and jump button
+	-- own the bottom corners), showing only the latest log line.
+	local bar = barFill.Parent :: Frame
+	HudLayout.OnLayoutChanged(function(isPhone)
+		local sizes = Theme.Sizes
+		logLines = if isPhone then 1 else LOG_LINES
+		if isPhone then
+			panel.AnchorPoint = Vector2.new(0.5, 0)
+			panel.Position = UDim2.new(0.5, 0, 0, sizes.PhoneCardTop)
+			panel.Size = UDim2.fromOffset(380, 112)
+			title.Position, title.Size = UDim2.fromOffset(10, 6), UDim2.new(1, -20, 0, 18)
+			matchup.Position, matchup.Size = UDim2.fromOffset(10, 26), UDim2.new(1, -20, 0, 15)
+			bar.Position, bar.Size = UDim2.fromOffset(10, 45), UDim2.new(1, -20, 0, 6)
+			logLabel.Position, logLabel.Size = UDim2.fromOffset(10, 55), UDim2.new(1, -20, 0, 18)
+			logLabel.TextSize = 12
+			for _, b in { stopButton, againButton, elevatorButton, closeButton } do
+				b.Size = UDim2.new(b.Size.X.Scale, b.Size.X.Offset, 0, 26)
+				b.Position = UDim2.new(b.Position.X.Scale, b.Position.X.Offset, 1, -6)
+			end
+		else
+			panel.AnchorPoint = Vector2.new(0.5, 1)
+			panel.Position = UDim2.new(0.5, 0, 1, -16)
+			panel.Size = UDim2.new(0.6, 0, 0, 200)
+			title.Position, title.Size = UDim2.fromOffset(12, 8), UDim2.new(1, -24, 0, 24)
+			matchup.Position, matchup.Size = UDim2.fromOffset(12, 36), UDim2.new(1, -24, 0, 20)
+			bar.Position, bar.Size = UDim2.fromOffset(12, 62), UDim2.new(1, -24, 0, 10)
+			logLabel.Position, logLabel.Size = UDim2.fromOffset(12, 78), UDim2.new(1, -24, 0, 76)
+			logLabel.TextSize = 14
+			for _, b in { stopButton, againButton, elevatorButton, closeButton } do
+				b.Size = UDim2.new(b.Size.X.Scale, b.Size.X.Offset, 0, 32)
+				b.Position = UDim2.new(b.Position.X.Scale, b.Position.X.Offset, 1, -8)
+			end
+		end
+		while #log > logLines do
+			table.remove(log)
+		end
+		logLabel.Text = table.concat(log, "\n")
+	end)
 
 	spireUpdate.OnClientEvent:Connect(onUpdate)
 	DataController:OnChanged("ElevatorSkips", updateElevator)

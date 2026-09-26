@@ -1,14 +1,14 @@
 --!strict
--- Boosts: a "Boosts" button opens a panel with every potion (count owned, effect, time left) and a Use / Arm button
--- per potion, and a small HUD column (top right) shows active timers and the armed luck charge.
--- The Boosts button shows a count and pulses while there are unused potions.
+-- Boosts: the "Boosts" menu button (HudLayout) opens a panel with every potion (count owned, effect, time left) and a
+-- Use / Arm button per potion, and a small HUD column (top right, under the luck pill on phones) shows active timers
+-- and the armed luck charge. The Boosts button shows a count and pulses while there are unused potions.
 -- The server checks everything (BoostService). Timers pause while offline. Placeholder UI.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
+local Theme = require(ReplicatedStorage.Shared.Config.Theme)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 
 local useBoost = ReplicatedStorage.Remotes.UseBoost :: RemoteEvent
@@ -59,9 +59,6 @@ local function text(parent: Instance, value: string, color: Color3, bold: boolea
 	return l
 end
 
-local openButton: TextButton
-local badge: TextLabel
-
 -- Boosts button: a count badge and a pulsing outline while the player owns potions they haven't used.
 local function updateBadge(data: any)
 	local unused = 0
@@ -71,9 +68,8 @@ local function updateBadge(data: any)
 			unused += count
 		end
 	end
-	badge.Text = tostring(unused)
-	badge.Visible = unused > 0
-	openButton:SetAttribute("Pulse", unused > 0)
+	HudLayout.SetBadge("Boosts", unused)
+	HudLayout.SetPulse("Boosts", unused > 0)
 end
 
 local function refresh()
@@ -145,45 +141,9 @@ local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
 end
 
 function BoostController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Boosts"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-	local open = Instance.new("TextButton")
-	openButton = open
-	open.AnchorPoint = Vector2.new(0, 1)
-	open.Position = UDim2.new(0, 16, 1, -208) -- above the Dragons button
-	open.Size = UDim2.new(0, 160, 0, 40)
-	open.BackgroundColor3 = Color3.fromRGB(200, 150, 255)
-	open.TextColor3 = DARK
-	open.Font = Enum.Font.GothamBold
-	open.TextScaled = true
-	open.Text = "Boosts"
-	round(open)
-	pad(open, 6)
-	open.Parent = gui
-
-	badge = Instance.new("TextLabel")
-	badge.AnchorPoint = Vector2.new(0.5, 0.5)
-	badge.Position = UDim2.new(1, -4, 0, 4)
-	badge.Size = UDim2.new(0, 24, 0, 24)
-	badge.BackgroundColor3 = Color3.fromRGB(230, 70, 70)
-	badge.TextColor3 = Color3.new(1, 1, 1)
-	badge.Font = Enum.Font.GothamBold
-	badge.TextScaled = true
-	badge.Visible = false
-	badge.ZIndex = 2
-	local badgeCorner = Instance.new("UICorner")
-	badgeCorner.CornerRadius = UDim.new(1, 0)
-	badgeCorner.Parent = badge
-	pad(badge, 3)
-	badge.Parent = open
-	local pulse = Instance.new("UIStroke")
-	pulse.Color = Color3.new(1, 1, 1)
-	pulse.Thickness = 0
-	pulse.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	pulse.Parent = open
+	local gui = HudLayout.MakeScreenGui("Boosts", "Popups")
+	local timersGui = HudLayout.MakeScreenGui("BoostTimers", "Cards")
+	local open = HudLayout.AddMenuButton("Boosts")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -197,6 +157,7 @@ function BoostController:Init()
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(520, 520)
 	limit.Parent = panel
+	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.75, 0))
 
 	text(panel, "Boosts", Color3.new(1, 1, 1), true, UDim2.new(0, 14, 0, 10), UDim2.new(1, -70, 0, 26))
 	text(
@@ -238,14 +199,22 @@ function BoostController:Init()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
 
-	-- HUD column, top right, below the sky bar.
+	-- HUD column, top right: below the sky bar on PC, under the luck pill on phones.
 	hud = Instance.new("Frame")
 	hud.AnchorPoint = Vector2.new(1, 0)
-	hud.Position = UDim2.new(1, -16, 0, 70)
-	hud.Size = UDim2.new(0, 200, 0, 0)
 	hud.AutomaticSize = Enum.AutomaticSize.Y
 	hud.BackgroundTransparency = 1
-	hud.Parent = gui
+	hud.Parent = timersGui
+	HudLayout.OnLayoutChanged(function(isPhone)
+		local sizes = Theme.Sizes
+		if isPhone then
+			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
+			hud.Size = UDim2.fromOffset(sizes.PhonePillWidth, 0)
+		else
+			hud.Position = UDim2.new(1, -sizes.Margin, 0, 70)
+			hud.Size = UDim2.fromOffset(200, 0)
+		end
+	end)
 	local hudLayout = Instance.new("UIListLayout")
 	hudLayout.Padding = UDim.new(0, 4)
 	hudLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -256,7 +225,7 @@ function BoostController:Init()
 
 		local hudLabel = Instance.new("TextLabel")
 		hudLabel.LayoutOrder = index
-		hudLabel.Size = UDim2.new(1, 0, 0, 24)
+		hudLabel.Size = UDim2.new(1, 0, 0, 22)
 		hudLabel.BackgroundColor3 = DARK
 		hudLabel.BackgroundTransparency = 0.3
 		hudLabel.TextColor3 = potion.Color
@@ -276,18 +245,6 @@ function BoostController:Init()
 	for _, key in { "Potions", "ActiveBoosts", "ArmedLuckPotion" } do
 		DataController:OnChanged(key, refresh)
 	end
-end
-
-function BoostController:Start()
-	-- Pulse the Boosts button's outline while there are unused potions.
-	local pulse = openButton:FindFirstChildOfClass("UIStroke") :: UIStroke
-	RunService.RenderStepped:Connect(function()
-		if openButton:GetAttribute("Pulse") == true then
-			pulse.Thickness = 1.5 + 1.5 * math.sin(os.clock() * 5)
-		else
-			pulse.Thickness = 0
-		end
-	end)
 end
 
 return BoostController

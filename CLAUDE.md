@@ -43,7 +43,7 @@ _Update this section as work progresses._
 | Weekly Spire leaderboard | Proposed (weekly update) |
 | Weekly event constellation (event-only dragon, single model) | Proposed (weekly update) |
 | Ascension (second prestige) | Proposed (design only, post-launch) |
-| UI | Placeholder UI built in code: sky HUD, notifications, luck panel, currency, rebirth panel, dragon inventory (`InventoryController`: +1/+10/Max, Place in roost). Needs designer/artist polish |
+| UI | Placeholder UI built in code. `Controllers/HudLayout` + `Config/Theme` (colors, fonts, sizes, layers in one place; the future component kit builds on them): menu buttons (`AddMenuButton`, badges, pulse), currency (`AddCurrencyLabel`), popups (`RegisterPopup`: drawn above the HUD, near full screen on phones), `OnLayoutChanged`. PC = labeled column bottom-left; phone (short side ≤ 500 px) = 2×3 grid left-middle, currency top-left, luck pill + boost timers top-right, Spire card top-center; the thumbstick/jump corners stay clear. Landscape only (`PlayerGui.ScreenOrientation`). Studio test: LocalPlayer attribute `ForceLayout` = "Phone"/"PC". Needs designer/artist styling |
 | Ranked PvP | Post-launch |
 
 **Next up: approved build order** (full numbers in `E:\Roblox\Bind A Dragon - Economy Rebalance Proposal v5.md`,
@@ -58,9 +58,10 @@ Studio, fix, commit, and send the user a short summary before starting the next.
 6. Monetization (Tower Elevator Pass, Single Elevator Skip, 2x AFK Income, Auto-bind; `ProcessReceipt` with receipt IDs).
 Later weekly updates: Spire leaderboard, event constellations, then Ascension (design only).
 UI polish after the core loop is playable. **UI polish list (in order):**
-1. Phone layout of the left button column (Shop, Quests, Index, Boosts, Dragons, Rebirth + currency): it is 6 buttons
-   tall and overflows phone screens. Needs a compact/phone layout (e.g. icon grid or a collapsible menu).
-2. Spire battle visuals (see Open questions): a visible dragon-vs-dragon fight instead of the timer bar.
+1. ~~Phone layout of the left button column~~ Done: `HudLayout` (phone grid, popups above the HUD, luck pill, Spire
+   card, scaled Rebirth confirm, scrolling station odds). Menu buttons still use text labels until the artist's icons.
+2. Full UI styling pass on top of `Config/Theme` / `HudLayout` (theme values, components, icons).
+3. Spire battle visuals (see Open questions): a visible dragon-vs-dragon fight instead of the timer bar.
 
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.3):
 Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a potion.

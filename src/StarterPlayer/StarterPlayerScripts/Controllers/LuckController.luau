@@ -1,5 +1,6 @@
 --!strict
--- At night, near a Star Altar: shows the player's current bind luck with a breakdown of every source, and keeps
+-- At night, near a Star Altar: shows the player's current bind luck with a breakdown of every source (on phones a
+-- "Bind luck x…" pill top-right that opens the panel), and keeps
 -- the altar prompts up to date for this player (offer cost, hidden once they've bound). Placeholder UI.
 -- Uses Shared/Luck, the same math the server rolls with. A button cycles which luck charge (Config/Boosts) is
 -- armed for this bind: none -> each owned charge -> none.
@@ -9,11 +10,13 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
+local Theme = require(ReplicatedStorage.Shared.Config.Theme)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 
 local ALTAR_TAG = "StarAltar"
@@ -27,6 +30,10 @@ local LuckController = {}
 local panel: Frame
 local title: TextLabel
 local details: TextLabel
+local pill: TextButton
+local active = false -- at an altar at night
+local expanded = false -- phone: pill tapped open
+local phone = false
 local armButton: TextButton
 
 local function getAltarPart(altar: Instance): BasePart?
@@ -86,19 +93,28 @@ local function favoredHint(constellation: { Element: string? }): string
 	return if area then `Tonight favors {area.Name}` else "Tonight favors no area"
 end
 
+-- PC: the panel shows whenever the player is at an altar at night. Phone: a small pill (top-right) shows instead,
+-- and tapping it opens the full panel below it.
+local function setActive(on: boolean)
+	active = on
+	pill.Visible = phone and active
+	panel.Visible = active and (not phone or expanded)
+	pill.Text = `{title.Text}  {if expanded then "-" else "+"}` -- ASCII: Gotham has no arrow glyphs
+end
+
 local function update()
 	local data = DataController:Get()
 	local character = Players.LocalPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local state = Cycle.GetState()
 	if data == nil or root == nil or not root:IsA("BasePart") or not state.IsNight then
-		panel.Visible = false
+		setActive(false)
 		return
 	end
 
 	local altar, part = findNearestAltar(root.Position)
 	if altar == nil or part == nil then
-		panel.Visible = false
+		setActive(false)
 		return
 	end
 
@@ -123,7 +139,7 @@ local function update()
 	if boundTonight then
 		title.Text = "Bound tonight"
 		details.Text = "Come back next night to bind again."
-		panel.Visible = true
+		setActive(true)
 		return
 	end
 
@@ -161,18 +177,14 @@ local function update()
 			else `Arm a luck potion ({#owned} kind{if #owned > 1 then "s" else ""})`
 	end
 	details.Text = table.concat(lines, "\n")
-	panel.Visible = true
+	setActive(true)
 end
 
 function LuckController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Luck"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = HudLayout.MakeScreenGui("Luck", "Cards")
+	gui.DisplayOrder += 1 -- the opened panel draws over the boost timers (phones)
 
 	panel = Instance.new("Frame")
-	panel.AnchorPoint = Vector2.new(1, 0.5)
-	panel.Position = UDim2.new(1, -16, 0.5, 0)
 	panel.Size = UDim2.new(0, 250, 0, 240)
 	panel.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
 	panel.BackgroundTransparency = 0.25
@@ -223,6 +235,49 @@ function LuckController:Init()
 	armPad.PaddingRight = UDim.new(0, 6)
 	armPad.Parent = armButton
 	armButton.Activated:Connect(cycleCharge)
+
+	pill = Instance.new("TextButton")
+	pill.Name = "LuckPill"
+	pill.AnchorPoint = Vector2.new(1, 0)
+	pill.BackgroundColor3 = Theme.Colors.Panel
+	pill.BackgroundTransparency = 0.2
+	pill.TextColor3 = Theme.Colors.Stardust
+	pill.Font = Theme.Fonts.Bold
+	pill.TextScaled = true
+	pill.Visible = false
+	HudLayout.Corner(pill)
+	HudLayout.Pad(pill, 5)
+	pill.Parent = gui
+	pill.Activated:Connect(function()
+		expanded = not expanded
+		setActive(active)
+	end)
+
+	HudLayout.OnLayoutChanged(function(isPhone)
+		phone = isPhone
+		local sizes = Theme.Sizes
+		pill.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin)
+		pill.Size = UDim2.fromOffset(sizes.PhonePillWidth, sizes.PhonePillHeight)
+		-- Phone: shorter panel under the pill, so it ends well above the jump button.
+		if isPhone then
+			panel.AnchorPoint = Vector2.new(1, 0)
+			panel.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
+			panel.Size = UDim2.fromOffset(250, 180)
+			title.Size = UDim2.new(1, 0, 0, 20)
+			details.Position, details.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -56)
+			details.TextSize = 13
+			armButton.Size = UDim2.new(1, 0, 0, 26)
+		else
+			panel.AnchorPoint = Vector2.new(1, 0.5)
+			panel.Position = UDim2.new(1, -sizes.Margin, 0.5, 0)
+			panel.Size = UDim2.fromOffset(250, 240)
+			title.Size = UDim2.new(1, 0, 0, 28)
+			details.Position, details.Size = UDim2.fromOffset(0, 34), UDim2.new(1, 0, 1, -72)
+			details.TextSize = 16
+			armButton.Size = UDim2.new(1, 0, 0, 32)
+		end
+		setActive(active)
+	end)
 end
 
 function LuckController:Start()

@@ -1,12 +1,13 @@
 --!strict
 -- Dragon inventory: a "Dragons" button opens a panel with a card per dragon (rarity, element, stage, level,
 -- gold/sec) and buttons to level up (+1 / +10 / Max) or place it in the roost. The server checks everything.
+-- The "Dragons" button lives in HudLayout's menu; the panel is a popup (near full screen on phones).
 -- Placeholder UI.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
@@ -105,8 +106,8 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	-- Level buttons
 	local row = Instance.new("Frame")
 	row.BackgroundTransparency = 1
-	row.Position = UDim2.new(0, 8, 0, 90)
-	row.Size = UDim2.new(1, -16, 0, 30)
+	row.Position = UDim2.new(0, 8, 0, 88)
+	row.Size = UDim2.new(1, -16, 0, 38)
 	row.Parent = card
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -116,11 +117,12 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	local atCap = dragon.Level >= cap
 	local oneCost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 	local tenLevels, tenCost = DragonStats.GetBulkLevelCost(dragon, 10, cap, data.Rebirths)
-	local plusOne = button(row, if atCap then "Max level" else `+1  {Format.Number(oneCost)}`, not atCap and data.Gold >= oneCost, function()
+	-- Two lines ("+1" / cost) so the text stays readable on phones.
+	local plusOne = button(row, if atCap then "Max level" else `+1\n{Format.Number(oneCost)}`, not atCap and data.Gold >= oneCost, function()
 		levelUpDragon:FireServer(dragon.Id, 1)
 	end)
 	plusOne.Size = UDim2.new(0.4, -3, 1, 0)
-	local plusTen = button(row, `+{math.max(tenLevels, 1)}  {Format.Number(tenCost)}`, tenLevels > 0 and data.Gold >= oneCost, function()
+	local plusTen = button(row, `+{math.max(tenLevels, 1)}\n{Format.Number(tenCost)}`, tenLevels > 0 and data.Gold >= oneCost, function()
 		levelUpDragon:FireServer(dragon.Id, 10) -- server buys as many of the 10 as the player can afford
 	end)
 	plusTen.Size = UDim2.new(0.35, -3, 1, 0)
@@ -131,12 +133,12 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 
 	-- Roost
 	if inRoost then
-		label(card, "In roost", Color3.fromRGB(130, 230, 140), true, 126, 20)
+		label(card, "In roost", Color3.fromRGB(130, 230, 140), true, 132, 20)
 	else
 		local place = button(card, "Place in roost", true, function()
 			placeInRoost:FireServer(dragon.Id)
 		end)
-		place.Position = UDim2.new(0, 8, 0, 126)
+		place.Position = UDim2.new(0, 8, 0, 132)
 		place.Size = UDim2.new(1, -16, 0, 26)
 	end
 end
@@ -178,26 +180,8 @@ local function redraw()
 end
 
 function InventoryController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Inventory"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-	local open = Instance.new("TextButton")
-	open.AnchorPoint = Vector2.new(0, 1)
-	open.Position = UDim2.new(0, 16, 1, -160) -- above the Rebirth button
-	open.Size = UDim2.new(0, 160, 0, 40)
-	open.BackgroundColor3 = Color3.fromRGB(170, 220, 255)
-	open.TextColor3 = DARK
-	open.Font = Enum.Font.GothamBold
-	open.TextScaled = true
-	open.Text = "Dragons"
-	round(open)
-	local openPad = Instance.new("UIPadding")
-	openPad.PaddingTop = UDim.new(0, 6)
-	openPad.PaddingBottom = UDim.new(0, 6)
-	openPad.Parent = open
-	open.Parent = gui
+	local gui = HudLayout.MakeScreenGui("Inventory", "Popups")
+	local open = HudLayout.AddMenuButton("Dragons")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -211,6 +195,7 @@ function InventoryController:Init()
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(700, 520)
 	limit.Parent = panel
+	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.75, 0))
 
 	header = label(panel, "Your dragons", Color3.new(1, 1, 1), true, 10, 26)
 	header.Size = UDim2.new(1, -70, 0, 26)
@@ -233,7 +218,7 @@ function InventoryController:Init()
 	list.CanvasSize = UDim2.new()
 	list.Parent = panel
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.new(0, 210, 0, 160)
+	grid.CellSize = UDim2.new(0, 210, 0, 166)
 	grid.CellPadding = UDim2.new(0, 8, 0, 8)
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center

@@ -3,10 +3,10 @@
 -- rarity (found ones named, unknown ones "???", ★ when the Starborn variant is found too), the Index income bonus,
 -- progress to the next milestone, and the Star Atlas (constellations bound). Placeholder UI.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Constellations = require(ReplicatedStorage.Shared.Config.Constellations)
@@ -160,23 +160,8 @@ local function redraw()
 end
 
 function IndexController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Index"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-	local open = Instance.new("TextButton")
-	open.AnchorPoint = Vector2.new(0, 1)
-	open.Position = UDim2.new(0, 16, 1, -256) -- above the Boosts button
-	open.Size = UDim2.new(0, 160, 0, 40)
-	open.BackgroundColor3 = IndexConfig.StarbornColor
-	open.TextColor3 = DARK
-	open.Font = Enum.Font.GothamBold
-	open.TextScaled = true
-	open.Text = "Index"
-	round(open)
-	pad(open, 6)
-	open.Parent = gui
+	local gui = HudLayout.MakeScreenGui("Index", "Popups")
+	local open = HudLayout.AddMenuButton("Index")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -190,6 +175,7 @@ function IndexController:Init()
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(720, 560)
 	limit.Parent = panel
+	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.8, 0))
 
 	local title = label(panel, "Dragon Index", Color3.new(1, 1, 1), true)
 	title.Position = UDim2.new(0, 14, 0, 10)

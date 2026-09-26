@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
@@ -207,10 +208,7 @@ local function makeLabel(parent: Instance, y: number, height: number, bold: bool
 end
 
 function RollStationController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "RollStation"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = HudLayout.MakeScreenGui("RollStation", "Popups")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -224,6 +222,7 @@ function RollStationController:Init()
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(560, 540)
 	limit.Parent = panel
+	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.8, 0))
 
 	title = makeLabel(panel, 10, 28, true)
 	title.Size = UDim2.new(1, -70, 0, 28)
@@ -282,9 +281,20 @@ function RollStationController:Init()
 	end)
 	rollButton.Parent = panel
 
-	odds = makeLabel(panel, 0, 0, false)
-	odds.Position = UDim2.new(0, 14, 0.55, 94)
-	odds.Size = UDim2.new(1, -28, 0.45, -104)
+	-- The odds scroll, so they stay readable when the panel is short (phones).
+	local oddsScroll = Instance.new("ScrollingFrame")
+	oddsScroll.Position = UDim2.new(0, 14, 0.55, 94)
+	oddsScroll.Size = UDim2.new(1, -28, 0.45, -100)
+	oddsScroll.BackgroundTransparency = 1
+	oddsScroll.BorderSizePixel = 0
+	oddsScroll.ScrollBarThickness = 4
+	oddsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	oddsScroll.CanvasSize = UDim2.new()
+	oddsScroll.Parent = panel
+	odds = makeLabel(oddsScroll, 0, 0, false)
+	odds.Position = UDim2.new()
+	odds.Size = UDim2.new(1, -8, 0, 0)
+	odds.AutomaticSize = Enum.AutomaticSize.Y
 	odds.TextScaled = false
 	odds.TextSize = 14
 	odds.TextWrapped = true

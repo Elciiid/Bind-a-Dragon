@@ -2,10 +2,10 @@
 -- Quests panel: a "Quests" button opens today's daily quests and this week's weekly quests (progress bars, rewards,
 -- time until reset) and the login streak. Rewards are granted by the server when a quest completes. Placeholder UI.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local QuestConfig = require(ReplicatedStorage.Shared.Config.Quests)
@@ -156,23 +156,8 @@ local function redraw()
 end
 
 function QuestController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Quests"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-	local open = Instance.new("TextButton")
-	open.AnchorPoint = Vector2.new(0, 1)
-	open.Position = UDim2.new(0, 16, 1, -304) -- above the Index button
-	open.Size = UDim2.new(0, 160, 0, 40)
-	open.BackgroundColor3 = QUEST_COLOR
-	open.TextColor3 = DARK
-	open.Font = Enum.Font.GothamBold
-	open.TextScaled = true
-	open.Text = "Quests"
-	round(open)
-	pad(open, 6)
-	open.Parent = gui
+	local gui = HudLayout.MakeScreenGui("Quests", "Popups")
+	local open = HudLayout.AddMenuButton("Quests")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -186,6 +171,7 @@ function QuestController:Init()
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(560, 520)
 	limit.Parent = panel
+	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.75, 0))
 
 	local title = label(panel, "Quests", Color3.new(1, 1, 1), true)
 	title.Position = UDim2.new(0, 14, 0, 10)

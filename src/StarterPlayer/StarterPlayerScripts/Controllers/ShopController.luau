@@ -1,5 +1,5 @@
 --!strict
--- Shop: a "Shop" button (left button column) opens the game passes and developer products from Config/Products with a Buy
+-- Shop: the "Shop" menu button (HudLayout) opens the game passes and developer products from Config/Products with a Buy
 -- button each (Roblox's purchase prompt). Owned passes show "Owned" (Player attribute "Pass_<Key>", set by the
 -- server). Items whose Id is still 0 show "Coming soon". Granting happens on the server. Placeholder UI.
 
@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 
 local DARK = Color3.fromRGB(15, 15, 30)
@@ -116,23 +117,8 @@ local function makeCard(list: Instance, key: string, order: number)
 end
 
 function ShopController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Shop"
-	gui.ResetOnSpawn = false
-	gui.Parent = player:WaitForChild("PlayerGui")
-
-	local open = Instance.new("TextButton")
-	open.AnchorPoint = Vector2.new(0, 1)
-	open.Position = UDim2.new(0, 16, 1, -352) -- above the Quests button (top left is Roblox's chat)
-	open.Size = UDim2.new(0, 160, 0, 40)
-	open.BackgroundColor3 = GOLD
-	open.TextColor3 = DARK
-	open.Font = Enum.Font.GothamBold
-	open.TextScaled = true
-	open.Text = "Shop"
-	round(open)
-	pad(open, 6)
-	open.Parent = gui
+	local gui = HudLayout.MakeScreenGui("Shop", "Popups")
+	local open = HudLayout.AddMenuButton("Shop")
 
 	local panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -146,6 +132,7 @@ function ShopController:Init()
 	local limit = Instance.new("UISizeConstraint")
 	limit.MaxSize = Vector2.new(520, 420)
 	limit.Parent = panel
+	HudLayout.RegisterPopup(panel, UDim2.new(0.92, 0, 0.7, 0))
 
 	label(panel, "Shop", Color3.new(1, 1, 1), true, UDim2.new(0, 14, 0, 10), UDim2.new(1, -70, 0, 26))
 

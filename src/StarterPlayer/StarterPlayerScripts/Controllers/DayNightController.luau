@@ -4,11 +4,11 @@
 -- Placeholder UI.
 
 local Lighting = game:GetService("Lighting")
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local NotificationController = require(script.Parent.NotificationController)
+local HudLayout = require(script.Parent.HudLayout)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
@@ -16,6 +16,7 @@ local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local DayNight = require(ReplicatedStorage.Shared.Config.DayNight)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
+local Theme = require(ReplicatedStorage.Shared.Config.Theme)
 
 local NIGHT_TINT = 0.35 -- how strongly tonight's element colors the ambient light
 local RARE_NIGHT_TINT = 0.6
@@ -42,10 +43,7 @@ function DayNightController:Init()
 	baseAmbient = Lighting.Ambient
 	baseOutdoorAmbient = Lighting.OutdoorAmbient
 
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "SkyHud"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local gui = HudLayout.MakeScreenGui("SkyHud", "Hud")
 
 	label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 0)
@@ -61,6 +59,11 @@ function DayNightController:Init()
 	local sizeLimit = Instance.new("UISizeConstraint")
 	sizeLimit.MaxSize = Vector2.new(440, 44)
 	sizeLimit.Parent = label
+	HudLayout.OnLayoutChanged(function(isPhone)
+		label.Position = UDim2.new(0.5, 0, 0, if isPhone then Theme.Sizes.PhoneMargin else 12)
+		label.Size = UDim2.new(0.9, 0, 0, if isPhone then 36 else 44)
+		sizeLimit.MaxSize = if isPhone then Vector2.new(340, 36) else Vector2.new(440, 44)
+	end)
 	local padding = Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 8)
 	padding.PaddingBottom = UDim.new(0, 8)

@@ -1,11 +1,11 @@
 --!strict
--- Rebirth button (bottom-left, above the currency counters) and a confirm panel that spells out the cost,
--- what is kept, and what the rebirth unlocks. The server decides; this only asks. Placeholder UI.
+-- Rebirth menu button (HudLayout) and a confirm panel that spells out the cost, what is kept, and what the rebirth
+-- unlocks. The panel scales with the screen (phones). The server decides; this only asks. Placeholder UI.
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
+local HudLayout = require(script.Parent.HudLayout)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -53,7 +53,9 @@ local function refresh()
 	end
 	local cost = DragonStats.GetRebirthCost(data.Rebirths)
 	local next = data.Rebirths + 1
-	button.Text = if data.Rebirths > 0 then `Rebirth  ★{data.Rebirths}` else "Rebirth"
+	if data.Rebirths > 0 then
+		HudLayout.SetMenuText("Rebirth", `Rebirth  ★{data.Rebirths}`, `Rebirth\n★{data.Rebirths}`)
+	end
 
 	if DragonStats.IsAtRebirthCap(data) then
 		body.Text = table.concat({
@@ -95,20 +97,13 @@ local function refresh()
 end
 
 function RebirthController:Init()
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "Rebirth"
-	gui.ResetOnSpawn = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-	button = makeButton(gui, "Rebirth", GOLD)
-	button.AnchorPoint = Vector2.new(0, 1)
-	button.Position = UDim2.new(0, 16, 1, -112) -- just above the Gold/Stardust counters
-	button.Size = UDim2.new(0, 160, 0, 40)
+	local gui = HudLayout.MakeScreenGui("Rebirth", "Popups")
+	button = HudLayout.AddMenuButton("Rebirth")
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.9, 0, 0, 300)
+	panel.Size = UDim2.new(0.9, 0, 0.9, 0) -- height scales with the screen, up to MaxSize
 	panel.BackgroundColor3 = DARK
 	panel.BackgroundTransparency = 0.1
 	panel.Visible = false
@@ -123,11 +118,16 @@ function RebirthController:Init()
 	body.BackgroundTransparency = 1
 	body.TextColor3 = Color3.new(1, 1, 1)
 	body.Font = Enum.Font.Gotham
-	body.TextSize = 18
+	body.TextScaled = true -- shrinks on small screens, up to 18
 	body.TextWrapped = true
+	local textLimit = Instance.new("UITextSizeConstraint")
+	textLimit.MaxTextSize = 18
+	textLimit.Parent = body
 	body.TextXAlignment = Enum.TextXAlignment.Left
 	body.TextYAlignment = Enum.TextYAlignment.Top
 	body.Parent = panel
+
+	HudLayout.RegisterPopup(panel, UDim2.new(0.9, 0, 0.9, 0))
 
 	confirm = makeButton(panel, "Rebirth now", GOLD)
 	confirm.AnchorPoint = Vector2.new(0, 1)
