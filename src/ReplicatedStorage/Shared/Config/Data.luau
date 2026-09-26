@@ -18,4 +18,13 @@ return {
 	-- How many developer product receipt IDs to remember per player (prevents double-granting).
 	-- Oldest IDs are dropped first; Roblox stops retrying a receipt long before this fills up.
 	MaxStoredPurchaseIds = 50,
+
+	-- Player settings (the Settings window). Volumes are 0..1 and multiply Config/Audio and UI sound volumes.
+	-- LowEffects: fewer lights/particles, no shake/flash/blur. QuickBinds: short binding ceremony (not for big binds).
+	DefaultSettings = {
+		MusicVolume = 1,
+		SoundVolume = 1,
+		LowEffects = false,
+		QuickBinds = false,
+	},
 }

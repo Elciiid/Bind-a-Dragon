@@ -98,6 +98,7 @@ return {
 		Boosts = { Label = "Boosts", Color = Color3.fromRGB(170, 100, 235), Order = 4, Icon = Icons.Menu_Boosts },
 		Dragons = { Label = "Dragons", Color = Color3.fromRGB(70, 150, 235), Order = 5, Icon = Icons.Menu_Dragons },
 		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(235, 90, 150), Order = 6, Icon = Icons.Menu_Rebirth },
+		Settings = { Label = "Settings", Color = Color3.fromRGB(120, 130, 170), Order = 7, Icon = "" }, -- no icon yet: styled tile
 	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string } },
 
 	-- Shop item icons (Config/Products keys). "" = styled placeholder tile.

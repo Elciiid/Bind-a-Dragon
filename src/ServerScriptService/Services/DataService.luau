@@ -22,10 +22,31 @@ type PlayerData = PlayerDataTypes.PlayerData
 
 -- Bump this and add a step to MIGRATIONS whenever existing saved data needs to be reshaped
 -- (renamed/moved/removed fields). Plain new fields don't need a migration: Reconcile() fills them in.
-local CURRENT_DATA_VERSION = 1
+local CURRENT_DATA_VERSION = 2
+
+local function defaultSettings(): PlayerDataTypes.Settings
+	local defaults = DataConfig.DefaultSettings
+	return {
+		MusicVolume = defaults.MusicVolume,
+		SoundVolume = defaults.SoundVolume,
+		LowEffects = defaults.LowEffects,
+		QuickBinds = defaults.QuickBinds,
+	}
+end
 
 -- MIGRATIONS[n] upgrades data from version n to n + 1.
-local MIGRATIONS: { [number]: (data: any) -> () } = {}
+local MIGRATIONS: { [number]: (data: any) -> () } = {
+	-- 1 -> 2: player settings (Settings window). Fill any missing value with the default.
+	[1] = function(data)
+		local settings = if type(data.Settings) == "table" then data.Settings else {}
+		for key, value in defaultSettings() :: any do
+			if type(settings[key]) ~= type(value) then
+				settings[key] = value
+			end
+		end
+		data.Settings = settings
+	end,
+}
 
 local TEMPLATE: PlayerData = {
 	DataVersion = CURRENT_DATA_VERSION,
@@ -72,6 +93,7 @@ local TEMPLATE: PlayerData = {
 	AfkCreditDay = -1,
 	AfkCreditSeconds = 0,
 	PurchaseIds = {},
+	Settings = defaultSettings(),
 }
 
 -- Top-level keys that stay on the server and are never sent to the client.
