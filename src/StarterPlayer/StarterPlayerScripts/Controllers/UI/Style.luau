@@ -113,22 +113,34 @@ end
 -- Sounds
 
 local sounds: { [string]: Sound } = {}
+local lastFeedbackSound = -math.huge
+local FEEDBACK_WINDOW = 0.35 -- seconds; matches Config/Feedback ToastSoundWindow
+
+-- FeedbackController calls this when it plays a palette sound, so the toast chime right after it is skipped.
+function Style.MarkFeedbackSound()
+	lastFeedbackSound = os.clock()
+end
 
 function Style.Play(name: string)
 	local id = (UITheme.Sounds :: any)[name]
 	if type(id) ~= "string" or id == "" then
 		return
 	end
+	if name == "Confirm" and os.clock() - lastFeedbackSound < FEEDBACK_WINDOW then
+		return
+	end
+	local volumeSetting = game:GetService("Players").LocalPlayer:GetAttribute("SoundVolume")
+	local volume = UITheme.Sounds.Volume * (if type(volumeSetting) == "number" then math.clamp(volumeSetting, 0, 1) else 1)
 	local sound = sounds[name]
 	if sound == nil then
 		local newSound = Instance.new("Sound")
 		newSound.Name = `UI_{name}`
 		newSound.SoundId = id
-		newSound.Volume = UITheme.Sounds.Volume
 		newSound.Parent = SoundService
 		sounds[name] = newSound
 		sound = newSound
 	end
+	(sound :: Sound).Volume = volume
 	SoundService:PlayLocalSound(sound :: Sound)
 end
 
