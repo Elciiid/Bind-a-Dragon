@@ -91,6 +91,7 @@ end
 
 local climbing = false
 local hiddenHere = false -- the player pressed Hide at the Spire; stay hidden until they walk away
+local hiddenByWindow = false -- another window hid the card; it comes back when that window closes mid-climb
 
 -- Between climbs, near the Spire: a ready panel with Climb / Elevator.
 local function showReady()
@@ -229,11 +230,20 @@ function SpireController:Init()
 	closeButton = button(panel, "Hide", "Neutral", function()
 		panel.Visible = false
 		hiddenHere = true
+		hiddenByWindow = false
 	end)
 	-- The Spire card is a station panel: showing it closes other windows, and opening a window hides it.
 	HudLayout.TrackPanel(panel, function()
 		panel.Visible = false
 		hiddenHere = true
+		hiddenByWindow = true
+	end)
+	HudLayout.OnFocusCleared(function()
+		if hiddenByWindow and climbing then
+			hiddenByWindow = false
+			hiddenHere = false
+			panel.Visible = true
+		end
 	end)
 
 	-- Stop and Climb again share the left spot (only one shows at a time); Hide sits on the right.
@@ -302,6 +312,7 @@ function SpireController:Start()
 			showReady()
 		elseif not near and wasNear then
 			hiddenHere = false
+			hiddenByWindow = false
 			if not climbing then
 				panel.Visible = false
 			end

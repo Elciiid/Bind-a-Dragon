@@ -268,6 +268,7 @@ end
 -- whatever else holds focus, and ReleaseFocus(owner) when it closes. UI/Window does this for every window; other
 -- panels (e.g. the Spire card) use TrackPanel. HUD pills, toasts and timers never take focus.
 local focused: { Owner: any, Close: () -> () }? = nil
+local focusClearedListeners: { () -> () } = {}
 
 function HudLayout.ClaimFocus(owner: any, close: () -> ())
 	local previous = focused
@@ -280,7 +281,15 @@ end
 function HudLayout.ReleaseFocus(owner: any)
 	if focused and focused.Owner == owner then
 		focused = nil
+		for _, fn in focusClearedListeners do
+			task.spawn(fn)
+		end
 	end
+end
+
+-- Calls fn whenever the open window/panel closes and nothing else is open (not when one window replaces another).
+function HudLayout.OnFocusCleared(fn: () -> ())
+	table.insert(focusClearedListeners, fn)
 end
 
 -- True while any window or station panel is open.
