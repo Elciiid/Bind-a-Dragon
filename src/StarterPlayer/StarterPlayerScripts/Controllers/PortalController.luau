@@ -5,10 +5,15 @@
 -- light, swirl or particles, and a small lock + "Rebirth X" shows when close. The area name shows within the world
 -- label distance. Looks: Config/Portals; label sizes/distances: Config/UITheme WorldLabels; wording: Config/Text.
 -- Teleporting and the unlock check stay on the server (AreaService); this is only visuals.
+-- Walking into an unlocked portal plays the warp: a whoosh, a quick FOV zoom and a flash in the portal's color
+-- (Config/WorldUI Warp).
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local DataController = require(script.Parent.DataController)
 local Style = require(script.Parent.UI.Style)
@@ -16,6 +21,7 @@ local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local PortalConfig = require(ReplicatedStorage.Shared.Config.Portals)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
+local WorldUI = require(ReplicatedStorage.Shared.Config.WorldUI)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local TAG = "AreaPortal"
@@ -36,6 +42,50 @@ local PortalController = {}
 
 local portals: { [BasePart]: Portal } = {}
 local angle = 0
+local lastWarp = 0
+
+-- Whoosh + FOV kick + color flash when the local player walks into an unlocked portal.
+local function warp(color: Color3)
+	local now = os.clock()
+	if now - lastWarp < 2 then
+		return
+	end
+	lastWarp = now
+	local config = WorldUI.Warp
+	local sound = Instance.new("Sound")
+	sound.SoundId = config.Sound
+	local volume = Players.LocalPlayer:GetAttribute("SoundVolume")
+	sound.Volume = config.Volume * (if type(volume) == "number" then volume else 1)
+	sound.Parent = SoundService
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
+	sound:Play()
+	local camera = workspace.CurrentCamera
+	local base = camera.FieldOfView
+	local half = config.Seconds / 2
+	local out = TweenService:Create(camera, TweenInfo.new(half, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { FieldOfView = base + config.FieldOfViewKick })
+	out.Completed:Connect(function()
+		TweenService:Create(camera, TweenInfo.new(half, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { FieldOfView = base }):Play()
+	end)
+	out:Play()
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "PortalWarp"
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = UITheme.Layers.Notifications + 4
+	local flash = Instance.new("Frame")
+	flash.Size = UDim2.fromScale(1, 1)
+	flash.BorderSizePixel = 0
+	flash.BackgroundColor3 = color
+	flash.BackgroundTransparency = config.FlashTransparency
+	flash.Parent = gui
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local fade = TweenService:Create(flash, TweenInfo.new(config.Seconds), { BackgroundTransparency = 1 })
+	fade.Completed:Connect(function()
+		gui:Destroy()
+	end)
+	fade:Play()
+end
 
 local function isUnlocked(areaId: string): boolean
 	local data = DataController:Get()
@@ -185,6 +235,12 @@ local function setup(instance: Instance)
 	}
 	portals[instance] = portal
 	apply(portal)
+	instance.Touched:Connect(function(hit)
+		local character = Players.LocalPlayer.Character
+		if character and hit:IsDescendantOf(character) and isUnlocked(areaId) then
+			warp(color)
+		end
+	end)
 	instance.Destroying:Connect(function()
 		portals[instance] = nil
 	end)
