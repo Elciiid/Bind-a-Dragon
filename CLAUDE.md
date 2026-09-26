@@ -32,6 +32,7 @@ _Update this section as work progresses._
 | In-world UI (wow pass, phase 3) | Done (`Config/WorldUI`): `PromptController` draws every ProximityPrompt in the UI theme (Style = Custom; key badge, icon, hold ring, tap/click to use). Portal warp in `PortalController` (whoosh, FOV kick, color flash). `RoostFXController`: owner banners with avatar (replace the server sign locally), "+gold" pops from your roost dragons, level-up/evolve bursts. `StationFXController`: rune/stone count boards, shrine glow and forge flare while you own runes/stones, merchant price board, Spire door record board (`UI/WorldBoard`). Note: Studio screenshots don't show `AlwaysOnTop` billboards (prompts); they do show in play |
 | Game feel (wow pass, phase 4) | Done: `FeedbackController` + `Config/Feedback`: one sound palette (level-up, buy, arm, climb start, floor clear, Index entry, reward, rebirth) with a small camera shake and screen flash, driven by data changes and SpireUpdate; shake/flash off with Low effects. A palette sound replaces the toast chime when both fire together (`Style.MarkFeedbackSound`); UI sounds follow the SoundVolume setting |
 | Settings (wow pass, phase 5) | Done: Settings window (`SettingsController`, menu tile) with Music / Sound sliders (5% steps) and Low effects / Quick binds toggles; applied at once as LocalPlayer attributes (`MusicVolume`, `SoundVolume`, `LowEffects`, `QuickBinds`), saved to `data.Settings` via the `SaveSettings` remote (`SettingsService`: type-checked, clamped, rate-limited) after a short debounce. Defaults in `Config/Data.DefaultSettings`; data version 2 (migration fills missing settings) |
+| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. Stage 3 detail next |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons`. Area rosters: `Config/Areas` `Element` + `Species` per area (Meadow = Common/Rare, element areas = all 5 of their element; rolls only over rarities in the roster, `Luck.GetAreaRarityWeights`); favored area ×`FavoredAreaLuck` (`Luck.IsFavored`), shown on the sky HUD and luck panel; Auto-bind uses the nearest unlocked altar's area |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs and the level cap (50 + 5 per rebirth) in `Config/Leveling`, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up in the Dragons panel (`InventoryController`) or via the E prompt on own roost dragons (`DragonPromptController`); one evolution toast per level-up |
@@ -101,14 +102,25 @@ concept art with the builder's models; north = -Z) is grouped as:
 The building meshes use the default CollisionFidelity (a script can't change it; set `PreciseConvexDecomposition`
 by hand in Properties if a building blocks players). The only dragon model in the place is
 `ReplicatedStorage.Assets.Dragons.Placeholder` (keep it: every dragon uses it until real art is added).
-**Placeholder areas:** `Workspace.FrozenCliffs_Placeholder` (x ≈ +900), `StormCanyon_Placeholder` (x ≈ -900) and
-`EclipseIsles_Placeholder` (z ≈ +900): flat platform, cloned Star Altar (`AreaId`), `AreaSpawn`, portal back, and a
-"PLACEHOLDER" sign; their Meadow portals are in `StarterMeadow.Portals`.
+**Other areas (remaster blockout 2026-09-27; areas are ≥ 1,200 studs apart so they never stream/see each other):**
+`Workspace.VolcanoPeak` (center (0, 0, -1600)), `Workspace.FrozenCliffs` (1600, 0, 0), `Workspace.StormCanyon`
+(-1600, 0, 0) and `Workspace.EclipseIsles` (-1150, 140, -1150, floating islands, north-west behind its portal). Each
+folder holds the Star Altar (`AreaId`), `AreaSpawn`, `Portal_StarterMeadow` and a `Blockout` folder; terrain shapes the
+area (Frozen: snow bowl, frozen lake, north cliff; Storm: canyon + north mesa + floating rocks; Eclipse: main island,
+bridge to the temple island). Their Meadow portals are in `StarterMeadow.Portals`. `AreaService` streams the
+destination in (`RequestStreamAroundAsync`) before teleporting. Terrain materials are split per area (Meadow: Grass,
+Rock, Ground, Mud, Sand, Water; Volcano: Basalt, CrackedLava, Asphalt; Frozen: Snow, Glacier, Ice, Limestone; Storm:
+Slate, Sandstone; Eclipse: LeafyGrass, Concrete, Pavement) so each area can have its own terrain colors.
+**Landmarks:** `HorizonController` + `Config/Horizon` clone models from `ReplicatedStorage.Assets.Horizon` on the
+client (no collision, never streamed): in the Meadow, the other areas' landmarks on the horizon behind each portal;
+in each area, its own sky landmark (Eclipse sun, ice crystals, storm tower with lightning, volcano plume). The Meadow
+has an outer ring of hills (saddles behind the portals), west-southwest cliffs with the waterfall, a pond, a stream
+and a lily pool, and invisible `Bounds` walls (radius 335).
 The builder replaces each with the real area (keep the altar tag + `AreaId`, the `AreaSpawn`, and the portals).
 Eclipse Isles should be themed to match the Shadow dragons.
 StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client code that sets up prompts on
 streamed models must retry until the parts arrive.
-`Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
+`Workspace.VolcanoPeak` (at z ≈ -1600): basalt plateau, a big volcano cone (crater + lava fall), lava, red Star Altar
 (`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. New areas: build far away, add a `StarAltar` + `AreaSpawn`
 with the AreaId, and a portal in `StarterMeadow.Portals`.
 **Dragon art:** `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` (or `<SpeciesId>` for one model for all

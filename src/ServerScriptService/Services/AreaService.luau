@@ -14,6 +14,7 @@ local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local PORTAL_TAG = "AreaPortal"
 local SPAWN_TAG = "AreaSpawn"
 local COOLDOWN = 2 -- seconds before the same player can use a portal again
+local STREAM_TIMEOUT = 3 -- seconds to wait for the destination to stream in before teleporting anyway
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 
@@ -58,6 +59,13 @@ local function onPortalTouched(portal: BasePart, hit: BasePart)
 	local destination = findSpawn(areaId)
 	if destination == nil then
 		warn(`[AreaService] No AreaSpawn for {areaId}`)
+		return
+	end
+	-- areas are far apart: load the destination on the client first so the player never lands on empty space
+	pcall(function()
+		player:RequestStreamAroundAsync(destination.Position, STREAM_TIMEOUT)
+	end)
+	if character.Parent == nil then
 		return
 	end
 	character:PivotTo(destination.CFrame + Vector3.new(0, 4, 0))
