@@ -24,12 +24,12 @@ return {
 	FlashOpacity = 0.9,
 
 	Landmarks = {
-		-- Behind Portal_VolcanoPeak (NE): the volcano with its plume.
+		-- Behind Portal_VolcanoPeak (NE): the volcano with its lava streaks and plume.
 		{
 			Model = "Volcano",
 			Position = Vector3.new(490, -20, -475),
 			FaceTowards = MEADOW_CENTER,
-			Scale = 1,
+			Scale = 1.25,
 			ShowIn = { "StarterMeadow" },
 		},
 		-- Behind Portal_FrozenCliffs (E): the ice crystal spire on its cliff.
