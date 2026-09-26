@@ -194,6 +194,8 @@ return {
 
 	-- A screen whose short side is at most this many pixels uses the phone layout.
 	PhoneMaxShortSide = 500,
+	-- Phones show at most this many boost timer pills; the rest collapse into a "+N" chip that opens Boosts.
+	PhoneMaxTimers = 3,
 
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).

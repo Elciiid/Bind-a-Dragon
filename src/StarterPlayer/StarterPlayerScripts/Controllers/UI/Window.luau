@@ -1,7 +1,8 @@
 --!strict
 -- Window: the standard popup panel. Night-sky panel with gold trim and sparkles, a title bar with a constellation
 -- motif and the title in the title font, a red X close button top-right, and a pop-in/out animation with sounds.
--- Windows register with HudLayout, so they draw above the HUD and fill the screen on phones.
+-- Windows register with HudLayout, so they draw above the HUD and fill the screen on phones. Only one window is open
+-- at a time: opening one closes any other window or station panel (HudLayout.ClaimFocus).
 --
 -- Usage: local win = Window.new({ Name = "Boosts", Title = "Boosts", Icon = "Menu_Boosts", Size = UDim2..., MaxSize = Vector2... })
 -- Put content in win.Content; call win:Toggle() / Open() / Close(); win:OnOpen(fn) runs each time it opens.
@@ -167,6 +168,9 @@ function Window.Open(self: Window)
 	end
 	self.IsOpen = true
 	self.Closing = false
+	HudLayout.ClaimFocus(self, function()
+		self:Close()
+	end)
 	local motion = Style.Theme.Motion
 	self.Scale.Scale = motion.StartScale
 	self.Frame.Visible = true
@@ -183,6 +187,7 @@ function Window.Close(self: Window)
 	end
 	self.IsOpen = false
 	self.Closing = true
+	HudLayout.ReleaseFocus(self)
 	local motion = Style.Theme.Motion
 	local tween = TweenService:Create(self.Scale, TweenInfo.new(motion.PopOut, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = motion.StartScale })
 	tween.Completed:Connect(function()

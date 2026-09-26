@@ -125,7 +125,14 @@ local function isNearSpire(): boolean
 end
 
 local function onUpdate(update: { [string]: any })
-	panel.Visible = true
+	-- Stay hidden if the player hid the card or opened another window; the result shows again when the climb ends
+	-- (unless a window is still open).
+	if update.Phase == "Ended" and not HudLayout.HasFocus() then
+		hiddenHere = false
+	end
+	if not hiddenHere then
+		panel.Visible = true
+	end
 	climbing = update.Phase ~= "Ended"
 	setText(againButton, "Climb again")
 	record = update.Record or record
@@ -223,6 +230,12 @@ function SpireController:Init()
 		panel.Visible = false
 		hiddenHere = true
 	end)
+	-- The Spire card is a station panel: showing it closes other windows, and opening a window hides it.
+	HudLayout.TrackPanel(panel, function()
+		panel.Visible = false
+		hiddenHere = true
+	end)
+
 	-- Stop and Climb again share the left spot (only one shows at a time); Hide sits on the right.
 	for _, b in { stopButton, againButton, closeButton } do
 		b.AnchorPoint = Vector2.new(0, 1)

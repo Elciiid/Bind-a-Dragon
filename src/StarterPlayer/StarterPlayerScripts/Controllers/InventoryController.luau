@@ -22,7 +22,7 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 
-local REFRESH_INTERVAL = 0.5 -- seconds; the window only redraws while open
+local REFRESH_INTERVAL = 0.5 -- seconds; while open, changed values are written into the existing cards
 local CARD_SIZE = Vector2.new(214, 172)
 
 local InventoryController = {}
@@ -44,27 +44,52 @@ local function text(parent: Instance, value: string, kind: Style.TextKind, size:
 	return label
 end
 
-local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.PlayerData, cap: number, inRoost: boolean, order: number)
+type Card = {
+	Frame: Frame,
+	Name: TextLabel,
+	Stage: TextLabel,
+	Income: TextLabel,
+	Info: TextLabel,
+	PlusOne: Button.Button,
+	PlusTen: Button.Button,
+	Max: Button.Button,
+	RoostLabel: TextLabel,
+	Place: Button.Button,
+	Glow: UIStroke?,
+	GlowThickness: number,
+}
+
+local cards: { [string]: Card } = {}
+
+local function setText(label: TextLabel, value: string)
+	if label.Text ~= value then
+		label.Text = value
+	end
+end
+
+local function setButton(button: Button.Button, value: string, enabled: boolean)
+	if button.Label.Text ~= value then
+		button:SetText(value)
+	end
+	if button.Enabled ~= enabled then
+		button:SetEnabled(enabled)
+	end
+end
+
+-- Builds a dragon's card once; updateCard fills in the values. Cards are kept between refreshes, so buttons keep
+-- their hover/press state while gold ticks up.
+local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 	local theme = UITheme
 	local species = Dragons[dragon.SpeciesId]
 	local rarity = species and DragonStats.GetRarity(species.Rarity)
 	local element = species and theme.Element[species.Element]
-	local stage = DragonStats.GetStage(dragon.Level)
 
 	local card = Instance.new("Frame")
 	card.Name = `Dragon_{dragon.Id}`
-	card.LayoutOrder = order
 	Style.CardLook(card, if element then element.Color else nil)
-	if inRoost then
-		local glow = card:FindFirstChildOfClass("UIStroke")
-		if glow then
-			glow.Thickness = 3
-		end
-	end
 	card.Parent = list
 
-	local name = if species then species.Name else dragon.SpeciesId
-	text(card, if dragon.Starborn then `★ {name}` else name, "Heavy", 18, if rarity then rarity.Color else theme.Colors.Text, 5, 22)
+	local name = text(card, "", "Heavy", 18, if rarity then rarity.Color else theme.Colors.Text, 5, 22)
 
 	-- Rarity gem + element + stage
 	local tagRow = Instance.new("Frame")
@@ -82,11 +107,11 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 		local tag = RarityTag.new(tagRow, species.Rarity, 18)
 		tag.LayoutOrder = 1
 	end
-	local elementLabel = Style.Label(tagRow, if species then `{species.Element} · {stage.Name}` else stage.Name, "Bold", 13, if element then element.Color else theme.Colors.TextMuted)
-	elementLabel.LayoutOrder = 2
-	elementLabel.AutomaticSize = Enum.AutomaticSize.X
-	elementLabel.Size = UDim2.fromOffset(0, 18)
-	elementLabel.TextWrapped = false
+	local stageLabel = Style.Label(tagRow, "", "Bold", 13, if element then element.Color else theme.Colors.TextMuted)
+	stageLabel.LayoutOrder = 2
+	stageLabel.AutomaticSize = Enum.AutomaticSize.X
+	stageLabel.Size = UDim2.fromOffset(0, 18)
+	stageLabel.TextWrapped = false
 
 	-- Level and income
 	local incomeRow = Instance.new("Frame")
@@ -96,22 +121,12 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	incomeRow.Parent = card
 	local gold = Icon.new(incomeRow, "Gold", theme.Colors.Gold)
 	gold.Size = UDim2.fromOffset(18, 18)
-	local income = Style.Label(incomeRow, `{Format.Number(DragonStats.GetGoldPerSecond(dragon))}/s   Lv {dragon.Level}/{cap}`, "Heavy", 15, theme.Colors.Gold)
+	local income = Style.Label(incomeRow, "", "Heavy", 15, theme.Colors.Gold)
 	income.Position = UDim2.fromOffset(22, 0)
 	income.Size = UDim2.new(1, -22, 1, 0)
 	income.TextXAlignment = Enum.TextXAlignment.Left
 
-	local trait = DragonStats.GetTrait(dragon)
-	local grade = DragonStats.GetGrade(dragon)
-	text(
-		card,
-		`Power {Format.Number(DragonStats.GetPower(dragon))} · {if trait then trait.Name else "No trait"} · {if grade then "Grade " .. grade.Id else "No grade"}`,
-		"Body",
-		13,
-		theme.Colors.TextMuted,
-		70,
-		16
-	)
+	local info = text(card, "", "Body", 13, theme.Colors.TextMuted, 70, 16)
 
 	-- Level buttons: two lines ("+1" / cost) so they stay readable on phones.
 	local row = Instance.new("Frame")
@@ -125,58 +140,104 @@ local function makeCard(dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.Pl
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = row
 
-	local atCap = dragon.Level >= cap
-	local oneCost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
-	local tenLevels, tenCost = DragonStats.GetBulkLevelCost(dragon, 10, cap, data.Rebirths)
+	local dragonId = dragon.Id
 	local plusOne = Button.new(row, {
-		Text = if atCap then "Max level" else `+1\n{Format.Number(oneCost)}`,
+		Text = "+1",
 		Kind = "Primary",
 		TextSize = 13,
 		OnClick = function()
-			levelUpDragon:FireServer(dragon.Id, 1)
+			levelUpDragon:FireServer(dragonId, 1)
 		end,
 	})
 	plusOne.Instance.LayoutOrder = 1
 	plusOne.Instance.Size = UDim2.new(0.38, -4, 1, 0)
-	plusOne:SetEnabled(not atCap and data.Gold >= oneCost)
 	local plusTen = Button.new(row, {
-		Text = `+{math.max(tenLevels, 1)}\n{Format.Number(tenCost)}`,
+		Text = "+10",
 		Kind = "Primary",
 		TextSize = 13,
 		OnClick = function()
-			levelUpDragon:FireServer(dragon.Id, 10) -- server buys as many of the 10 as the player can afford
+			levelUpDragon:FireServer(dragonId, 10) -- server buys as many of the 10 as the player can afford
 		end,
 	})
 	plusTen.Instance.LayoutOrder = 2
 	plusTen.Instance.Size = UDim2.new(0.36, -4, 1, 0)
-	plusTen:SetEnabled(tenLevels > 0 and data.Gold >= oneCost)
 	local max = Button.new(row, {
 		Text = "Max",
 		Kind = "Primary",
 		TextSize = 15,
 		OnClick = function()
-			levelUpDragon:FireServer(dragon.Id, Leveling.MaxLevelsPerRequest)
+			levelUpDragon:FireServer(dragonId, Leveling.MaxLevelsPerRequest)
 		end,
 	})
 	max.Instance.LayoutOrder = 3
 	max.Instance.Size = UDim2.new(0.26, -2, 1, 0)
-	max:SetEnabled(not atCap and data.Gold >= oneCost)
 
-	-- Roost
-	if inRoost then
-		local label = text(card, "✓ In roost", "Heavy", 16, theme.Colors.Positive, 136, 26)
-		label.TextXAlignment = Enum.TextXAlignment.Center
-	else
-		local place = Button.new(card, {
-			Text = "Place in roost",
-			Kind = "Confirm",
-			TextSize = 15,
-			OnClick = function()
-				placeInRoost:FireServer(dragon.Id)
-			end,
-		})
-		place.Instance.Position = UDim2.fromOffset(12, 134)
-		place.Instance.Size = UDim2.new(1, -18, 0, 30)
+	-- Roost: a label when placed, a button otherwise (only one shows)
+	local roostLabel = text(card, "✓ In roost", "Heavy", 16, theme.Colors.Positive, 136, 26)
+	roostLabel.TextXAlignment = Enum.TextXAlignment.Center
+	local place = Button.new(card, {
+		Text = "Place in roost",
+		Kind = "Confirm",
+		TextSize = 15,
+		OnClick = function()
+			placeInRoost:FireServer(dragonId)
+		end,
+	})
+	place.Instance.Position = UDim2.fromOffset(12, 134)
+	place.Instance.Size = UDim2.new(1, -18, 0, 30)
+
+	local glow = card:FindFirstChildOfClass("UIStroke")
+	return {
+		Frame = card,
+		Name = name,
+		Stage = stageLabel,
+		Income = income,
+		Info = info,
+		PlusOne = plusOne,
+		PlusTen = plusTen,
+		Max = max,
+		RoostLabel = roostLabel,
+		Place = place,
+		Glow = glow,
+		GlowThickness = if glow then glow.Thickness else 0,
+	}
+end
+
+-- Writes the current values into a card; only properties that changed are touched.
+local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: PlayerDataTypes.PlayerData, cap: number, inRoost: boolean, order: number)
+	local species = Dragons[dragon.SpeciesId]
+	local stage = DragonStats.GetStage(dragon.Level)
+	if card.Frame.LayoutOrder ~= order then
+		card.Frame.LayoutOrder = order
+	end
+	local name = if species then species.Name else dragon.SpeciesId
+	setText(card.Name, if dragon.Starborn then `★ {name}` else name)
+	setText(card.Stage, if species then `{species.Element} · {stage.Name}` else stage.Name)
+	setText(card.Income, `{Format.Number(DragonStats.GetGoldPerSecond(dragon))}/s   Lv {dragon.Level}/{cap}`)
+	local trait = DragonStats.GetTrait(dragon)
+	local grade = DragonStats.GetGrade(dragon)
+	setText(
+		card.Info,
+		`Power {Format.Number(DragonStats.GetPower(dragon))} · {if trait then trait.Name else "No trait"} · {if grade then "Grade " .. grade.Id else "No grade"}`
+	)
+
+	local atCap = dragon.Level >= cap
+	local oneCost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
+	local tenLevels, tenCost = DragonStats.GetBulkLevelCost(dragon, 10, cap, data.Rebirths)
+	local canAfford = not atCap and data.Gold >= oneCost
+	setButton(card.PlusOne, if atCap then "Max level" else `+1\n{Format.Number(oneCost)}`, canAfford)
+	setButton(card.PlusTen, `+{math.max(tenLevels, 1)}\n{Format.Number(tenCost)}`, tenLevels > 0 and data.Gold >= oneCost)
+	setButton(card.Max, "Max", canAfford)
+
+	if card.RoostLabel.Visible ~= inRoost then
+		card.RoostLabel.Visible = inRoost
+		card.Place.Instance.Visible = not inRoost
+	end
+	if card.Glow then
+		local thickness = if inRoost then 3 else card.GlowThickness
+		if card.Glow.Thickness ~= thickness then
+			card.Glow.Thickness = thickness
+		end
 	end
 end
 
@@ -184,11 +245,6 @@ local function redraw()
 	local data = DataController:Get()
 	if data == nil then
 		return
-	end
-	for _, child in list:GetChildren() do
-		if child:IsA("Frame") then
-			child:Destroy()
-		end
 	end
 
 	local cap = DragonStats.GetLevelCap(data)
@@ -207,14 +263,33 @@ local function redraw()
 		end
 		return a.Income > b.Income
 	end)
+
+	local seen: { [string]: boolean } = {}
 	for index, entry in entries do
-		makeCard(entry.Dragon, data, cap, entry.InRoost, index)
+		local id = entry.Dragon.Id
+		seen[id] = true
+		local card = cards[id]
+		if card == nil then
+			card = makeCard(entry.Dragon)
+			cards[id] = card
+		end
+		updateCard(card, entry.Dragon, data, cap, entry.InRoost, index)
+	end
+	-- cards of dragons that are gone
+	for id, card in cards do
+		if not seen[id] then
+			card.Frame:Destroy()
+			cards[id] = nil
+		end
 	end
 
-	headerText.Text = `{#entries} dragons · Roost {#data.RoostDragonIds}/{DragonStats.GetRoostSlots(data)}`
-		.. (if #entries == 0 then " · Bind at a Star Altar at night!" else "")
-	runeCount.Text = tostring(data.WyrmRunes)
-	stoneCount.Text = tostring(data.Dragonstones)
+	setText(
+		headerText,
+		`{#entries} dragons · Roost {#data.RoostDragonIds}/{DragonStats.GetRoostSlots(data)}`
+			.. (if #entries == 0 then " · Bind at a Star Altar at night!" else "")
+	)
+	setText(runeCount, tostring(data.WyrmRunes))
+	setText(stoneCount, tostring(data.Dragonstones))
 end
 
 function InventoryController:Init()

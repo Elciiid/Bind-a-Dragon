@@ -25,6 +25,9 @@ type Row = { Count: TextLabel, Timer: TextLabel, Button: Button.Button }
 local window: Window.Window
 local rows: { [string]: Row } = {}
 local timerPills: { [string]: { Frame: Frame, Label: TextLabel } } = {}
+local moreChip: TextButton -- phones: "+N" when more timers are running than UITheme.PhoneMaxTimers
+local moreChipFrame: Frame -- the chip's gradient backdrop (shown/hidden with it)
+local isPhone = false
 
 local function formatTime(seconds: number): string
 	local s = math.max(0, math.floor(seconds))
@@ -80,6 +83,23 @@ local function refresh()
 			pill.Frame.Visible = false
 		end
 	end
+
+	-- Phones: only the first few pills, then a "+N" chip.
+	local shown = 0
+	local hidden = 0
+	for _, potion in Boosts.Potions do
+		local pill = timerPills[potion.Id]
+		if pill.Frame.Visible then
+			if isPhone and shown >= UITheme.PhoneMaxTimers then
+				pill.Frame.Visible = false
+				hidden += 1
+			else
+				shown += 1
+			end
+		end
+	end
+	moreChip.Text = `+{hidden}`
+	moreChipFrame.Visible = hidden > 0
 end
 
 local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
@@ -205,9 +225,29 @@ function BoostController:Init()
 	hudLayout.Padding = UDim.new(0, 5)
 	hudLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	hudLayout.Parent = hud
-	HudLayout.OnLayoutChanged(function(isPhone)
+	-- "+N" chip after the pills (phones only); tapping it opens the Boosts window.
+	moreChip = Instance.new("TextButton")
+	moreChip.Name = "More"
+	moreChip.Size = UDim2.fromOffset(52, 24)
+	moreChip.AutoButtonColor = false
+	Style.Text(moreChip, "Heavy", 15, UITheme.Colors.Gold)
+	Style.AttachPress(moreChip)
+	moreChip.Parent = hud
+	moreChipFrame = Style.Backdrop(moreChip, UITheme.Colors.PanelTop, UITheme.Colors.PanelBottom)
+	moreChipFrame.LayoutOrder = #Boosts.Potions + 1
+	moreChipFrame.Visible = false
+	Style.Stroke(moreChipFrame, UITheme.Colors.Trim, 2)
+	moreChip.Activated:Connect(function()
+		window:Open()
+	end)
+
+	HudLayout.OnLayoutChanged(function(phone)
+		isPhone = phone
+		if next(rows) ~= nil then -- the first call runs before the rows exist
+			refresh()
+		end
 		local sizes = UITheme.Sizes
-		if isPhone then
+		if phone then
 			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
 			hud.Size = UDim2.fromOffset(110, 0)
 		else

@@ -264,6 +264,42 @@ function HudLayout.AddCurrency(icon: string, color: Color3, order: number): Curr
 	return pill
 end
 
+-- One window at a time: a window or station panel calls ClaimFocus(owner, close) when it opens, which first closes
+-- whatever else holds focus, and ReleaseFocus(owner) when it closes. UI/Window does this for every window; other
+-- panels (e.g. the Spire card) use TrackPanel. HUD pills, toasts and timers never take focus.
+local focused: { Owner: any, Close: () -> () }? = nil
+
+function HudLayout.ClaimFocus(owner: any, close: () -> ())
+	local previous = focused
+	focused = { Owner = owner, Close = close }
+	if previous and previous.Owner ~= owner then
+		previous.Close()
+	end
+end
+
+function HudLayout.ReleaseFocus(owner: any)
+	if focused and focused.Owner == owner then
+		focused = nil
+	end
+end
+
+-- True while any window or station panel is open.
+function HudLayout.HasFocus(): boolean
+	return focused ~= nil
+end
+
+-- For panels that aren't UI/Window: claims focus whenever the panel becomes visible (closing other windows) and
+-- calls close() when another window takes over.
+function HudLayout.TrackPanel(panel: GuiObject, close: () -> ())
+	panel:GetPropertyChangedSignal("Visible"):Connect(function()
+		if panel.Visible then
+			HudLayout.ClaimFocus(panel, close)
+		else
+			HudLayout.ReleaseFocus(panel)
+		end
+	end)
+end
+
 -- A centered popup panel: drawn above the HUD, nearly full screen on phones (pcSize on PC), and the phone menu
 -- hides while it is open. UI/Window registers itself; older panels call this directly.
 function HudLayout.RegisterPopup(panel: GuiObject, pcSize: UDim2)
