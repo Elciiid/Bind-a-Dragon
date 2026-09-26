@@ -84,14 +84,16 @@ concept art with the builder's models; north = -Z) is grouped as:
   `Counter`), `RuneShrine` and `DragonstoneForge` bottom-right (tags `RuneShrine` / `DragonstoneForge`, PrimaryPart
   `PromptPoint` = invisible part at the front at standing height; station prompts have a 12-stud range).
 - `Portals`: `Portal_VolcanoPeak` (NE), `Portal_EclipseIsles` (NW), `Portal_FrozenCliffs` (E), `Portal_StormCanyon` (W),
-  180 studs out between the pens, each at the end of its own path, facing the plaza.
+  180 studs out between the pens, each at the end of its own path, facing the plaza. Each holds the builder's portal
+  mesh as `Art` (anchored, CanCollide off); the part-built pillars + glowing `Portal` part (tag `AreaPortal`) still do
+  the teleport. `VolcanoPeak.Portal_StarterMeadow` has its `Art` too.
 - `Scenery`: trees and rocks at the edges, `Flowers`, path `Lanterns`. Paths are terrain painted `Ground`.
 - `SpawnLocation` at the south entrance (0, 2, 160), `AreaSpawn` (arrivals from other areas) just north of it.
-- `DragonRigDemo` (dev only, tag `DragonRigDemo`, on the grass at about (30, 66)): the imported rigged dragon, animated
-  by `Controllers/Dev/DragonRigDemo.client.luau` (walk -> take off -> fly -> land). Remove both when done.
+- Dev: `Controllers/Dev/DragonRigDemo.client.luau` animates any Model tagged `DragonRigDemo` (walk -> take off -> fly
+  -> land by moving bones). No such model is in the place now (all dragon art was cleared on 2026-09-26).
 The building meshes use the default CollisionFidelity (a script can't change it; set `PreciseConvexDecomposition`
-by hand in Properties if a building blocks players). Loose art goes to `ServerStorage.UnsortedArt` (future dragons)
-or `ServerStorage.TeamItems_ToSort` (teammate assets found in the meadow during the rebuild).
+by hand in Properties if a building blocks players). The only dragon model in the place is
+`ReplicatedStorage.Assets.Dragons.Placeholder` (keep it: every dragon uses it until real art is added).
 **Placeholder areas:** `Workspace.FrozenCliffs_Placeholder` (x ≈ +900), `StormCanyon_Placeholder` (x ≈ -900) and
 `EclipseIsles_Placeholder` (z ≈ +900): flat platform, cloned Star Altar (`AreaId`), `AreaSpawn`, portal back, and a
 "PLACEHOLDER" sign; their Meadow portals are in `StarterMeadow.Portals`.
