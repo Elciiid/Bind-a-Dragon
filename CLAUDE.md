@@ -66,28 +66,42 @@ UI polish after the core loop is playable. **UI polish list (in order):**
 **Luck scaling (decided):** luck boosts rarer tiers harder via `Config/Luck.TierScaling` (0.3):
 Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a potion.
 
-**World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` has terrain meadow,
-the Star Altar (Model tagged `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core`), placeholder trees/rocks,
-and the SpawnLocation. Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
-`StarterMeadow.Roosts` has 8 plots: fenced grass pens (Models tagged `RoostPlot`) with attributes `RoamCenter`
-(floor top center) and `RoamRadius`, a gate with the owner `Sign`, and upgrade stands `UpgradeSlots` /
-`UpgradeIncome` outside the entrance. Dragons roam client-side (`RoostAnimationController`): Hatchlings hop,
-Drakes walk, Dragons/Elders fly (per-stage Movement/MoveSpeed/FlyHeight in `Config/Evolution`).
-Keep server max players ≤ 8, or add plots.
+**World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` (rebuilt 2026-09-26 from the
+concept art with the builder's models; north = -Z) is grouped as:
+- `Plaza`: the Star Altar model `StarAltar` (tag `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core` = invisible
+  part on its top platform; Bind prompt range 20) on a round stepped stone `Floor` (radius 42) at the center, `Lanterns`.
+  Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
+- `Pens`: 8 plots on a ring 110 studs out (4 per side; north and south left open): fenced grass pens (Models tagged
+  `RoostPlot`, PrimaryPart `Base`) with attributes `RoamCenter` (floor top center) and `RoamRadius`, a gate with the
+  owner `Sign` facing the plaza, and upgrade stands `UpgradeSlots` / `UpgradeIncome` in front of the gate. Dragons roam
+  client-side (`RoostAnimationController`): Hatchlings hop, Drakes walk, Dragons/Elders fly (per-stage
+  Movement/MoveSpeed/FlyHeight in `Config/Evolution`). Keep server max players ≤ 8, or add plots. If a pen moves,
+  update its `RoamCenter`.
+- `Spire`: the builder's `DragonSpire` (tag `DragonSpire`, PrimaryPart `Entrance` = invisible part in front of the
+  door, facing the altar; `EntranceRange` is measured from it) on a terrain hill (top y = 16, center (0, -175)) with
+  stone `Stairs` down to the plaza.
+- `Buildings` (south, along the cross path at z ≈ 118): `StarMerchant` stall bottom-left (tag `StarMerchant`, PrimaryPart
+  `Counter`), `RuneShrine` and `DragonstoneForge` bottom-right (tags `RuneShrine` / `DragonstoneForge`, PrimaryPart
+  `PromptPoint` = invisible part at the front at standing height; station prompts have a 12-stud range).
+- `Portals`: `Portal_VolcanoPeak` (NE), `Portal_EclipseIsles` (NW), `Portal_FrozenCliffs` (E), `Portal_StormCanyon` (W),
+  180 studs out between the pens, each at the end of its own path, facing the plaza.
+- `Scenery`: trees and rocks at the edges, `Flowers`, path `Lanterns`. Paths are terrain painted `Ground`.
+- `SpawnLocation` at the south entrance (0, 2, 160), `AreaSpawn` (arrivals from other areas) just north of it.
+- `DragonRigDemo` (dev only, tag `DragonRigDemo`, on the grass at about (30, 66)): the imported rigged dragon, animated
+  by `Controllers/Dev/DragonRigDemo.client.luau` (walk -> take off -> fly -> land). Remove both when done.
+The building meshes use the default CollisionFidelity (a script can't change it; set `PreciseConvexDecomposition`
+by hand in Properties if a building blocks players). Loose art goes to `ServerStorage.UnsortedArt` (future dragons)
+or `ServerStorage.TeamItems_ToSort` (teammate assets found in the meadow during the rebuild).
 **Placeholder areas:** `Workspace.FrozenCliffs_Placeholder` (x ≈ +900), `StormCanyon_Placeholder` (x ≈ -900) and
 `EclipseIsles_Placeholder` (z ≈ +900): flat platform, cloned Star Altar (`AreaId`), `AreaSpawn`, portal back, and a
-"PLACEHOLDER" sign; Meadow portals `Portal_FrozenCliffs/StormCanyon/EclipseIsles` next to `Portal_VolcanoPeak`.
+"PLACEHOLDER" sign; their Meadow portals are in `StarterMeadow.Portals`.
 The builder replaces each with the real area (keep the altar tag + `AreaId`, the `AreaSpawn`, and the portals).
 Eclipse Isles should be themed to match the Shadow dragons.
-`StarterMeadow.StarMerchant` (stall near the spawn, tagged `StarMerchant`, PrimaryPart `Counter`).
-`StarterMeadow.RuneShrine` (tag `RuneShrine`, west of the altar) and `StarterMeadow.DragonstoneForge`
-(tag `DragonstoneForge`, east). StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client
-code that sets up prompts on streamed models must retry until the parts arrive.
-`StarterMeadow.DragonSpire` (placeholder stone tower north of the altar at (0, 2, -95), tag `DragonSpire`, PrimaryPart
-`Entrance` = the glowing door facing the altar). Replace with the builder's Spire; keep the tag and a PrimaryPart.
+StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client code that sets up prompts on
+streamed models must retry until the parts arrive.
 `Workspace.VolcanoPeak` (at z ≈ -900, past the meadow hills): basalt plateau, volcano, lava, red Star Altar
-(`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. The meadow has `Portal_VolcanoPeak` near the spawn and
-its own `AreaSpawn`. New areas: build far away, add a `StarAltar` + `AreaSpawn` with the AreaId, and a portal.
+(`AreaId = "VolcanoPeak"`), `AreaSpawn`, and a portal back. New areas: build far away, add a `StarAltar` + `AreaSpawn`
+with the AreaId, and a portal in `StarterMeadow.Portals`.
 **Dragon art:** `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` (or `<SpeciesId>` for one model for all
 stages) replaces the tinted `Placeholder` model automatically. Assets live in the place file, not Git.
 To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on Workspace.
