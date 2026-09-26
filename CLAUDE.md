@@ -29,16 +29,16 @@ _Update this section as work progresses._
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server), `DayNightService`, `DayNightController` |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons`. Area rosters: `Config/Areas` `Element` + `Species` per area (Meadow = Common/Rare, element areas = all 5 of their element; rolls only over rarities in the roster, `Luck.GetAreaRarityWeights`); favored area ×`FavoredAreaLuck` (`Luck.IsFavored`), shown on the sky HUD and luck panel; Auto-bind uses the nearest unlocked altar's area |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
-| Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs in `Config/Leveling`, cap from areas, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up via E prompt on own roost dragons (`DragonPromptController`) until inventory UI exists |
+| Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs and the level cap (50 + 5 per rebirth) in `Config/Leveling`, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up in the Dragons panel (`InventoryController`) or via the E prompt on own roost dragons (`DragonPromptController`); one evolution toast per level-up |
 | Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. Roost is a pen where dragons roam (`RoostAnimationController`); "Place in roost" in the Dragons panel |
 | Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`; roost upgrades are bought at stands in front of the roost (`RoostUpgradeController`) |
-| Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; other areas not yet |
-| Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons now have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones not obtainable yet (Spire) |
+| Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; Frozen Cliffs, Storm Canyon and Eclipse Isles are placeholder shells (see World) |
+| Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine / Dragonstone Forge. Dragons have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones come from the Spire, quests, streak and Index |
 | Economy rebalance (big numbers, open-ended rebirths) | Done (Phases 1–6). Phase 1: new configs, multiplicative levels/traits/grades, rebirth curve + weekly cap (`DragonStats.GetRebirthCost`, `IsAtRebirthCap`, gold clamps at the cap), ×1.59 rebirth income bonus, level cap 50 + 5/rebirth, idle >20 min = offline rate from the 8 h/day allowance (`RoostService`), starter dragon (`Config/Data.StarterDragon`), dusk warning. Phases 2–6 in the rows below |
-| Boosts / potions + Boosts panel | Done: `Config/Boosts` (7 potions), `BoostService` (UseBoost remote, timers tick only in game, 60 min max stored, Premium +10%, `GetMultiplier`/`GrantPotion`), gold boosts in `RoostService` (in game only), Runebright roll luck in `DragonService` (`Luck.GetTierWeights`), luck charges armed via Boosts panel or the altar luck panel and used up by the next bind (`Luck.GetArmedPotionLuck`, up to `PotionCap`). `BoostController` panel + HUD timers. Potions not obtainable yet (Spire/quests) |
+| Boosts / potions + Boosts panel | Done: `Config/Boosts` (7 potions), `BoostService` (UseBoost remote, timers tick only in game, 60 min max stored, Premium +10%, `GetMultiplier`/`GrantPotion`), gold boosts in `RoostService` (in game only), Runebright roll luck in `DragonService` (`Luck.GetTierWeights`), luck charges armed via Boosts panel or the altar luck panel and used up by the next bind (`Luck.GetArmedPotionLuck`, up to `PotionCap`). `BoostController` panel + HUD timers, count badge + pulse on the Boosts button, one-time potion hint. Potions come from the Spire, quests, streak and Index |
 | Dragon Index + Starborn variants | Done: `Config/Index`, `IndexService` (Sync: records owned species incl. `<SpeciesId>_Starborn`, backfills old saves, auto-grants 5-entry + complete-element rewards once), Index income in `DragonStats.GetIndexMultiplier` (roost income). Starborn rolled in `BindingService` (1/850, ×3 income, ×2 power, announcement, tint + sparkles + ★ nameplate). `IndexController` panel (grid + Star Atlas) |
 | Daily/weekly quests + login streak | Done (streak: Gilded, 30 Stardust, Rune+Stone, 2 Gilded, Hoard, 2 Runes+2 Stones, Moonfire): `Config/Quests` (pools, per-slot rewards, streak rewards), `QuestService` (3 daily / 2 weekly picked per UTC day / Monday week, auto-granted on completion, `Progress(player, kind, amount)` from Binding/Dragon/Roost services; Gold targets = minutes of roost income), login streak on first join per UTC day. `Shared/Rewards` (Describe/Apply) shared with the Index. `QuestController` panel |
-| Dragon Spire (tower) | Done: `Config/Spire` (curve, 150 floors, drop tables from the simulation), `SpireService` (prompt on `DragonSpire` tag or SpireAction Start/Stop; server-run floors: far-below floors fast with no drops, top-10 window + new floors fought 20 s each; must stay within `EntranceRange`; first clear = 30 s of income + guaranteed drops; Wyrmblood power, Conqueror's Brew rewards; floors where power ≥ `PowerFastRatio` (3) × the enemy also go fast: a new one keeps its drops but gives no gold, a cleared one gives nothing), `data.SpireRecord`, `SpireController` fight panel. Elevator hook `getStartFloor` is a TODO for Phase 6. Placeholder tower only; no interior/arena yet |
+| Dragon Spire (tower) | Done: `Config/Spire` (curve, 150 floors, drop tables from the simulation), `SpireService` (prompt on `DragonSpire` tag or SpireAction Start/Stop; server-run floors: far-below floors fast with no drops, top-10 window + new floors fought 20 s each; must stay within `EntranceRange`; first clear = 30 s of income + guaranteed drops; Wyrmblood power, Conqueror's Brew rewards; floors where power ≥ `PowerFastRatio` (3) × the enemy also go fast: a new one keeps its drops but gives no gold, a cleared one gives nothing), `data.SpireRecord`, `SpireController` fight panel (opens at the tower). Elevator via `getStartFloor`. Placeholder tower only; no interior/arena yet |
 | Game passes + developer products | Done: `Config/Products` (IDs are 0 = not created yet; paste real IDs), `MonetizationService` (pass cache + `Pass_<Key>` player attributes, `WaitForPasses`, `ProcessReceipt` grants, records PurchaseId, confirms only after ProfileStore saved it). Tower Elevator / Elevator Skip start Spire climbs above the record (`data.ElevatorSkips`); 2x AFK Income doubles offline + idle income only; Auto-bind binds at base luck with `AutoBindSecondsLeft` of night left. `ShopController`. Studio: server-side Player attribute `TestPass_<Key>` grants a pass |
 | Weekly Spire leaderboard | Proposed (weekly update) |
 | Weekly event constellation (event-only dragon, single model) | Proposed (weekly update) |
@@ -152,71 +152,94 @@ src/
       Controllers/   -- UI and client-side visuals only
 ```
 
-## Game systems (summary of the design doc)
+## Game systems (current design, as built)
+
+Numbers live in Config; this section only summarizes the rules. **Config is the source of truth** for every number.
+The design doc/PDF is older (see Pending design doc updates).
 
 ### Constellation binding
-- Day/night cycle. Each night a constellation appears and sets the theme (e.g., element).
+- Day/night cycle (`Config/DayNight`: 4 min day + 3 min night, "Night falls in 30s" warning). Each night one
+  constellation (`Config/Constellations`), the same on every server.
 - Players bind at a Star Altar. **Each player gets a separate server-side roll**; nobody competes for dragons.
-- One bind per player per constellation night.
-- Rare constellations trigger a server-wide announcement and sky change.
-- The constellation in the sky when a dragon evolves decides its evolution branch.
-- Star Atlas tracks every constellation a player has bound to.
+- One bind per player per night. Rare constellations trigger a server-wide announcement and sky change.
+- **Area rosters** (`Config/Areas` `Element` + `Species`): Starter Meadow = Common + Rare of every element (tonight's
+  constellation picks the element); each element area is that element's home with all 5 rarities. A roll only picks
+  rarities in the area's roster, so Epic/Legendary/Mythic are only bindable in their home area.
+- The constellation in the sky when a dragon evolves decides its evolution branch (`Config/Evolution`).
+- The Star Atlas and Dragon Index track constellations bound and species found (`Config/Index`).
+- Starborn variants: a rare roll on any bind (`Config/Index` StarbornChance), x income / x power, own Index entry.
 
 ### Dragons
-- Rarities: Common, Rare, Epic, Legendary, Mythic (possible Secret tier later).
-- Launch elements: Fire, Ice, Storm, Shadow.
-- **No training.** Dragons level up by spending gold. Costs rise per level and are higher for rarer dragons.
-- Evolution by level: Hatchling (1), Drake (10), Dragon (25), Elder (50). Higher stages come with raised caps.
+- Rarities: Common, Rare, Epic, Legendary, Mythic. Launch elements: Fire, Ice, Storm, Shadow (`Config/Dragons`).
+- **No training.** Dragons level up by spending gold (`Config/Leveling`): income and power compound per level; costs
+  rise per level, are higher for rarer dragons, and scale with rebirths done.
+- **Level cap = 50 + 5 per rebirth** (`Config/Leveling` CapBase / CapPerRebirth). Areas do not set level caps.
+- Evolution by level: Hatchling (1), Drake (10), Dragon (25), Elder (50) (`Config/Evolution` stage multipliers).
+- Traits (Wyrm Runes, Rune Shrine) and grades (Dragonstones, Dragonstone Forge) are income/power multipliers
+  (`Config/Traits`).
 
 ### Luck
-Stacked as multipliers with a **total cap**. Show the current luck multiplier in the UI before binding.
-- Stardust offerings at the altar before binding.
-- Moon phases (full moon boost) and rare sky events (server-wide boost).
-- Group binding: more players binding together = better odds for everyone.
-- Area luck: higher areas' Star Altars give better odds.
+Stacked as multipliers with a **cap** (`Config/Luck` Cap), and a higher **PotionCap** with an armed luck charge.
+The altar luck panel shows the current luck before binding.
+- Stardust offerings at the altar, moon phases, constellation luck (server-wide: e.g. Eclipse Serpent, Dragon King).
+- Group binding: more players at the same altar = better odds.
+- Area luck (`Config/Areas` BindLuck) and the **favored area**: an element area's altar gets `FavoredAreaLuck` on a
+  night of its element (shown on the sky HUD and the luck panel).
+- Luck boosts rarer tiers harder (`TierScaling`, see "Luck scaling" above).
 
 ### Roost / AFK income
-- Dragons in the roost earn gold over time, including offline.
-- Base gold/sec by rarity (placeholder): Common 1, Rare 5, Epic 20, Legendary 100, Mythic 500.
-- Level and evolution stage multiply the base rate.
-- Roost upgrades add slots and income multipliers.
+- Dragons in the roost earn gold over time. Base gold/sec by rarity: `Config/Rarities` GoldPerSecond.
+- Multiplied by level, evolution stage, branches, trait, grade, Starborn, the roost income upgrade, the rebirth bonus
+  (`Config/Rebirth` IncomeBonusPerRebirth per rebirth) and the Dragon Index (`DragonStats.GetRoostIncome`).
+- Offline and idle (20+ min without moving) earn `Config/Roost` OfflineIncomeMultiplier from a shared daily
+  allowance (OfflineCapHours). Gold potions apply in game only; the 2x AFK Income pass applies offline/idle only.
 
 ### Economy (gold sinks)
-- Leveling dragons (main sink).
-- Stardust from the Star Merchant: price rises per purchase each day, resets at dawn.
-- Roost upgrades.
-- Costs scale roughly 2–3x per step.
+- Leveling dragons (main sink); roost upgrades (slots and income, `Config/Economy`, bought at the stands in front of
+  the roost); Stardust from the Star Merchant (price = a share of the next rebirth cost, rises per buy, resets at dawn).
 
 ### Rebirth + areas
-- Rebirth resets **gold only**. Dragons, levels, and evolved forms are kept.
-- Each rebirth raises the level cap and counts toward area unlocks. Areas stay unlocked permanently.
+- Rebirth resets **gold only**. Dragons, levels, evolutions, traits, grades, Stardust and roost upgrades are kept.
+- Cost curve in `Config/Rebirth`: open-ended, with a weekly cap (`RebirthCap`, +5 per weekly update); at the cap,
+  banked gold stops at one rebirth's cost. Each rebirth gives a permanent income bonus and +5 level cap, and counts
+  toward area unlocks. Areas stay unlocked permanently.
 
-| Area | Rebirths needed | Bind luck | Level cap |
+| Area | Rebirths needed | Bind luck | Roster |
 | --- | --- | --- | --- |
-| Starter Meadow | 0 | 1x | 50 |
-| Volcano Peak | 1 | 1.25x | 60 |
-| Frozen Cliffs | 3 | 1.5x | 70 |
-| Storm Canyon | 5 | 2x | 80 |
-| Eclipse Isles (Shadow-themed) | 10 | 3x | 100 |
+| Starter Meadow | 0 | 1x | Common + Rare of every element |
+| Volcano Peak | 1 | 1.25x | Fire, all 5 rarities |
+| Frozen Cliffs | 3 | 1.5x | Ice, all 5 (placeholder shell) |
+| Storm Canyon | 5 | 2x | Storm, all 5 (placeholder shell) |
+| Eclipse Isles (Shadow-themed) | 10 | 3x | Shadow, all 5 (placeholder shell) |
+
+(`Config/Areas` is the source of truth for these numbers.)
 
 ### Dragon Spire (tower)
-- Climb floor by floor; each floor is a fight against an enemy dragon; every 10th floor is a boss.
-- Free players start at floor 1 each climb. Elevator (paid) starts from highest cleared floor.
-- Rewards: gold per floor, Stardust from bosses, luck potions at floors 25/50/100, first-clear bonuses.
-- Floors far below the dragon's power resolve instantly; already-cleared floors give reduced rewards.
+- Auto-battle with the player's most powerful dragon, one enemy per floor, every 10th floor a boss (`Config/Spire`).
+- Each climb starts at floor 1. Floors far below the record, or far below the dragon's power (PowerFastRatio), go
+  fast; the re-clear window near the record and new floors are real fights. The player must stay at the Spire.
+- Rewards: first clears pay gold (seconds of roost income) plus guaranteed drops (potions, Wyrm Runes, Dragonstones,
+  Stardust from bosses); re-clears near the record roll small chances; far-below floors give nothing.
+- The Tower Elevator pass / Elevator Skip start a climb above the record.
 - **No cosmetic rewards.** Enemies reuse existing dragon models.
 
-### Monetization
-| Feature | Type | Robux |
-| --- | --- | --- |
-| Tower Elevator Pass | Game pass | 300 |
-| Single Elevator Skip | Developer product | 25–35 |
-| 2x AFK Income | Game pass | 150–250 |
-| Auto-bind | Game pass | 100–200 |
+### Boosts, quests, Index
+- Potions and luck charges (`Config/Boosts`), daily/weekly quests + login streak (`Config/Quests`), Dragon Index
+  bonuses and milestone rewards (`Config/Index`). The status table above says how each works.
 
-- Handle developer products with `MarketplaceService.ProcessReceipt`; grant only after data is saved,
-  and record receipt IDs to prevent double-granting.
-- Paid features are convenience only; nothing paid should affect PvP directly.
+### Monetization
+Game passes and developer products in `Config/Products` (IDs are 0 until created in the Creator Dashboard).
+
+| Feature | Type | What it does |
+| --- | --- | --- |
+| Tower Elevator Pass | Game pass | Spire climbs start above the record |
+| Single Elevator Skip | Developer product | One such climb |
+| 2x AFK Income | Game pass | Doubles offline and idle income only |
+| Auto-bind | Game pass | Binds near the end of each night while in game, base luck, at the player's current area |
+
+- Developer products go through `MarketplaceService.ProcessReceipt`; grant only after data is saved, and record
+  receipt IDs to prevent double-granting.
+- Paid features are convenience only; they must not beat active play, and nothing paid should affect PvP directly.
 
 ### Ranked PvP (post-launch, do not build yet)
 - Rank tiers: Hatchling, Drake, Wyvern, Dragon, Elder, Celestial.
