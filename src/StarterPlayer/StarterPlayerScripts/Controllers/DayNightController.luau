@@ -1,6 +1,6 @@
 --!strict
--- Drives the local sky from the shared cycle: Lighting.ClockTime, a night tint in tonight's element color,
--- and a small HUD label with the phase, constellation and time left. Warns DuskWarningSeconds before night.
+-- Drives the local sky from the shared cycle: Lighting.ClockTime and a small HUD label with the phase, constellation
+-- and time left. Warns DuskWarningSeconds before night. Lighting looks (incl. the night tint) are AtmosphereController.
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,15 +18,10 @@ local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local Style = require(script.Parent.UI.Style)
 
-local NIGHT_TINT = 0.35 -- how strongly tonight's element colors the ambient light
-local RARE_NIGHT_TINT = 0.6
-
 local DayNightController = {}
 
 local label: TextLabel
 local warnedNight: number? = nil -- NightIndex the dusk warning was last shown for
-local baseAmbient: Color3
-local baseOutdoorAmbient: Color3
 
 local function duskWhere(constellation: { Element: string?, Luck: number }): string
 	local favoredId = Luck.GetFavoredAreaId(constellation)
@@ -40,9 +35,6 @@ local function formatTime(seconds: number): string
 end
 
 function DayNightController:Init()
-	baseAmbient = Lighting.Ambient
-	baseOutdoorAmbient = Lighting.OutdoorAmbient
-
 	local gui = HudLayout.MakeScreenGui("SkyHud", "Hud")
 
 	label = Instance.new("TextLabel")
@@ -76,10 +68,6 @@ function DayNightController:Start()
 		Lighting.ClockTime = state.ClockTime
 
 		local element = if constellation.Element then Elements[constellation.Element] else nil
-		local tintColor = if element then element.Color else Color3.new(1, 1, 1)
-		local tint = if not state.IsNight then 0 elseif constellation.Rare then RARE_NIGHT_TINT else NIGHT_TINT
-		Lighting.Ambient = baseAmbient:Lerp(tintColor, tint)
-		Lighting.OutdoorAmbient = baseOutdoorAmbient:Lerp(tintColor, tint)
 
 		if state.IsNight then
 			local favoredId = Luck.GetFavoredAreaId(constellation)

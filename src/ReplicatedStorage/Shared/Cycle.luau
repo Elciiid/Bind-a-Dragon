@@ -76,4 +76,16 @@ function Cycle.GetState(now: number?): State
 	}
 end
 
+-- 0 in the day, 1 at night, easing between them over the last `seconds` of the day (dusk) and the last `seconds`
+-- of the night (dawn). For visuals and sound only; binding still uses IsNight.
+function Cycle.GetNightBlend(state: State, seconds: number): number
+	local t
+	if state.IsNight then
+		t = math.clamp(state.SecondsLeft / seconds, 0, 1)
+	else
+		t = 1 - math.clamp(state.SecondsLeft / seconds, 0, 1)
+	end
+	return t * t * (3 - 2 * t)
+end
+
 return Cycle
