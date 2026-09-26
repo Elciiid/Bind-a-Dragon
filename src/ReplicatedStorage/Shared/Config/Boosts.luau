@@ -70,7 +70,7 @@ local Potions: { Potion } = {
 		Stat = "RollLuck",
 		Multiplier = 2,
 		Minutes = 5,
-		Description = "x2 luck on trait and grade rolls",
+		Description = "x2 luck when inscribing runes and tempering",
 		Color = Color3.fromRGB(120, 230, 200),
 	},
 	{

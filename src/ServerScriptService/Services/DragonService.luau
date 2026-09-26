@@ -25,6 +25,7 @@ local Luck = require(ReplicatedStorage.Shared.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
@@ -179,8 +180,9 @@ local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade"
 		return
 	end
 	local stationTag = if kind == "Trait" then "RuneShrine" else "DragonstoneForge"
+	local words = if kind == "Trait" then Text.RuneShrine else Text.DragonstoneForge
 	if not isNearStation(player, stationTag) then
-		notify:FireClient(player, if kind == "Trait" then "Go to the Rune Shrine to roll traits." else "Go to the Dragonstone Forge to roll grades.", "error")
+		notify:FireClient(player, words.WrongPlace, "error")
 		return
 	end
 
@@ -188,27 +190,29 @@ local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade"
 	local name = if species then species.Name else "Your dragon"
 	if kind == "Trait" then
 		if data.WyrmRunes < TraitConfig.TraitRollCost then
-			notify:FireClient(player, "You're out of Wyrm Runes. Earn more in the Dragon Spire.", "error")
+			notify:FireClient(player, words.OutOfCurrency, "error")
 			return
 		end
 		data.WyrmRunes -= TraitConfig.TraitRollCost
 		local trait = weightedPick(TraitConfig.Traits, BoostService:GetMultiplier(player, "RollLuck"))
 		dragon.Trait = trait.Id
-		notify:FireClient(player, `{name} gained the {trait.Name} trait!`, "success")
+		local values = { player = player.DisplayName, dragon = name, trait = trait.Name }
+		notify:FireClient(player, Text.Format(words.Result, values), "success")
 		if tierAtLeast(trait.Tier, TraitConfig.AnnounceTier) then
-			announcement:FireAllClients(`{player.DisplayName} rolled the {trait.Name} trait!`)
+			announcement:FireAllClients(Text.Format(words.Announcement, values))
 		end
 	else
 		if data.Dragonstones < TraitConfig.GradeRollCost then
-			notify:FireClient(player, "You're out of Dragonstones. Earn more in the Dragon Spire.", "error")
+			notify:FireClient(player, words.OutOfCurrency, "error")
 			return
 		end
 		data.Dragonstones -= TraitConfig.GradeRollCost
 		local grade = weightedPick(TraitConfig.Grades, BoostService:GetMultiplier(player, "RollLuck"))
 		dragon.Grade = grade.Id
-		notify:FireClient(player, `{name} is now grade {grade.Id}!`, "success")
+		local values = { player = player.DisplayName, dragon = name, grade = grade.Id }
+		notify:FireClient(player, Text.Format(words.Result, values), "success")
 		if tierAtLeast(grade.Tier, TraitConfig.AnnounceTier) then
-			announcement:FireAllClients(`{player.DisplayName} rolled grade {grade.Id}!`)
+			announcement:FireAllClients(Text.Format(words.Announcement, values))
 		end
 	end
 end

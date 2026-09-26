@@ -12,6 +12,7 @@ local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
+local WorldLabels = require(ReplicatedStorage.Shared.Config.UITheme).WorldLabels
 
 local PLOT_TAG = "RoostPlot"
 local UPDATE_INTERVAL = 0.4
@@ -52,9 +53,10 @@ local function ensureStand(part: BasePart, kind: string): Stand
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "UpgradeLabel"
-	gui.Size = UDim2.new(0, 170, 0, 40)
+	gui.Size = UDim2.fromOffset(WorldLabels.UpgradeStand.X, WorldLabels.UpgradeStand.Y)
 	gui.StudsOffset = Vector3.new(0, 3.5, 0)
-	gui.MaxDistance = 60
+	gui.MaxDistance = WorldLabels.MaxDistance
+	gui.AlwaysOnTop = false
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1

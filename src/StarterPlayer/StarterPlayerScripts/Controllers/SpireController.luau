@@ -16,6 +16,7 @@ local Style = require(script.Parent.UI.Style)
 local Button = require(script.Parent.UI.Button)
 local Format = require(ReplicatedStorage.Shared.Format)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local spireAction = ReplicatedStorage.Remotes.SpireAction :: RemoteEvent
@@ -156,7 +157,7 @@ local function onUpdate(update: { [string]: any })
 			elseif update.Result == "Top" then "You reached the top of the Spire!"
 			else "Climb stopped."
 		title.Text = `{text}  Record: {update.Record}/{SpireConfig.MaxFloors}`
-		matchup.Text = "Level up, roll traits and grades, or use a Wyrmblood Tonic to go higher."
+		matchup.Text = Text.SpireStuckTip
 		matchup.TextColor3 = Color3.fromRGB(190, 190, 205)
 		timerSeconds = 0
 		stopButton.Visible, againButton.Visible = false, true

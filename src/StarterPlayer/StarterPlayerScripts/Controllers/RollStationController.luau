@@ -1,8 +1,8 @@
 --!strict
 -- Rune Shrine (traits, costs Wyrm Runes) and Dragonstone Forge (grades, costs Dragonstones).
 -- Stations are instances tagged "RuneShrine" / "DragonstoneForge" (BasePart, or Model with a PrimaryPart).
--- Walking up and pressing E opens a window: pick one of your dragons, see its current trait/grade, roll,
--- and see the odds. The server checks the player is at the station and has the currency. Styled with the UI kit.
+-- Walking up and pressing E opens a window: pick one of your dragons, see its current trait/grade, inscribe a rune /
+-- temper it, and see the odds. Wording is in Config/Text. The server checks the player is at the station and has the currency. Styled with the UI kit.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -20,6 +20,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type Kind = "Trait" | "Grade"
@@ -100,8 +101,9 @@ local function redraw()
 	local currency = if kind == "Trait" then data.WyrmRunes else data.Dragonstones
 	local currencyName = if kind == "Trait" then "Wyrm Runes" else "Dragonstones"
 	local cost = if kind == "Trait" then TraitConfig.TraitRollCost else TraitConfig.GradeRollCost
-	window:SetTitle(if kind == "Trait" then "Rune Shrine" else "Dragonstone Forge")
-	owned.Text = `{currency} {currencyName} · pick a dragon to roll its {if kind == "Trait" then "trait" else "grade"}`
+	local words = if kind == "Trait" then Text.RuneShrine else Text.DragonstoneForge
+	window:SetTitle(words.Title)
+	owned.Text = `{currency} {currencyName} · {words.Hint}`
 	local iconKey = if kind == "Trait" then "WyrmRune" else "Dragonstone"
 	if ownedIcon.Image ~= UITheme.Icons[iconKey] then
 		ownedIcon.Image = UITheme.Icons[iconKey]
@@ -161,7 +163,7 @@ local function redraw()
 		detail.TextColor3 = GREY
 	end
 	local canRoll = selected ~= nil and currency >= cost
-	rollButton:SetText(`Roll ({cost} {if kind == "Trait" then "Wyrm Rune" else "Dragonstone"})`)
+	rollButton:SetText(Text.Format(words.Button, { cost = cost }))
 	rollButton:SetEnabled(canRoll)
 	odds.Text = oddsText(kind, DragonStats.GetBoostMultiplier(data, "RollLuck"))
 end
@@ -190,8 +192,9 @@ local function setupStation(instance: Instance, kind: Kind)
 	end
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "RollPrompt"
-	prompt.ActionText = if kind == "Trait" then "Roll traits" else "Roll grades"
-	prompt.ObjectText = if kind == "Trait" then "Rune Shrine" else "Dragonstone Forge"
+	local words = if kind == "Trait" then Text.RuneShrine else Text.DragonstoneForge
+	prompt.ActionText = words.PromptAction
+	prompt.ObjectText = words.Title
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.MaxActivationDistance = 12
@@ -249,7 +252,7 @@ function RollStationController:Init()
 	detail.TextTruncate = Enum.TextTruncate.AtEnd
 
 	rollButton = Button.new(content, {
-		Text = "Roll",
+		Text = Text.RuneShrine.PromptAction, -- replaced per station on open
 		Kind = "Primary",
 		OnClick = function()
 			if selectedId == nil or openKind == nil then

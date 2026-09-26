@@ -194,4 +194,18 @@ return {
 
 	-- A screen whose short side is at most this many pixels uses the phone layout.
 	PhoneMaxShortSide = 500,
+
+	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
+	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
+	WorldLabels = {
+		MaxDistance = 40, -- studs: roost owner signs, dragon nameplates, portal names, upgrade stands, area signs
+		BadgeMaxDistance = 80, -- studs: the ★ rebirth badge over players (a status symbol, seen from further)
+		RoostSign = Vector2.new(180, 34),
+		Nameplate = Vector2.new(130, 28),
+		PortalName = Vector2.new(170, 30),
+		PortalLock = Vector2.new(120, 30),
+		UpgradeStand = Vector2.new(140, 32),
+		RebirthBadge = Vector2.new(64, 20),
+		AreaSign = Vector2.new(240, 40),
+	},
 }

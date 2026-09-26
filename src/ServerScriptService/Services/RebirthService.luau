@@ -12,6 +12,7 @@ local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
+local WorldLabels = require(ReplicatedStorage.Shared.Config.UITheme).WorldLabels
 
 local requestRebirth = ReplicatedStorage.Remotes.RequestRebirth :: RemoteEvent
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
@@ -41,9 +42,10 @@ local function updateBadge(player: Player)
 	if badge == nil then
 		local newBadge = Instance.new("BillboardGui")
 		newBadge.Name = "RebirthBadge"
-		newBadge.Size = UDim2.new(0, 90, 0, 26)
-		newBadge.StudsOffset = Vector3.new(0, 2.6, 0)
-		newBadge.MaxDistance = 100
+		newBadge.Size = UDim2.fromOffset(WorldLabels.RebirthBadge.X, WorldLabels.RebirthBadge.Y)
+		newBadge.StudsOffset = Vector3.new(0, 2.4, 0)
+		newBadge.MaxDistance = WorldLabels.BadgeMaxDistance
+		newBadge.AlwaysOnTop = false
 		local label = Instance.new("TextLabel")
 		label.Name = "Label"
 		label.Size = UDim2.fromScale(1, 1)

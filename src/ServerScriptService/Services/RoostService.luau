@@ -36,6 +36,7 @@ local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
+local WorldLabels = require(ReplicatedStorage.Shared.Config.UITheme).WorldLabels
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
@@ -228,10 +229,10 @@ local function setSign(plot: Model, owner: Player?)
 	if gui == nil then
 		local newGui = Instance.new("BillboardGui")
 		newGui.Name = "OwnerGui"
-		newGui.Size = UDim2.new(0, 260, 0, 50)
-		newGui.StudsOffset = Vector3.new(0, 4, 0)
-		newGui.MaxDistance = 400
-		newGui.AlwaysOnTop = true
+		newGui.Size = UDim2.fromOffset(WorldLabels.RoostSign.X, WorldLabels.RoostSign.Y)
+		newGui.StudsOffset = Vector3.new(0, 3, 0)
+		newGui.MaxDistance = WorldLabels.MaxDistance
+		newGui.AlwaysOnTop = false
 		local label = Instance.new("TextLabel")
 		label.Name = "Label"
 		label.Size = UDim2.fromScale(1, 1)
@@ -243,9 +244,11 @@ local function setSign(plot: Model, owner: Player?)
 		newGui.Parent = sign
 		gui = newGui
 	end
+	-- Empty roosts show no sign at all.
 	local label = (gui :: BillboardGui):FindFirstChild("Label") :: TextLabel
-	label.Text = if owner then `{owner.DisplayName}'s Roost` else "Empty Roost"
-	label.TextColor3 = if owner then Color3.fromRGB(255, 220, 120) else Color3.fromRGB(180, 180, 180)
+	(gui :: BillboardGui).Enabled = owner ~= nil
+	label.Text = if owner then `{owner.DisplayName}'s Roost` else ""
+	label.TextColor3 = Color3.fromRGB(255, 220, 120)
 end
 
 local function findTemplate(speciesId: string, stageId: string): (Model?, boolean)
@@ -271,9 +274,10 @@ end
 local function makeNameplate(model: Model, text: string, color: Color3)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Nameplate"
-	gui.Size = UDim2.new(0, 160, 0, 36)
+	gui.Size = UDim2.fromOffset(WorldLabels.Nameplate.X, WorldLabels.Nameplate.Y)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, model:GetExtentsSize().Y / 2 + 1.5, 0)
-	gui.MaxDistance = 80
+	gui.MaxDistance = WorldLabels.MaxDistance
+	gui.AlwaysOnTop = false
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
