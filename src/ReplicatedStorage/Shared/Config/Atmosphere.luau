@@ -2,7 +2,7 @@
 -- Look and life of each area, drawn on each client (AtmosphereController, SkyController, WorldLifeController).
 -- Every area has a Day and a Night preset; the client blends them with the clock (dusk/dawn) and switches presets
 -- when the player changes area. Tonight's element tints the night ambient light (NightTint).
--- Lighting.Technology can't be set from scripts: set it to Future in Studio (Lighting properties).
+-- The place uses Lighting.LightingStyle = Realistic (set in Studio; it replaced the old Future technology).
 
 export type Look = {
 	Ambient: Color3,

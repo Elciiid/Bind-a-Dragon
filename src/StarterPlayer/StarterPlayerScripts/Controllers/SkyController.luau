@@ -142,6 +142,17 @@ local function updateShootingStar(eye: Vector3, night: number)
 	end
 end
 
+-- World positions of tonight's drawn stars (empty by day). The binding ceremony pulls these down into the altar.
+function SkyController.GetStarPositions(): { Vector3 }
+	local positions = {}
+	for _, star in stars do
+		if star.Gui.Enabled then
+			table.insert(positions, star.Attachment.WorldPosition)
+		end
+	end
+	return positions
+end
+
 function SkyController:Start()
 	RunService.RenderStepped:Connect(function()
 		local camera = workspace.CurrentCamera

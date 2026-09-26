@@ -1,10 +1,12 @@
 --!strict
 -- Shows the result of a successful bind. The server decides everything; this only displays it.
--- (Refusals arrive as Notify messages, handled by NotificationController.)
+-- A bind at an altar plays the binding ceremony (CeremonyController) and then the toast. Auto-bind pass binds and
+-- binds while the player is idle only show the toast. (Refusals arrive as Notify messages, NotificationController.)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local NotificationController = require(script.Parent.NotificationController)
+local CeremonyController = require(script.Parent.CeremonyController)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
@@ -34,10 +36,17 @@ function BindingController:Start()
 			end
 		end
 		local prefix = if result.Auto then "Auto-bind: " else ""
-		if result.Starborn then
-			NotificationController:Show(`{prefix}STARBORN! You bound a Starborn {species.Name}! ({species.Rarity} {species.Element})`, IndexConfig.StarbornColor)
+		local function toast()
+			if result.Starborn then
+				NotificationController:Show(`{prefix}STARBORN! You bound a Starborn {species.Name}! ({species.Rarity} {species.Element})`, IndexConfig.StarbornColor)
+			else
+				NotificationController:Show(`{prefix}You bound {species.Name}! ({species.Rarity} {species.Element})`, color)
+			end
+		end
+		if result.Auto or CeremonyController.IsIdle() then
+			toast()
 		else
-			NotificationController:Show(`{prefix}You bound {species.Name}! ({species.Rarity} {species.Element})`, color)
+			task.spawn(CeremonyController.Play, { SpeciesId = result.SpeciesId, Starborn = result.Starborn }, toast)
 		end
 	end)
 end
