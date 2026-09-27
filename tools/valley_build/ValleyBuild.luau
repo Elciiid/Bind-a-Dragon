@@ -188,14 +188,15 @@ function B.BuildMarket()
 		disc(o, "Step" .. i, Vector3.new(cx, y + 0.5, cz), r, 1, if i == 2 then M.Slate else M.Cobblestone, if i == 2 then C.Cap else C.Stone)
 		y += 1
 	end
-	P(o, "Plinth", Vector3.new(5, 4, 5), CFrame.new(cx, y + 2, cz) * CFrame.Angles(0, rad(45), 0), M.Slate, C.StoneDark)
-	glow(P(o, "RuneBand", Vector3.new(5.2, 0.35, 5.2), CFrame.new(cx, y + 3, cz) * CFrame.Angles(0, rad(45), 0), M.Foil, C.Gold, { CanCollide = false }))
-	y += 4
+	-- (kept low, top ~14, so it never hides the altar from the spawn)
+	P(o, "Plinth", Vector3.new(5, 2.4, 5), CFrame.new(cx, y + 1.2, cz) * CFrame.Angles(0, rad(45), 0), M.Slate, C.StoneDark)
+	glow(P(o, "RuneBand", Vector3.new(5.2, 0.35, 5.2), CFrame.new(cx, y + 1.8, cz) * CFrame.Angles(0, rad(45), 0), M.Foil, C.Gold, { CanCollide = false }))
+	y += 2.4
 	-- the crystal: the kit's crystal mesh stretched tall (glass by day, glowing star-blue at night)
 	local crystal = (KIT.AI_Ench_MagicCrystals :: Model).Crystals:Clone() :: MeshPart
 	crystal.Name = "Crystal"
-	crystal.Size = Vector3.new(5.5, 15, 5.5)
-	crystal.CFrame = CFrame.new(cx, y + 7.2, cz)
+	crystal.Size = Vector3.new(5.5, 8, 5.5)
+	crystal.CFrame = CFrame.new(cx, y + 3.8, cz)
 	crystal.Material = M.Glass
 	crystal.Color = C.StarBlue
 	crystal.Transparency = 0.05
@@ -205,7 +206,7 @@ function B.BuildMarket()
 	-- signpost arms: Altar (north), Sanctuaries (west, east); wording at D
 	for i, yawDeg in { 0, 90, -90 } do
 		local dir = CFrame.Angles(0, rad(yawDeg), 0)
-		P(o, "SignArm", Vector3.new(0.5, 1.1, 6), CFrame.new(cx, g + 3 + 1.4 + i * 0.9, cz) * dir * CFrame.new(0, 0, -5), M.WoodPlanks, C.Plank)
+		P(o, "SignArm", Vector3.new(0.5, 1.1, 6), CFrame.new(cx, g + 3.5 + i * 0.65, cz) * dir * CFrame.new(0, 0, -5), M.WoodPlanks, C.Plank)
 	end
 
 	-- stone platforms under the stations (top 1.6 above the square), stations raised onto them
@@ -474,14 +475,15 @@ function B.BuildSanctuary(plot: Model)
 	lantern(sf, at(63, -12, 0), 0)
 	lantern(sf, at(63, 12, 0), 0)
 
-	-- steps from the forecourt down to the road
-	local n = math.max(2, math.floor((T - 0.8) / 1.5 + 0.5))
+	-- steps from the forecourt down to the road: solid blocks from below the ground (y -1) up to each tread
+	-- (frame() heights are relative to the forecourt at T, so convert the absolute heights)
+	local n = math.max(2, math.ceil((T - 0.8) / 1.5)) -- rises of at most 1.5 studs (walkable without jumping)
 	local rise, run = (T - 0.8) / n, 2.2
 	local steps = model(sf, "Steps")
 	for k = 1, n - 1 do
 		local top = T - k * rise
 		local front = 66 + (k - 1) * run
-		P(steps, "Step", Vector3.new(14, top + 1, run + 0.1), frame(front + run / 2, 0, (top - 1) / 2), M.Slate, C.Cap)
+		P(steps, "Step", Vector3.new(14, top + 1, run + 0.1), frame(front + run / 2, 0, (top - 1) / 2 - T), M.Slate, C.Cap)
 	end
 
 	-- zones (invisible discs): where dragons appear and walkers roam (Shared/RoostZones)

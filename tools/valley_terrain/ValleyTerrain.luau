@@ -403,6 +403,9 @@ function V.Height(x: number, z: number): (number, number?, string?)
 end
 
 V.Region = { X0 = -640, X1 = 640, Z0 = -640, Z1 = 640, Y0 = -48, Y1 = 400 }
+-- Solid terrain ends up ~2 studs above its voxel fill height (measured with raycasts and by walking, 2026-09-27;
+-- water levels are exact), so solids are written 2 studs lower to put every surface at its designed height.
+V.SurfaceLift = 2
 
 -- Writes one 64 x 64-cell chunk (256 studs square) with its corner at (cx, cz).
 function V.WriteChunk(cx: number, cz: number)
@@ -452,7 +455,7 @@ function V.WriteChunk(cx: number, cz: number)
 			end
 			for iy = 1, ny do
 				local bottom = G.Y0 + (iy - 1) * RES
-				local occ = clamp((h - bottom) / RES, 0, 1)
+				local occ = clamp((h - V.SurfaceLift - bottom) / RES, 0, 1)
 				mx[iy][iz] = if occ > 0 then mat else Air
 				ox[iy][iz] = occ
 				lx[iy][iz] = if level and occ < 1 then max(0, clamp((level - bottom) / RES, 0, 1) - occ) else 0

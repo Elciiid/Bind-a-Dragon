@@ -126,7 +126,8 @@ folder). Stand-ins for future custom art are named `Placeholder_<Name>`. Grouped
   floor, sanctuary terraces (rock pillars, back cliffs), the portal terrace + Spire hill, jagged mountains all around
   (green foothills, rocky peaks, saddles behind the gates so the landmarks show), the winding river, the south gorge.
   Flagstone roads and squares = terrain `Cobblestone` (roads from the plaza to each sanctuary, the main road, the
-  terrace walkway, the spawn plaza, the Spire court).
+  terrace walkway, the spawn plaza, the Spire court). Solid terrain surfaces end up ~2 studs above the voxel fill
+  height, so the script writes solids 2 lower (`SurfaceLift`); keep that in mind for any other terrain script.
 - `SpawnLocation` at the valley mouth (0, 1.3, 160) facing north (new players); `AreaSpawn` (arrivals from other
   areas) on the portal terrace (0, 13.5, -150) facing the altar.
 - `Bounds`: 60 invisible walls 30 studs up the foothills all around the valley (from the terrain's edge table).
@@ -154,8 +155,8 @@ Salt, Sandstone; Eclipse: LeafyGrass, Concrete, Pavement) so each area can have 
 storm floor, Sandstone = canyon walls, LeafyGrass = violet moss, Concrete = void stone, Pavement = temple stone. The
 Meadow uses only Roblox's own Grass, Ground, Rock, Cobblestone and Water (no overrides; the Mud/Brick/Sand cartoon
 overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (122, 114, 104),
-Cobblestone (168, 160, 146). `MaterialService.Use2022Materials` is off (the pre-2022 material set); scripts can't
-change it, only the Properties panel. Textures are hand-made
+Cobblestone (168, 160, 146). `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
+change it). Textures are hand-made
 tileable PNGs (`tools/terrain_textures/gen.py`, uploaded as images); faceted materials have per-facet normal maps.
 Overrides also restyle **parts** with those materials, so part-built art should avoid them (Slate is deliberately not
 overridden: 126 part-built stands use it). Terrain material color multiplies the variant: Grass's texture is near white
