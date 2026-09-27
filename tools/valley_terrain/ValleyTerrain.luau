@@ -446,9 +446,9 @@ function V.WriteChunk(cx: number, cz: number)
 				mat = Rock
 			elseif hint == "flat" then
 				mat = Grass
-			elseif slope > 1.25 and h > 3 then
+			elseif slope > 1.35 and h > 3 then
 				mat = Rock
-			elseif h > 100 + noise((cx + ix * RES) / 60, (cz + iz * RES) / 60, 6.6) * 30 and slope > 0.5 then
+			elseif h > 125 + noise((cx + ix * RES) / 60, (cz + iz * RES) / 60, 6.6) * 30 and slope > 0.6 then
 				mat = Rock
 			else
 				mat = Grass

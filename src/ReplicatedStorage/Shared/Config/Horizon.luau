@@ -24,39 +24,51 @@ return {
 	FlashOpacity = 0.9,
 
 	Landmarks = {
-		-- Behind Portal_VolcanoPeak (north-north-east, -67.5°): the volcano with its lava streaks and plume.
+		-- The Valley (Starter Meadow): each area's landmark stands 650 studs out behind its portal gate (gates on the
+		-- portal terrace at bearings -36°, -13°, 13°, 36° from north; landmarks fanned a little wider at -40°, -15°, 15°,
+		-- 40°), seen through the dips in the mountain ridge. Unlock order west to east.
+		-- Behind Portal_VolcanoPeak: the volcano with its lava streams and smoke plume.
 		{
-			Model = "Volcano",
-			Position = Vector3.new(260, -20, -628),
+			Model = "ValleyVolcano",
+			Position = Vector3.new(-463, 20, -552), -- a little farther out (720) so it doesn't crowd the ice spire
 			FaceTowards = MEADOW_CENTER,
-			Scale = 1,
+			Scale = 1.1, -- ~350 tall: towers over the ridge like in the concept image
 			ShowIn = { "StarterMeadow" },
 		},
-		-- Behind Portal_FrozenCliffs (east-north-east, -22.5°): the ice crystal spire on its cliff.
+		-- Behind Portal_FrozenCliffs: the ice crystal spire on its cliff.
 		{
 			Model = "IceSpire",
-			Position = Vector3.new(628, -20, -260),
+			Position = Vector3.new(-168, 15, -628),
 			FaceTowards = MEADOW_CENTER,
-			Scale = 1,
+			Scale = 1.3,
 			ShowIn = { "StarterMeadow" },
 		},
-		-- Behind Portal_StormCanyon (west-north-west, -157.5°): the lightning tower on its mesa.
+		-- Behind Portal_StormCanyon: the lightning tower on its mesa.
 		{
 			Model = "StormTower",
-			Position = Vector3.new(-628, -20, -260),
+			Position = Vector3.new(168, 15, -628),
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1,
 			ShowIn = { "StarterMeadow" },
 			FlashEvery = NumberRange.new(2.5, 6),
 		},
-		-- Behind Portal_EclipseIsles (north-north-west, -112.5°): the eclipse ring over the floating temple island.
+		-- Behind Portal_EclipseIsles: the floating island under the eclipse (its dark sun and gold corona spin slowly).
+		-- Position = the island's grass top.
 		{
-			Model = "EclipseRing",
-			Position = Vector3.new(-260, -20, -628),
+			Model = "ValleyIsland",
+			Position = Vector3.new(418, 200, -498), -- floats above the east ridge
 			FaceTowards = MEADOW_CENTER,
-			Scale = 1,
+			Scale = 1.25,
 			ShowIn = { "StarterMeadow" },
 			SpinSpeed = 3,
+		},
+		-- Distant mountain ranges all around the valley, beyond the terrain (pieces ~830 studs out; pivot = valley center).
+		{
+			Model = "MeadowRanges",
+			Position = MEADOW_CENTER,
+			FaceTowards = Vector3.new(0, 0, -100),
+			Scale = 1,
+			ShowIn = { "StarterMeadow" },
 		},
 
 		-- In-area sky landmarks (client-side so they never stream out, even far away on phones).

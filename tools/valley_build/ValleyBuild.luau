@@ -18,7 +18,7 @@ local C = {
 	StoneDark = Color3.fromRGB(142, 132, 118),
 	Cap = Color3.fromRGB(156, 148, 134),
 	Gold = Color3.fromRGB(226, 184, 84),
-	GoldGlow = Color3.fromRGB(255, 214, 120),
+	GoldGlow = Color3.fromRGB(228, 176, 86), -- night glow of gold stars/runes (brighter blooms out)
 	Navy = Color3.fromRGB(30, 42, 96),
 	Iron = Color3.fromRGB(58, 58, 66),
 	Wood = Color3.fromRGB(96, 68, 46),
@@ -120,6 +120,7 @@ local function ground(x: number, z: number): number
 	return (V.Height(x, z))
 end
 B.Ground = ground
+B.Star, B.Lantern, B.Disc, B.Glow, B.Wedge, B.Model = star, lantern, disc, glow, W, model
 
 ---------------------------------------------------------------------------------------------------------------
 -- Entrance: two stone towers with star banners at the valley mouth

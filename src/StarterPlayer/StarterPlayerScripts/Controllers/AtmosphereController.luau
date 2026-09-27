@@ -1,7 +1,7 @@
 --!strict
 -- Lighting per area and time of day (client only). Each area has a Day and a Night look in Config/Atmosphere
--- (ambient, haze, bloom, color correction, sun rays, a gentle far blur); they blend with the clock at dusk/dawn and
--- blend to the new area's look after a teleport. Tonight's element tints the night ambient.
+-- (ambient, haze, bloom, color correction, sun rays, a gentle far blur, 3D clouds); they blend with the clock at
+-- dusk/dawn and blend to the new area's look after a teleport. Tonight's element tints the night ambient.
 -- The player's area = the nearest AreaSpawn (tag "AreaSpawn" + AreaId). Other controllers use GetArea/GetNightBlend.
 
 local CollectionService = game:GetService("CollectionService")
@@ -31,6 +31,7 @@ local bloom: BloomEffect
 local color: ColorCorrectionEffect
 local sunRays: SunRaysEffect
 local blur: DepthOfFieldEffect
+local clouds: Clouds
 
 local function ensure<T>(className: string, name: string): T
 	local existing = Lighting:FindFirstChildOfClass(className)
@@ -104,6 +105,9 @@ local function apply(look: Look, tintColor: Color3, tint: number)
 	sunRays.Intensity = look.SunRays
 	blur.Enabled = look.DepthBlur > 0 and not low
 	blur.FarIntensity = look.DepthBlur
+	clouds.Cover = look.CloudCover
+	clouds.Density = look.CloudDensity
+	clouds.Color = look.CloudColor
 end
 
 -- The area the player is in (AreaId).
@@ -131,6 +135,14 @@ function AtmosphereController:Init()
 	blur.FocusDistance = 80
 	blur.InFocusRadius = 90
 	blur.NearIntensity = 0
+	-- one Clouds object for the whole place (under Terrain); each area's look sets it locally
+	local existing = workspace.Terrain:FindFirstChildOfClass("Clouds")
+	if existing then
+		clouds = existing
+	else
+		clouds = Instance.new("Clouds")
+		clouds.Parent = workspace.Terrain
+	end
 end
 
 function AtmosphereController:Start()

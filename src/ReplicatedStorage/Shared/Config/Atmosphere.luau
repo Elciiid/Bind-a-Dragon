@@ -26,6 +26,10 @@ export type Look = {
 	SunRays: number,
 	DepthBlur: number, -- DepthOfField far intensity (0 = off); gentle blur of the far distance only
 	SunColor: Color3, -- Lighting.ColorShift_Top: tints sunlit surfaces (black = no tint; warm gold = golden hour)
+	-- 3D clouds (Terrain.Clouds, one for the whole place; each area sets its own sky)
+	CloudCover: number, -- share of the sky covered, 0..1
+	CloudDensity: number, -- how thick the clouds look, 0..1
+	CloudColor: Color3,
 }
 
 -- Floating particles near the camera (petals, fireflies, embers, snow...). Texture: an image id.
@@ -68,6 +72,9 @@ local function look(t: { [string]: any }): Look
 		SunRays = 0.05,
 		DepthBlur = 0.06,
 		SunColor = Color3.new(0, 0, 0),
+		CloudCover = 0.5,
+		CloudDensity = 0.3,
+		CloudColor = Color3.new(1, 1, 1),
 	}
 	for key, value in t do
 		base[key] = value
@@ -99,13 +106,16 @@ local Areas: { [string]: AreaLook } = {
 			SunRays = 0.07,
 			DepthBlur = 0.03,
 			SunColor = Color3.fromRGB(50, 38, 18),
+			CloudCover = 0.62, -- fair-weather clouds over the peaks, blue sky between
+			CloudDensity = 0.26,
 		}),
 		-- Night is the show: bright starry sky, clearly visible; gold runes and glowing flowers/mushrooms carry the colour.
+		-- (brighter since the Valley: the valley floor, paths and sanctuaries stay readable in blue moonlight)
 		Night = look({
-			Ambient = Color3.fromRGB(72, 82, 132),
-			OutdoorAmbient = Color3.fromRGB(98, 114, 178),
-			Brightness = 1.8,
-			Exposure = 0.4,
+			Ambient = Color3.fromRGB(92, 104, 158),
+			OutdoorAmbient = Color3.fromRGB(120, 136, 200),
+			Brightness = 2.2,
+			Exposure = 0.55,
 			Density = 0.14,
 			Offset = 0,
 			HazeColor = Color3.fromRGB(80, 100, 165),
@@ -115,10 +125,13 @@ local Areas: { [string]: AreaLook } = {
 			BloomSize = 30,
 			BloomThreshold = 1.1,
 			Contrast = 0.08,
-			Saturation = 0.16,
+			Saturation = 0.2,
 			Tint = Color3.fromRGB(214, 224, 255),
 			SunRays = 0,
 			SunColor = Color3.fromRGB(28, 38, 80),
+			CloudCover = 0.4, -- fewer, darker clouds so the stars and the constellation show
+			CloudDensity = 0.2,
+			CloudColor = Color3.fromRGB(110, 122, 165),
 		}),
 		-- a few golden light motes by day (magic is an accent), fireflies at night
 		DayDrift = { Texture = SPARKLE, Color = Color3.fromRGB(255, 232, 160), Rate = 4, Size = 0.26, Speed = 0.5, Lifetime = 8, Rise = 0.1, Glow = 1, Spin = 0 },
@@ -135,6 +148,9 @@ local Areas: { [string]: AreaLook } = {
 			Glare = 0.3,
 			Tint = Color3.fromRGB(255, 232, 215),
 			Saturation = 0.15,
+			CloudCover = 0.45,
+			CloudDensity = 0.35,
+			CloudColor = Color3.fromRGB(215, 190, 175), -- ash-tinted
 		}),
 		Night = look({
 			Ambient = Color3.fromRGB(110, 60, 50),
@@ -150,6 +166,9 @@ local Areas: { [string]: AreaLook } = {
 			BloomThreshold = 1.1,
 			Tint = Color3.fromRGB(255, 225, 210),
 			SunRays = 0,
+			CloudCover = 0.4,
+			CloudDensity = 0.3,
+			CloudColor = Color3.fromRGB(90, 55, 45), -- lit red from below
 		}),
 		DayDrift = { Texture = SPARKLE, Color = Color3.fromRGB(255, 140, 60), Rate = 6, Size = 0.3, Speed = 1, Lifetime = 5, Rise = 1.2, Glow = 1, Spin = 0 },
 		NightDrift = { Texture = SPARKLE, Color = Color3.fromRGB(255, 120, 40), Rate = 9, Size = 0.35, Speed = 1, Lifetime = 5, Rise = 1.4, Glow = 1, Spin = 0 },
@@ -164,6 +183,9 @@ local Areas: { [string]: AreaLook } = {
 			Haze = 1.6,
 			Tint = Color3.fromRGB(235, 245, 255),
 			Saturation = -0.05,
+			CloudCover = 0.55,
+			CloudDensity = 0.3,
+			CloudColor = Color3.fromRGB(245, 250, 255),
 		}),
 		Night = look({
 			Ambient = Color3.fromRGB(60, 80, 130),
@@ -178,6 +200,9 @@ local Areas: { [string]: AreaLook } = {
 			BloomThreshold = 1.1,
 			Tint = Color3.fromRGB(220, 235, 255),
 			SunRays = 0,
+			CloudCover = 0.35,
+			CloudDensity = 0.2,
+			CloudColor = Color3.fromRGB(90, 110, 150), -- thin, so the aurora shows
 		}),
 		DayDrift = { Texture = SPARKLE, Color = Color3.fromRGB(240, 250, 255), Rate = 8, Size = 0.3, Speed = 0.8, Lifetime = 7, Rise = -1, Glow = 0.4, Spin = 20 },
 		NightDrift = { Texture = SPARKLE, Color = Color3.fromRGB(220, 240, 255), Rate = 8, Size = 0.3, Speed = 0.8, Lifetime = 7, Rise = -1, Glow = 0.8, Spin = 20 },
@@ -193,6 +218,9 @@ local Areas: { [string]: AreaLook } = {
 			Contrast = 0.12,
 			Tint = Color3.fromRGB(250, 248, 225),
 			Saturation = -0.1,
+			CloudCover = 0.85,
+			CloudDensity = 0.55,
+			CloudColor = Color3.fromRGB(170, 165, 185), -- heavy storm clouds
 		}),
 		Night = look({
 			Ambient = Color3.fromRGB(80, 78, 60),
@@ -208,6 +236,9 @@ local Areas: { [string]: AreaLook } = {
 			BloomThreshold = 1.1,
 			Tint = Color3.fromRGB(245, 240, 215),
 			SunRays = 0,
+			CloudCover = 0.8,
+			CloudDensity = 0.5,
+			CloudColor = Color3.fromRGB(60, 58, 78),
 		}),
 		DayDrift = { Texture = SPARKLE, Color = Color3.fromRGB(230, 220, 170), Rate = 5, Size = 0.25, Speed = 3, Lifetime = 4, Rise = 0, Glow = 0.2, Spin = 0 },
 		NightDrift = { Texture = SPARKLE, Color = Color3.fromRGB(255, 235, 90), Rate = 5, Size = 0.3, Speed = 2, Lifetime = 3, Rise = 0.3, Glow = 1, Spin = 0 },
@@ -222,6 +253,9 @@ local Areas: { [string]: AreaLook } = {
 			Haze = 1.8,
 			Tint = Color3.fromRGB(240, 225, 255),
 			Saturation = 0.1,
+			CloudCover = 0.35,
+			CloudDensity = 0.25,
+			CloudColor = Color3.fromRGB(215, 195, 245),
 		}),
 		Night = look({
 			Ambient = Color3.fromRGB(80, 50, 120),
@@ -236,6 +270,9 @@ local Areas: { [string]: AreaLook } = {
 			BloomThreshold = 1.05,
 			Tint = Color3.fromRGB(235, 215, 255),
 			SunRays = 0,
+			CloudCover = 0.3,
+			CloudDensity = 0.2,
+			CloudColor = Color3.fromRGB(60, 40, 95),
 		}),
 		DayDrift = { Texture = SPARKLE, Color = Color3.fromRGB(190, 140, 255), Rate = 5, Size = 0.3, Speed = 0.6, Lifetime = 6, Rise = 0.5, Glow = 1, Spin = 0 },
 		NightDrift = { Texture = SPARKLE, Color = Color3.fromRGB(170, 110, 255), Rate = 8, Size = 0.35, Speed = 0.6, Lifetime = 6, Rise = 0.6, Glow = 1, Spin = 0 },

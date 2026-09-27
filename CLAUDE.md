@@ -27,12 +27,12 @@ _Update this section as work progresses._
 | Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData`. Studio uses a separate `PlayerData_Studio` store |
 | Client data sync | Done: snapshot + auto-diffed changes (`DataService` → `DataController`); `PRIVATE_KEYS` stay server-only. Gold/Stardust HUD in `CurrencyController` |
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server; `GetNightBlend` for visuals), `DayNightService`, `DayNightController` (clock + sky HUD) |
-| Atmosphere (meadow wow pass, phase 1) | Done: per-area Day/Night looks in `Config/Atmosphere` (`AtmosphereController`: ambient, haze, bloom, color correction, sun rays, far blur; blends at dusk/dawn and on area change; night tint by element), tonight's constellation drawn in the sky + shooting stars (`SkyController`, drawings in `Config/Constellations` Stars/Lines), lanterns (tag `Lantern`, Atomic) lit at dusk with flicker, max 8 lights (`WorldLifeController`), drifting particles per area (petals/fireflies, embers, snow...), music + ambience crossfade and 3D world sounds (`AudioController`, `Config/Audio`). `EffectsQuality` = Low effects (setting or low graphics quality). Lighting uses `Lighting.LightingStyle = Realistic` (set in Studio; replaces the old Future technology) |
+| Atmosphere (meadow wow pass, phase 1) | Done: per-area Day/Night looks in `Config/Atmosphere` (`AtmosphereController`: ambient, haze, bloom, color correction, sun rays, far blur, 3D clouds (`Terrain.Clouds`, per-area cover/density/color); blends at dusk/dawn and on area change; night tint by element), tonight's constellation drawn in the sky + shooting stars (`SkyController`, drawings in `Config/Constellations` Stars/Lines), lanterns (tag `Lantern`, Atomic) lit at dusk with flicker, max 8 lights (`WorldLifeController`), drifting particles per area (petals/fireflies, embers, snow...), music + ambience crossfade and 3D world sounds (`AudioController`, `Config/Audio`). `EffectsQuality` = Low effects (setting or low graphics quality). Lighting uses `Lighting.LightingStyle = Realistic` (set in Studio; replaces the old Future technology) |
 | Altar glow + binding ceremony (wow pass, phase 2) | Done: `AltarGlowController` (every `StarAltar`: beam from the main crystal, glow sprites on `Glow/GlowAnchor` parts (Rank 1 = main crystal; only `MaxLights` cast light), rising sparkles, pulsing Highlight up close; element color, brighter when favored; `Config/AltarGlow`). `CeremonyController` (`Config/Ceremony`): after the server's BindResult, camera eases in, tonight's sky stars streak into the altar, rarity burst + flash, the dragon rises with its name; Legendary/Mythic/Starborn = big (second ring, sky flash, longer); skippable; no ceremony for Auto-bind or idle players (toast only); "Quick binds" (LocalPlayer attribute `QuickBinds`) = burst + reveal only |
 | In-world UI (wow pass, phase 3) | Done (`Config/WorldUI`): `PromptController` draws every ProximityPrompt in the UI theme (Style = Custom; key badge, icon, hold ring, tap/click to use). Portal warp in `PortalController` (whoosh, FOV kick, color flash). `RoostFXController`: owner banners with avatar (replace the server sign locally), "+gold" pops from your roost dragons, level-up/evolve bursts. `StationFXController`: rune/stone count boards, shrine glow and forge flare while you own runes/stones, merchant price board, Spire door record board (`UI/WorldBoard`). Note: Studio screenshots don't show `AlwaysOnTop` billboards (prompts); they do show in play |
 | Game feel (wow pass, phase 4) | Done: `FeedbackController` + `Config/Feedback`: one sound palette (level-up, buy, arm, climb start, floor clear, Index entry, reward, rebirth) with a small camera shake and screen flash, driven by data changes and SpireUpdate; shake/flash off with Low effects. A palette sound replaces the toast chime when both fire together (`Style.MarkFeedbackSound`); UI sounds follow the SoundVolume setting |
 | Settings (wow pass, phase 5) | Done: Settings window (`SettingsController`, menu tile) with Music / Sound sliders (5% steps) and Low effects / Quick binds toggles; applied at once as LocalPlayer attributes (`MusicVolume`, `SoundVolume`, `LowEffects`, `QuickBinds`), saved to `data.Settings` via the `SaveSettings` remote (`SettingsService`: type-checked, clamped, rate-limited) after a short debounce. Defaults in `Config/Data.DefaultSettings`; data version 2 (migration fills missing settings) |
-| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. AI prop kits in `ServerStorage.PropKits` (`AI_<Area>_<Prop>`, pivot at the bottom, `Triangles` attribute) and stylized terrain materials done. Stage 3: Starter Meadow detailed (e1) and rebuilt as a hub (e1b: raised plaza + ring road, 6 big pens, portals in the north half with themed gateways, flagstone roads, market row, groves, ground variety; `AmbientFXController` lowers world particles with Low effects). Art direction "The Starlit Highlands" (plan section 2b): `SunColor` per look (`AtmosphereController`), `NightGlow` tag (parts glow Neon at night, `WorldLifeController`). Now: the Starter Meadow rebuilt as "the Valley" from the concept image (checkpoints A–E; B terrain and C hub layout done, with spawn zones in the sanctuaries). Volcano Peak after the Valley |
+| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. AI prop kits in `ServerStorage.PropKits` (`AI_<Area>_<Prop>`, pivot at the bottom, `Triangles` attribute) and stylized terrain materials done. Stage 3: Starter Meadow detailed (e1) and rebuilt as a hub (e1b: raised plaza + ring road, 6 big pens, portals in the north half with themed gateways, flagstone roads, market row, groves, ground variety; `AmbientFXController` lowers world particles with Low effects). Art direction "The Starlit Highlands" (plan section 2b): `SunColor` per look (`AtmosphereController`), `NightGlow` tag (parts glow Neon at night, `WorldLifeController`). Now: the Starter Meadow rebuilt as "the Valley" from the concept image (checkpoints A–E; B terrain, C hub layout with spawn zones, D nature/ruins/landmarks/lighting done; E perches next). Volcano Peak after the Valley |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons`. Area rosters: `Config/Areas` `Element` + `Species` per area (Meadow = Common/Rare, element areas = all 5 of their element; rolls only over rarities in the roster, `Luck.GetAreaRarityWeights`); favored area ×`FavoredAreaLuck` (`Luck.IsFavored`), shown on the sky HUD and luck panel; Auto-bind uses the nearest unlocked altar's area |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs and the level cap (50 + 5 per rebirth) in `Config/Leveling`, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up in the Dragons panel (`InventoryController`) or via the E prompt on own roost dragons (`DragonPromptController`); one evolution toast per level-up |
@@ -74,10 +74,12 @@ Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a po
 
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` is being rebuilt as **"the
 Valley"** (remaster master prompt, reference image `assets/concepts/valley_day.webp`, plan
-`E:\Roblox\Bind A Dragon - Valley Layout Proposal.md`). Checkpoints B (terrain) and C (hub layout) are done; D (nature,
-ruins, dressing, landmarks, lighting) follows. North = -Z, the altar at the origin. The part-built hub comes from
-`ServerStorage.RemasterTools.ValleyBuild` (reference copy `tools/valley_build/`; each `Build*` function rebuilds its own
-folder). Stand-ins for future custom art are named `Placeholder_<Name>`. Grouped as:
+`E:\Roblox\Bind A Dragon - Valley Layout Proposal.md`). Checkpoints B (terrain), C (hub layout) and D (nature, ruins,
+dressing, landmarks, lighting) are done; E (perches) follows. North = -Z, the altar at the origin. Built by the Studio
+modules in `ServerStorage.RemasterTools` (reference copies in `tools/valley_terrain/` and `tools/valley_build/`):
+`ValleyTerrain` (terrain), `ValleyBuild` (hub), `ValleyDetail` (nature, ruins, dressing; deterministic seeds) and
+`ValleyLandmarks` (horizon models); each `Build*` function rebuilds only its own folder. Stand-ins for future custom art
+are named `Placeholder_<Name>`. Grouped as:
 - `Plaza`: the Star Altar model `StarAltar` (tag `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core` = invisible
   part on its top platform; Bind prompt range 20) on its round stepped stone `Floor` (radius 42), and the
   `AltarShimmer`. `Dressing`: an outer step (radius 48), 8 lanterns, 4 `Placeholder_StarBanner` poles; flagstone base
@@ -131,6 +133,17 @@ folder). Stand-ins for future custom art are named `Placeholder_<Name>`. Grouped
 - `SpawnLocation` at the valley mouth (0, 1.3, 160) facing north (new players); `AreaSpawn` (arrivals from other
   areas) on the portal terrace (0, 13.5, -150) facing the altar.
 - `Bounds`: 60 invisible walls 30 studs up the foothills all around the valley (from the terrain's edge table).
+- `Nature`: 210 realistic firs/pines (kit `Store_Fir*` / `Store_Pine*`, SurfaceAppearance tinted brighter green) on the
+  foothills and valley edges, never on roads or play spaces, thinner in the saddles behind the gates; 3 old oaks at
+  the valley edges; ferns, wildflower patches (lupines, buttercups, daisies, white wildflowers), night flora
+  (moonflowers and glow mushrooms tagged `NightGlow`) by the river and forest edge, boulders. Trees inside the bounds
+  have an invisible `TrunkCollider`; foliage doesn't collide.
+- `Ruins`: binder ruins (columns with gold bands, broken arches, fallen columns, rune stones, star-inlaid steps; gold
+  parts tagged `NightGlow`) at 9 sites (waterfall, low pool, terrace ends, meadows, Spire hill, market) and a broken
+  arch + rune stone in each sanctuary's flight zone.
+- `Dressing`: crystals at each portal gate in its area's color (glass by day, `NightGlow` at night), the obelisk's
+  signpost words (SurfaceGuis), market crates and barrels, lily pads, road lanterns, the east cascade (beam + foam
+  tagged `AmbientFX`).
 - `ServerStorage.ValleyHold`: the old layout's dressing, moved out during the rebuild (scenery, roads, lanterns, pen
   fences/gates/decor, portal gateways, the plaza ring, station platforms, Spire stairs). Realistic trees/rocks get
   reused; cartoon AI props get deleted at the end. Backup of the meadow before the Valley:
@@ -154,7 +167,7 @@ Salt, Sandstone; Eclipse: LeafyGrass, Concrete, Pavement) so each area can have 
 (other areas, until they are remastered): Basalt, Asphalt, CrackedLava = lava, Snow, Glacier, Limestone, Ice, Salt =
 storm floor, Sandstone = canyon walls, LeafyGrass = violet moss, Concrete = void stone, Pavement = temple stone. The
 Meadow uses only Roblox's own Grass, Ground, Rock, Cobblestone and Water (no overrides; the Mud/Brick/Sand cartoon
-overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (122, 114, 104),
+overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (112, 110, 112),
 Cobblestone (168, 160, 146). `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
 change it). Textures are hand-made
 tileable PNGs (`tools/terrain_textures/gen.py`, uploaded as images); faceted materials have per-facet normal maps.
@@ -162,9 +175,12 @@ Overrides also restyle **parts** with those materials, so part-built art should 
 overridden: 126 part-built stands use it). Terrain material color multiplies the variant: Grass's texture is near white
 and its green comes from `Terrain:SetMaterialColor(Grass)` so the ground matches the grass blades; the others are white.
 **Landmarks:** `HorizonController` + `Config/Horizon` clone models from `ReplicatedStorage.Assets.Horizon` on the
-client (no collision, never streamed): in the Meadow, the other areas' landmarks on the horizon behind each portal;
-in each area, its own sky landmark (Eclipse sun, ice crystals, storm tower with lightning, volcano plume). The Meadow's
-landmarks get new models and positions (one behind each gate) with the Valley at checkpoint D.
+client (no collision, never streamed): in the Meadow, each area's landmark 650-720 studs out behind its gate, seen
+through the dips in the ridge (`ValleyVolcano`: AI-generated cone, rock + glowing lava, smoke plume; `IceSpire`;
+`StormTower` with lightning and a storm cloud; `ValleyIsland`: realistic boulders, firs, silver ruins and the eclipse
+sun spinning above), plus `MeadowRanges` (distant mountain ranges ~830 out, all around); in each area, its own sky
+landmark (Eclipse sun, ice crystals, storm tower with lightning, volcano plume). Far objects vanish when Studio's
+graphics quality is low (the render distance shrinks); set a high quality level for overview screenshots.
 The builder replaces each with the real area (keep the altar tag + `AreaId`, the `AreaSpawn`, and the portals).
 Eclipse Isles should be themed to match the Shadow dragons.
 StreamingEnabled is on: tagged models use `ModelStreamingMode = Atomic`, and client code that sets up prompts on
