@@ -15,7 +15,6 @@ local C, P = B.Colors, B.P
 local M = Enum.Material
 local noise, sqrt, abs, max, min, rad, sin, cos = math.noise, math.sqrt, math.abs, math.max, math.min, math.rad, math.sin, math.cos
 
-D.TreeTint = Color3.new(0.88, 1, 0.82) -- brighter, greener conifers (they read black untinted)
 D.MaxTrees = 260
 
 ---------------------------------------------------------------------------------------------------------------
@@ -116,15 +115,89 @@ function D.BuildNature()
 		end
 		return true
 	end
-	local firs, pines = {}, {}
-	for i = 1, 8 do
-		table.insert(firs, KIT:FindFirstChild("Store_Fir" .. i))
+	-- magical trees first (about 15%), placed where they matter; the forest then keeps its distance from them
+	local magic = B.Folder(f, "MagicTrees")
+	local function magicTree(name: string, x: number, z: number): boolean
+		if not (farFrom(x, z, 10) and open(x, z, 5)) then
+			return false
+		end
+		local _, h = slopeAt(x, z)
+		D.PlaceFantasyTree(magic, name, Vector3.new(x, h - 0.4, z), rng, true)
+		table.insert(placed, Vector3.new(x, h, z))
+		return true
 	end
-	for i = 1, 12 do
-		table.insert(pines, KIT:FindFirstChild("Store_Pine" .. i))
+	-- lantern willows on the river banks, every ~50 studs, alternating sides, clear of the bridges and the waterfall
+	local river, side, lastX = V.River, 1, -math.huge
+	for i = 1, #river - 1 do
+		local p, q = river[i], river[i + 1]
+		if p[1] - lastX >= 50 and abs(p[1]) > 26 and abs(abs(p[1]) - 100) > 18 then
+			local dir = Vector2.new(q[1] - p[1], q[2] - p[2]).Unit
+			local normal = Vector2.new(-dir.Y, dir.X)
+			local done = false
+			for _, extra in { 10, 14, 18 } do
+				for _, sgn in { side, -side } do
+					local off = p[3] / 2 + extra
+					if not done and magicTree("Fantasy_LanternWillow", p[1] + normal.X * off * sgn, p[2] + normal.Y * off * sgn) then
+						lastX, side, done = p[1], -sgn, true
+					end
+				end
+			end
+		end
+	end
+	-- lantern willows by the ponds and the lower pool, on opposite banks
+	local pools = { V.Ponds[1], V.Ponds[2], { X = V.LowPool.X, Z = V.LowPool.Z, A = V.LowPool.R, B = V.LowPool.R } }
+	for _, pool in pools do
+		local n = 0
+		for _, k in { 0, 4, 2, 6, 1, 5, 3, 7 } do
+			local a = k * math.pi / 4
+			if n < 2 and magicTree("Fantasy_LanternWillow", pool.X + cos(a) * (pool.A + 9), pool.Z + sin(a) * (pool.B + 9)) then
+				n += 1
+			end
+		end
+	end
+	-- a star-blossom and a crystal tree at each ruin site, on different sides
+	for i, site in D.RuinSites do
+		for j, name in { "Fantasy_StarBlossom", "Fantasy_CrystalTree" } do
+			for k = 0, 11 do
+				local a, r = (k + (i + j * 3) * 2) * math.pi / 6, 13 + (k % 3) * 3
+				if magicTree(name, site[2].X + cos(a) * r, site[2].Z + sin(a) * r) then
+					break
+				end
+			end
+		end
+	end
+	-- a pair of star-blossoms flanking the road in front of each sanctuary gate
+	for _, sanct in V.Sanct do
+		local out = Vector2.new(-sanct.X, -sanct.Z).Unit
+		local across = Vector2.new(-out.Y, out.X)
+		for _, sgn in { -1, 1 } do
+			local done = false
+			for _, d in { 74, 80, 86, 92 } do
+				for _, w in { 17, 22, 27 } do
+					if not done and magicTree("Fantasy_StarBlossom", sanct.X + out.X * d + across.X * w * sgn, sanct.Z + out.Y * d + across.Y * w * sgn) then
+						done = true
+					end
+				end
+			end
+		end
+	end
+	-- crystal trees framing the approaches to the altar plaza (between the roads)
+	for _, bearing in { 35, -35, 145, -145 } do
+		local done = false
+		for _, r in { 84, 92, 100, 110, 120 } do
+			for _, db in { 0, 8, -8, 16, -16 } do
+				local b = rad(bearing + db)
+				if not done and magicTree("Fantasy_CrystalTree", r * sin(b), -r * cos(b)) then
+					done = true
+				end
+			end
+		end
 	end
 
-	-- forest: jittered grid, dense on the foothills, groves at the valley edge, sparse high up, thin in the saddles
+	-- forest: jittered grid, dense on the foothills, groves at the valley edge, sparse high up, thin in the saddles;
+	-- teal firs on the ridges and high slopes, emerald broadleaves on the valley floor, both on the foothills
+	local FIRS = { "Fantasy_TealFir", "Fantasy_TealFir_B", "Fantasy_TealFir_B" } -- the slender B (925 triangles) twice as often
+	local BROADLEAVES = { "Fantasy_EmeraldTree_A", "Fantasy_EmeraldTree_B" }
 	local count = 0
 	for gx = -560, 560, 15 do
 		for gz = -560, 560, 15 do
@@ -141,15 +214,12 @@ function D.BuildNature()
 					p *= 0.25
 				end
 				if h < 130 and slope < 1.2 and rng:NextNumber() < p and farFrom(x, z, 12) and open(x, z, 8) then
-					local isFir = rng:NextNumber() < 0.55
-					local list = if isFir then firs else pines
-					local template = list[rng:NextInteger(1, #list)]
-					local scale = if isFir then rng:NextNumber(1.7, 2.4) else rng:NextNumber(1.4, 2.0)
-					local m = placeModel(template, trees, Vector3.new(x, h - 0.6 - slope * 2, z), rng:NextNumber(0, 2 * math.pi), scale)
-					tint(m, D.TreeTint:Lerp(Color3.new(0.95, 1, 0.9), rng:NextNumber(0, 0.5)))
-					if u < 32 then
-						collider(m, Vector3.new(x, h - 1, z), 0.9 * scale, 14)
-					end
+					-- ridges and high slopes: firs; foothills: half and half; valley floor: mostly broadleaves
+					local list = if u > 60 or h > 50 then FIRS
+						elseif u > 0 then (if rng:NextNumber() < 0.5 then FIRS else BROADLEAVES)
+						else (if rng:NextNumber() < 0.8 then BROADLEAVES else FIRS)
+					local name = list[rng:NextInteger(1, #list)]
+					D.PlaceFantasyTree(trees, name, Vector3.new(x, h - 0.6 - slope * 2, z), rng, u < 32)
 					table.insert(placed, Vector3.new(x, h, z))
 					count += 1
 				end
@@ -157,26 +227,26 @@ function D.BuildNature()
 		end
 	end
 
-	-- a few big old oaks as specimen trees on the valley floor
-	local oaks = B.Folder(f, "Oaks")
-	local oakCount = 0
+	-- a few big old broadleaves as specimen trees on the valley floor, at the edges so they never hide the plaza
+	local specimens = B.Folder(f, "Specimens")
+	local specimenCount = 0
 	for _ = 1, 400 do
-		if oakCount >= 5 then
+		if specimenCount >= 5 then
 			break
 		end
 		local x, z = rng:NextNumber(-260, 260), rng:NextNumber(-200, 150)
 		local R = sqrt(x * x + z * z)
 		local u = R - V.EdgeAt(math.deg(math.atan2(x, -z)))
-		-- near the valley edge and well off the main axis, so they frame the valley and never hide the plaza
 		if u < -18 and u > -55 and abs(x) > 110 and farFrom(x, z, 22) and open(x, z, 14) then
 			local _, h = slopeAt(x, z)
-			local m = placeModel(KIT.Store_Oak, oaks, Vector3.new(x, h - 0.4, z), rng:NextNumber(0, 2 * math.pi), rng:NextNumber(1.3, 1.6))
-			tint(m, Color3.new(1, 1, 1))
-			collider(m, Vector3.new(x, h - 1, z), 1.6, 14)
+			D.PlaceFantasyTree(specimens, "Fantasy_EmeraldTree_B", Vector3.new(x, h - 0.4, z), rng, true, rng:NextNumber(46, 54))
 			table.insert(placed, Vector3.new(x, h, z))
-			oakCount += 1
+			specimenCount += 1
 		end
 	end
+
+	-- the giant ancient tree beside the waterfall
+	D.PlaceAncientTree(B.Folder(f, "Landmark"))
 
 	-- ferns along the forest edge and the river banks
 	local ferns = B.Folder(f, "Ferns")
@@ -286,63 +356,32 @@ function D.BuildNature()
 			rockCount += 1
 		end
 	end
-	return string.format("trees %d, oaks %d, ferns %d, flower patches %d, night flora %d, boulders %d", count, oakCount, fernCount, patches, nightCount, rockCount)
+	return string.format("trees %d, magic trees %d, specimens %d, ferns %d, flower patches %d, night flora %d, boulders %d", count, #magic:GetChildren(), specimenCount, fernCount, patches, nightCount, rockCount)
 end
 
 ---------------------------------------------------------------------------------------------------------------
--- Fantasy trees (PropKits.Fantasy): a painterly kit instead of the realistic conifers. Which tree grows where:
--- lantern willows by the water, teal firs high up, emerald broadleaves elsewhere, a few star-blossom and crystal
--- trees near the valley floor; broadleaf canopies get a varied emerald / golden-green tint. The magical ones glow at
--- night (NightGlow, set in the kit). One ancient tree stands on the cliff top beside the waterfall as a landmark.
+-- Fantasy trees (PropKits.Fantasy, used by BuildNature): teal firs on the slopes, emerald broadleaves on the valley
+-- floor (canopies tinted via SurfaceAppearance.Color), star-blossom, crystal and lantern-willow trees where they
+-- matter (they glow at night: NightGlow, set in the kit), and one ancient tree on the cliff top beside the waterfall.
 
 D.FantasyTint = { Color3.fromRGB(56, 112, 52), Color3.fromRGB(48, 104, 60), Color3.fromRGB(86, 120, 46) }
 D.FantasyHeight = { -- target height range (studs) per kit tree
 	Fantasy_EmeraldTree_A = { 30, 40 },
 	Fantasy_EmeraldTree_B = { 32, 42 },
-	Fantasy_TealFir = { 34, 48 },
+	Fantasy_TealFir = { 38, 52 },
+	Fantasy_TealFir_B = { 36, 50 },
 	Fantasy_StarBlossom = { 28, 36 },
 	Fantasy_CrystalTree = { 22, 30 },
 	Fantasy_LanternWillow = { 24, 30 },
 }
 D.AncientTree = { X = -335, Z = 112, Height = 115 } -- cliff top south of the waterfall lip, canopy clear of the falls
 
-local function nearWater(x: number, z: number, r: number): boolean
-	for _, o in { { r, 0 }, { -r, 0 }, { 0, r }, { 0, -r }, { r * 0.7, r * 0.7 }, { -r * 0.7, r * 0.7 }, { r * 0.7, -r * 0.7 }, { -r * 0.7, -r * 0.7 } } do
-		local _, level = V.Height(x + o[1], z + o[2])
-		if level then
-			return true
-		end
-	end
-	return false
-end
-
--- u = distance past the valley edge (negative = on the valley floor).
-function D.PickFantasyTree(x: number, z: number, u: number, rng: Random): string
-	if u < 10 and nearWater(x, z, 22) then
-		return "Fantasy_LanternWillow"
-	end
-	if u > 60 then
-		return "Fantasy_TealFir"
-	end
-	local roll = rng:NextNumber()
-	if u < 25 then
-		if roll < 0.14 then
-			return "Fantasy_StarBlossom"
-		elseif roll < 0.22 then
-			return "Fantasy_CrystalTree"
-		end
-	elseif roll < 0.35 then
-		return "Fantasy_TealFir"
-	end
-	return if rng:NextNumber() < 0.5 then "Fantasy_EmeraldTree_A" else "Fantasy_EmeraldTree_B"
-end
-
-function D.PlaceFantasyTree(parent: Instance, name: string, pos: Vector3, rng: Random, withCollider: boolean): Model
+function D.PlaceFantasyTree(parent: Instance, name: string, pos: Vector3, rng: Random, withCollider: boolean, height: number?): Model
 	local template = ServerStorage.PropKits.Fantasy[name] :: Model
 	local range = D.FantasyHeight[name]
-	local scale = rng:NextNumber(range[1], range[2]) / (template:GetAttribute("Height") :: number)
+	local scale = (height or rng:NextNumber(range[1], range[2])) / (template:GetAttribute("Height") :: number)
 	local m = placeModel(template, parent, pos, rng:NextNumber(0, 2 * math.pi), scale)
-	local canopyTint = if name == "Fantasy_TealFir"
+	local canopyTint = if name:find("TealFir")
 		then Color3.fromRGB(44, 104, 84):Lerp(Color3.fromRGB(60, 118, 76), rng:NextNumber())
 		elseif name:find("Emerald") then D.FantasyTint[rng:NextInteger(1, #D.FantasyTint)]
 		else nil
@@ -364,32 +403,6 @@ function D.PlaceAncientTree(parent: Instance): Model
 	local template = ServerStorage.PropKits.Fantasy.Fantasy_AncientTree :: Model
 	local h = V.Height(a.X, a.Z)
 	return placeModel(template, parent, Vector3.new(a.X, h - 1.5, a.Z), math.rad(200), a.Height / (template:GetAttribute("Height") :: number))
-end
-
--- Style test: swap the forest trees within these circles ({ x, z, radius }) for fantasy trees at the same spots (the
--- originals move to ServerStorage.ValleyHold.StyleTestTrees, so the test can be undone), plus the ancient tree.
-function D.FantasyStyleTest(areas: { { number } })
-	local test = B.Folder(SM.Nature, "FantasyTest", true)
-	local hold = B.Folder(ServerStorage.ValleyHold, "StyleTestTrees")
-	local rng = Random.new(4242)
-	local originals = {} -- snapshot first: trees moved into the hold must not be seen twice
-	for _, folder in { SM.Nature.Trees, SM.Nature.Oaks, hold } do
-		for _, m in folder:GetChildren() do
-			table.insert(originals, m)
-		end
-	end
-	for _, m in originals do
-		local p = m:GetPivot().Position
-		for _, a in areas do
-			if Vector2.new(p.X - a[1], p.Z - a[2]).Magnitude < a[3] then
-				local u = sqrt(p.X * p.X + p.Z * p.Z) - V.EdgeAt(math.deg(math.atan2(p.X, -p.Z)))
-				D.PlaceFantasyTree(test, D.PickFantasyTree(p.X, p.Z, u, rng), p, rng, m:FindFirstChild("TrunkCollider") ~= nil)
-				m.Parent = hold
-				break
-			end
-		end
-	end
-	D.PlaceAncientTree(test)
 end
 
 ---------------------------------------------------------------------------------------------------------------

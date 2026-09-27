@@ -147,17 +147,22 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   the altar), `Market` (south of the obelisk, facing north), `Spire` (court, facing the door) and one per sanctuary
   named after its plot (forecourt, facing the gate). If a pen moves, rebuild them.
 - `Bounds`: 60 invisible walls 30 studs up the foothills all around the valley (from the terrain's edge table).
-- `Nature`: 210 realistic firs/pines (kit `Store_Fir*` / `Store_Pine*`, SurfaceAppearance tinted brighter green) on the
-  foothills and valley edges, never on roads or play spaces, thinner in the saddles behind the gates; 3 old oaks at
-  the valley edges; ferns, wildflower patches (lupines, buttercups, daisies, white wildflowers), night flora
-  (moonflowers and glow mushrooms tagged `NightGlow`) by the river and forest edge, boulders. Trees inside the bounds
-  have an invisible `TrunkCollider`; foliage doesn't collide. **Fantasy tree style test (waiting for approval,
-  2026-09-28):** kit `ServerStorage.PropKits.Fantasy` (emerald broadleaf A/B, teal fir and the ancient tree from the
-  Creator Store "Yasu's Stylized Tree Pack" (92016775395411, a hidden script was removed), star-blossom (Yasu tree with
-  a cream-gold canopy), plus AI-generated crystal tree and lantern willow; canopies tinted via SurfaceAppearance.Color;
-  magical ones tagged `NightGlow`). Only the trees around the waterfall and sanctuary W3 are swapped
-  (`Nature.FantasyTest`, `ValleyDetail.FantasyStyleTest`; originals in `ServerStorage.ValleyHold.StyleTestTrees`),
-  plus the ancient tree on the cliff top south of the waterfall.
+- `Nature`: magical, painterly fantasy trees (kit `ServerStorage.PropKits.Fantasy`, approved 2026-09-28; placed by
+  `ValleyDetail.BuildNature`): 237 forest trees (`Trees`) = teal firs `Fantasy_TealFir` / `_TealFir_B` on the ridges and
+  high slopes, emerald broadleaves `Fantasy_EmeraldTree_A` / `_B` on the valley floor, both mixed on the foothills
+  (canopies tinted via SurfaceAppearance.Color, `ValleyDetail.FantasyTint`); 37 magical trees (`MagicTrees`, ~13%)
+  placed where they matter: lantern willows (glowing orbs) on the river banks and by the ponds and low pool, a
+  star-blossom (white-gold canopy) and a crystal tree (aqua crystals) at each ruin site, star-blossoms flanking every
+  sanctuary gate road, crystal trees framing the altar approaches; 5 big broadleaf `Specimens` at the valley edges;
+  the giant `Fantasy_AncientTree` (`Landmark`, ~115 studs, faint glow + fireflies) on the cliff top beside the
+  waterfall. Magical trees glow at night (`NightGlow`; canopies with a SurfaceAppearance glow through its emissive,
+  `GlowStrength`). Never on roads or play spaces, thinner in the saddles behind the gates; trees inside the bounds have
+  an invisible `TrunkCollider`, foliage doesn't collide. Kit sources: emerald/teal/star-blossom/ancient = Creator
+  Store "Yasu's Stylized Tree Pack" (92016775395411; a hidden script was removed; the rest of the pack is kept in
+  `Fantasy.Store_YasuStylizedTreePack`), crystal tree + lantern willow = AI-generated (owned by the game's creator).
+  The realistic Store firs/pines/oak were deleted from PropKits and ValleyHold (2026-09-28). Also ferns, wildflower
+  patches (lupines, buttercups, daisies, white wildflowers), night flora (moonflowers and glow mushrooms tagged
+  `NightGlow`) by the river and forest edge, boulders.
 - `Ruins`: binder ruins (columns with gold bands, broken arches, fallen columns, rune stones, star-inlaid steps; gold
   parts tagged `NightGlow`) at 9 sites (waterfall, low pool, terrace ends, meadows, Spire hill, market) and a broken
   arch + rune stone in each sanctuary's flight zone.
@@ -197,7 +202,7 @@ and its green comes from `Terrain:SetMaterialColor(Grass)` so the ground matches
 **Landmarks:** `HorizonController` + `Config/Horizon` clone models from `ReplicatedStorage.Assets.Horizon` on the
 client (no collision, never streamed): in the Meadow, each area's landmark 650-720 studs out behind its gate, seen
 through the dips in the ridge (`ValleyVolcano`: AI-generated cone, rock + glowing lava, smoke plume; `IceSpire`;
-`StormTower` with lightning and a storm cloud; `ValleyIsland`: realistic boulders, firs, silver ruins and the eclipse
+`StormTower` with lightning and a storm cloud; `ValleyIsland`: realistic boulders, fantasy firs, silver ruins and the eclipse
 sun spinning above), plus `MeadowRanges` (distant mountain ranges ~830 out, all around); in each area, its own sky
 landmark (Eclipse sun, ice crystals, storm tower with lightning, volcano plume). Far objects vanish when Studio's
 graphics quality is low (the render distance shrinks); set a high quality level for overview screenshots.

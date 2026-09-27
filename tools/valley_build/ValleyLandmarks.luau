@@ -165,18 +165,15 @@ function L.BuildIsland()
 	top.Color = Color3.fromRGB(64, 132, 60)
 	top.Anchored = true
 	top.Parent = m
-	-- firs and silver ruins with violet runes
+	-- fantasy firs and a broadleaf, silver ruins with violet runes
 	local rng = Random.new(3)
 	for i = 1, 7 do
 		local a, r = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(12, 48)
-		local fir = KIT["Store_Fir" .. rng:NextInteger(1, 8)]:Clone()
-		fir:ScaleTo(rng:NextNumber(1.6, 2.2))
+		local fantasy = ServerStorage.PropKits.Fantasy
+		local template = if i % 3 == 0 then fantasy.Fantasy_EmeraldTree_A else fantasy.Fantasy_TealFir
+		local fir = template:Clone()
+		fir:ScaleTo(rng:NextNumber(40, 54) / (template:GetAttribute("Height") :: number))
 		fir:PivotTo(CFrame.new(math.cos(a) * r, 3.5, math.sin(a) * r) * CFrame.Angles(0, a, 0))
-		for _, d in fir:GetDescendants() do
-			if d:IsA("SurfaceAppearance") then
-				(d :: any).Color = Color3.new(0.88, 1, 0.82)
-			end
-		end
 		fir.Parent = m
 	end
 	for i, spec in { { -14, -6, 18 }, { -4, -8, 13 }, { 8, -7, 18 }, { 18, -3, 9 } } do
