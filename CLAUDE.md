@@ -174,11 +174,16 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   deleted on 2026-09-27 (copies remain in the backup below). Backup of the meadow before the Valley:
   `ServerStorage.Backups.StarterMeadow_2026-09-27_BeforeValley` (tags stripped; terrain, lighting, materials, horizon
   models).
+- Dev: `DevService` (Studio only) creates `ServerStorage.DevTools.GiveDragons` (BindableFunction, server-only):
+  `GiveDragons:Invoke(player, { "Solflare", ... }, level, placeInRoost)` adds test dragons to a player's data.
 - Dev: `Controllers/Dev/DragonRigDemo.client.luau` animates any Model tagged `DragonRigDemo` (walk -> take off -> fly
   -> land by moving bones). No such model is in the place now (all dragon art was cleared on 2026-09-26).
 The building meshes use the default CollisionFidelity (a script can't change it; set `PreciseConvexDecomposition`
-by hand in Properties if a building blocks players). The only dragon model in the place is
-`ReplicatedStorage.Assets.Dragons.Placeholder` (keep it: every dragon uses it until real art is added).
+by hand in Properties if a building blocks players). Real Elder art (2026-09-28, Meshy + `tools/glb_to_fbx.py`): `Assets.Dragons.<Id>.Elder` for Solflare, Aurorynth,
+Borealis, Duskling and Infernus: one skinned MeshPart `Body` (PrimaryPart; bones inside, static pose for now), pivot
+at the bottom center facing the head, each scaled evenly to fit 15 studs tall x 21.5 long. Every other species/stage
+still uses `ReplicatedStorage.Assets.Dragons.Placeholder` (keep it). Note: Studio's importer puts a rotated
+`PivotOffset` on the imported MeshPart; reset it (upright part, bottom-center offset) before moving the model.
 **Other areas (remaster blockout 2026-09-27; areas are ≥ 1,200 studs apart so they never stream/see each other):**
 `Workspace.VolcanoPeak` (center (0, 0, -1600)), `Workspace.FrozenCliffs` (1600, 0, 0), `Workspace.StormCanyon`
 (-1600, 0, 0) and `Workspace.EclipseIsles` (-1150, 140, -1150, floating islands, north-west behind its portal). Each
@@ -244,7 +249,7 @@ To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on W
   then `D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <in.glb> <out.fbx> --stage Elder` makes a
   Roblox-ready FBX in `assets/Dragons/fbx/`: helper meshes removed, tiny UniRig tip bones merged into their parents,
   ~10k triangles (max 20k per mesh), max 4 bone weights per vertex, base-color texture only at 1024 px (embedded),
-  head facing Roblox forward (glTF front turned 180 degrees; `--no-flip` overrides), scaled to the stage length
+  head facing Roblox forward (-Z after Studio's importer; `--flip` turns 180 degrees if a source faces the other way), scaled to the stage length
   (Hatchling 6, Drake 8.5, Dragon 11, Elder 15 studs), feet at the origin; FBX mesh + armature, Apply Scalings = FBX
   All, no leaf bones. It prints a report (bones per chain, weights, triangles, texture). Import the FBX with Studio's
   3D Importer, then the model goes to `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` with a PrimaryPart and

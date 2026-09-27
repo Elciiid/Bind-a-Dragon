@@ -2,7 +2,7 @@
 
 Run with Blender in background mode:
     D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <input.glb> <output.fbx> [--stage Elder]
-        [--tris 10000] [--max-tris 20000] [--texture 1024] [--no-flip]
+        [--tris 10000] [--max-tris 20000] [--texture 1024] [--flip]
 
 What it does:
   1. imports the GLB, deletes helper meshes (meshes not skinned to the armature, e.g. Meshy's "Icosphere");
@@ -10,8 +10,8 @@ What it does:
   3. decimates each skinned mesh to ~--tris triangles (never above --max-tris; UVs and weights are kept);
   4. limits every vertex to its 4 strongest bone weights (Roblox's max) and normalizes them;
   5. keeps only the base-color texture, downscaled to --texture px, embedded in the FBX;
-  6. turns the model 180 degrees so its head faces Blender +Y (= Roblox's forward, -Z / LookVector, after the FBX axis
-     change); glTF models face +Z, i.e. Blender -Y after import. --no-flip keeps the imported facing;
+  6. keeps the glTF facing (head toward Blender -Y), which Roblox's 3D Importer brings in facing -Z (LookVector);
+     --flip turns it 180 degrees for sources that face the other way;
   7. scales it so the body length (along the facing axis) is the stage length in studs, feet on the ground (Z = 0),
      centered on the origin;
   8. exports FBX: mesh + armature, Apply Scalings = FBX All, no leaf bones, no animation, textures embedded.
@@ -47,8 +47,7 @@ def parse_args():
             opts["texture"] = int(argv[i + 1]); i += 2
         elif key == "--flip":
             opts["flip"] = True; i += 1
-        elif key == "--no-flip":
-            opts["flip"] = False; i += 1
+
         else:
             raise SystemExit(f"unknown option {key}")
     if opts["stage"] not in STAGE_LENGTH:
@@ -94,10 +93,10 @@ def main():
     tris_before = sum(triangles(o) for o in skinned)
     bones_before = len(arm.data.bones)
 
-    # facing: glTF models face +Z, which Blender's glTF importer turns into -Y. Roblox's forward (-Z) comes from
-    # Blender +Y through the FBX axis change, so turn 180 degrees. --no-flip keeps the imported facing, --flip forces
-    # the turn (for models that don't follow the glTF convention).
-    angle = 3.14159265 if opts["flip"] is not False else 0.0
+    # facing: glTF models face +Z, which Blender's glTF importer turns into -Y. Roblox's 3D Importer then brings
+    # Blender -Y in as Roblox -Z (forward), so no turn is needed (checked in Studio with five Meshy dragons);
+    # --flip turns the model 180 degrees for sources that face the other way.
+    angle = 3.14159265 if opts["flip"] else 0.0
     long_axis = 1  # body length runs along Y (front to back)
     report["turned (degrees)"] = 180 if angle else 0
 
