@@ -313,19 +313,27 @@ return {
 
 	-- Tonight's constellation in the sky (SkyController).
 	Sky = {
-		Distance = 320, -- studs from the camera (closer = less haze over the lines)
+		-- The drawing sits this far from the camera and follows its position (like a skybox), so everything in the
+		-- world (Spire, mountains, trees, players) is in front of it and hides it. Stars and lines are depth-tested
+		-- BillboardGuis (pixel-sized, not fogged by the Atmosphere), so the distance doesn't change how big or bright
+		-- the drawing looks.
+		Distance = 2000,
+		CeremonyDistance = 320, -- studs: the binding ceremony's stars start this far out, in the same directions
 		Direction = Vector3.new(0, 0.42, -1), -- centre of the drawing (north, above the Spire)
 		Span = Vector2.new(0.55, 0.32), -- horizontal / vertical size (fraction of the distance)
 		RareScale = 1.3, -- rare constellations are drawn bigger and brighter
 		StarSize = 34, -- pixels
 		BrightStarSize = 50, -- the first star of each drawing
 		StarImage = SPARKLE,
-		LineWidth = 0.9, -- studs
+		LineWidth = 3, -- pixels (bright core)
+		LineGlowWidth = 9, -- pixels (soft glow around the core)
 		LineTransparency = 0.2,
+		LineGlowTransparency = 0.75,
 		Twinkle = 0.25, -- +/- size fraction
 		-- Shooting stars at night.
 		ShootingStarEvery = NumberRange.new(40, 90), -- seconds
 		ShootingStarSeconds = 1.2,
+		ShootingStarWidth = 4, -- pixels at the head (the tail tapers off)
 		ShootingStarColor = Color3.fromRGB(230, 240, 255),
 		DefaultColor = Color3.fromRGB(200, 220, 255), -- constellations without an element
 	},
