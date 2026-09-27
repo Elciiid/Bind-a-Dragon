@@ -92,7 +92,7 @@ local function layoutMenu()
 	for _ in entries do
 		count += 1
 	end
-	local columns = sizes.MenuColumns
+	local columns = if phone then sizes.PhoneMenuColumns else sizes.MenuColumns
 	local rows = math.max(1, math.ceil(count / columns))
 	local cell = if phone then sizes.PhoneMenuButton else sizes.MenuButton
 	local grid = menu:FindFirstChildOfClass("UIGridLayout") :: UIGridLayout

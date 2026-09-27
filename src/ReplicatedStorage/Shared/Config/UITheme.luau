@@ -144,8 +144,9 @@ return {
 		PhoneMargin = 8,
 		Gap = 6,
 		MenuButton = Vector2.new(74, 74), -- PC: icon tiles in a 2-column grid, left middle
-		PhoneMenuButton = Vector2.new(58, 48), -- phone: same grid, smaller (3 rows fit above the thumbstick)
+		PhoneMenuButton = Vector2.new(58, 48), -- phone: smaller tiles (3 rows fit above the thumbstick)
 		MenuColumns = 2,
+		PhoneMenuColumns = 3, -- phone: 3 columns, so 7 tiles fit in 3 short rows above the thumbstick
 		MenuLabelSize = 13,
 		PhoneMenuLabelSize = 11,
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
