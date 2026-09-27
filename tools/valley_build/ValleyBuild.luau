@@ -583,4 +583,34 @@ function B.BuildBounds()
 	end
 end
 
+---------------------------------------------------------------------------------------------------------------
+-- Travel points: invisible markers where the Travel menu lands a player (TravelService, Config/Travel), standing on
+-- the ground and facing what they came for. One per sanctuary (named after its plot, on the forecourt facing the
+-- gate), plus Altar (plaza, facing the altar), Market (south of the obelisk, facing north) and Spire (court, facing
+-- the door).
+
+function B.BuildTravelPoints()
+	local f = folder(SM, "TravelPoints", true)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { f, SM:FindFirstChild("Nature") :: Instance, SM:FindFirstChild("Bounds") :: Instance }
+	local function point(name: string, x: number, z: number, lookX: number, lookZ: number)
+		local hit = workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -400, 0), params)
+		local y = if hit then hit.Position.Y else ground(x, z)
+		local at = Vector3.new(x, y + 0.5, z)
+		P(f, name, Vector3.new(2, 1, 2), CFrame.lookAt(at, Vector3.new(lookX, at.Y, lookZ)), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
+	end
+	point("Altar", 0, 34, 0, 0)
+	point("Market", 0, 130, 0, 100)
+	point("Spire", 0, -208, 0, -260)
+	for _, plot in SM.Pens:GetChildren() do
+		local center = plot:GetAttribute("RoamCenter")
+		if plot:IsA("Model") and typeof(center) == "Vector3" then
+			local out = Vector3.new(-center.X, 0, -center.Z).Unit -- toward the altar
+			local at = center + out * 64 -- forecourt, in front of the upgrade stands
+			point(plot.Name, at.X, at.Z, center.X, center.Z)
+		end
+	end
+end
+
 return B

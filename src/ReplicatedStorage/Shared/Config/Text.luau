@@ -46,6 +46,22 @@ local Text = {
 		DuskFavors = "It favors {area}!",
 		DuskNoFavor = "Head to a Star Altar!",
 	},
+
+	-- Travel button + menu (TravelController, TravelService). {place} = a destination name below.
+	Travel = {
+		Button = "Travel",
+		Title = "Waystones",
+		Hint = "Choose a place in the Valley",
+		Places = {
+			Sanctuary = "My Sanctuary",
+			Altar = "Star Altar",
+			Market = "Market",
+			Spire = "Dragon Spire",
+		} :: { [string]: string },
+		Arrived = "Traveled to {place}.",
+		Unavailable = "{place} isn't available right now.",
+		OnlyInValley = "Waystones only work in the Valley.",
+	},
 }
 
 -- Replaces {key} with values[key]; unknown keys are left as they are.

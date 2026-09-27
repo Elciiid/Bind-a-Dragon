@@ -147,6 +147,8 @@ return {
 		PhoneCurrencyTextSize = 13,
 		SkyCard = Vector2.new(440, 52), -- PC: day/night card, top-center (max size; 90% of the width on narrow screens)
 		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
+		TravelButton = Vector2.new(116, 38), -- PC: Travel button, top, left of the day/night card
+		PhoneTravelButton = Vector2.new(96, 34), -- phone: right edge, between the boost timers and the jump button
 		PhoneCardTop = 58, -- phone: top of cards under the day/night card (PhoneMargin + PhoneSkyCard.Y + Gap)
 		PhonePillWidth = 170, -- phone: luck pill / boost timers column, top-right
 		PhonePillHeight = 28,
