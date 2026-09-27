@@ -290,6 +290,109 @@ function D.BuildNature()
 end
 
 ---------------------------------------------------------------------------------------------------------------
+-- Fantasy trees (PropKits.Fantasy): a painterly kit instead of the realistic conifers. Which tree grows where:
+-- lantern willows by the water, teal firs high up, emerald broadleaves elsewhere, a few star-blossom and crystal
+-- trees near the valley floor; broadleaf canopies get a varied emerald / golden-green tint. The magical ones glow at
+-- night (NightGlow, set in the kit). One ancient tree stands on the cliff top beside the waterfall as a landmark.
+
+D.FantasyTint = { Color3.fromRGB(56, 112, 52), Color3.fromRGB(48, 104, 60), Color3.fromRGB(86, 120, 46) }
+D.FantasyHeight = { -- target height range (studs) per kit tree
+	Fantasy_EmeraldTree_A = { 30, 40 },
+	Fantasy_EmeraldTree_B = { 32, 42 },
+	Fantasy_TealFir = { 34, 48 },
+	Fantasy_StarBlossom = { 28, 36 },
+	Fantasy_CrystalTree = { 22, 30 },
+	Fantasy_LanternWillow = { 24, 30 },
+}
+D.AncientTree = { X = -335, Z = 112, Height = 115 } -- cliff top south of the waterfall lip, canopy clear of the falls
+
+local function nearWater(x: number, z: number, r: number): boolean
+	for _, o in { { r, 0 }, { -r, 0 }, { 0, r }, { 0, -r }, { r * 0.7, r * 0.7 }, { -r * 0.7, r * 0.7 }, { r * 0.7, -r * 0.7 }, { -r * 0.7, -r * 0.7 } } do
+		local _, level = V.Height(x + o[1], z + o[2])
+		if level then
+			return true
+		end
+	end
+	return false
+end
+
+-- u = distance past the valley edge (negative = on the valley floor).
+function D.PickFantasyTree(x: number, z: number, u: number, rng: Random): string
+	if u < 10 and nearWater(x, z, 22) then
+		return "Fantasy_LanternWillow"
+	end
+	if u > 60 then
+		return "Fantasy_TealFir"
+	end
+	local roll = rng:NextNumber()
+	if u < 25 then
+		if roll < 0.14 then
+			return "Fantasy_StarBlossom"
+		elseif roll < 0.22 then
+			return "Fantasy_CrystalTree"
+		end
+	elseif roll < 0.35 then
+		return "Fantasy_TealFir"
+	end
+	return if rng:NextNumber() < 0.5 then "Fantasy_EmeraldTree_A" else "Fantasy_EmeraldTree_B"
+end
+
+function D.PlaceFantasyTree(parent: Instance, name: string, pos: Vector3, rng: Random, withCollider: boolean): Model
+	local template = ServerStorage.PropKits.Fantasy[name] :: Model
+	local range = D.FantasyHeight[name]
+	local scale = rng:NextNumber(range[1], range[2]) / (template:GetAttribute("Height") :: number)
+	local m = placeModel(template, parent, pos, rng:NextNumber(0, 2 * math.pi), scale)
+	local canopyTint = if name == "Fantasy_TealFir"
+		then Color3.fromRGB(44, 104, 84):Lerp(Color3.fromRGB(60, 118, 76), rng:NextNumber())
+		elseif name:find("Emerald") then D.FantasyTint[rng:NextInteger(1, #D.FantasyTint)]
+		else nil
+	if canopyTint then
+		for _, d in m:GetDescendants() do
+			if d:IsA("MeshPart") and d.Name:find("Canopy") then
+				(d:FindFirstChildOfClass("SurfaceAppearance") :: any).Color = canopyTint
+			end
+		end
+	end
+	if withCollider then
+		collider(m, pos - Vector3.new(0, 0.4, 0), 1.3, 14)
+	end
+	return m
+end
+
+function D.PlaceAncientTree(parent: Instance): Model
+	local a = D.AncientTree
+	local template = ServerStorage.PropKits.Fantasy.Fantasy_AncientTree :: Model
+	local h = V.Height(a.X, a.Z)
+	return placeModel(template, parent, Vector3.new(a.X, h - 1.5, a.Z), math.rad(200), a.Height / (template:GetAttribute("Height") :: number))
+end
+
+-- Style test: swap the forest trees within these circles ({ x, z, radius }) for fantasy trees at the same spots (the
+-- originals move to ServerStorage.ValleyHold.StyleTestTrees, so the test can be undone), plus the ancient tree.
+function D.FantasyStyleTest(areas: { { number } })
+	local test = B.Folder(SM.Nature, "FantasyTest", true)
+	local hold = B.Folder(ServerStorage.ValleyHold, "StyleTestTrees")
+	local rng = Random.new(4242)
+	local originals = {} -- snapshot first: trees moved into the hold must not be seen twice
+	for _, folder in { SM.Nature.Trees, SM.Nature.Oaks, hold } do
+		for _, m in folder:GetChildren() do
+			table.insert(originals, m)
+		end
+	end
+	for _, m in originals do
+		local p = m:GetPivot().Position
+		for _, a in areas do
+			if Vector2.new(p.X - a[1], p.Z - a[2]).Magnitude < a[3] then
+				local u = sqrt(p.X * p.X + p.Z * p.Z) - V.EdgeAt(math.deg(math.atan2(p.X, -p.Z)))
+				D.PlaceFantasyTree(test, D.PickFantasyTree(p.X, p.Z, u, rng), p, rng, m:FindFirstChild("TrunkCollider") ~= nil)
+				m.Parent = hold
+				break
+			end
+		end
+	end
+	D.PlaceAncientTree(test)
+end
+
+---------------------------------------------------------------------------------------------------------------
 -- Binder ruins: columns with gold bands, a broken arch, fallen columns, rune stones, star-inlaid steps
 
 local function column(parent: Instance, base: Vector3, h: number, r: number, broken: boolean)

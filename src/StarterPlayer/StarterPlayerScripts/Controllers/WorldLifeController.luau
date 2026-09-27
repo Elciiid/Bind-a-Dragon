@@ -82,12 +82,26 @@ local function chooseLit(eye: Vector3)
 end
 
 -- Night glow: parts tagged "NightGlow" (mushroom caps, rune carvings, magic flowers) keep their normal look by day and
--- turn into glowing Neon in their "GlowColor" attribute (Color3) at night.
-type Glow = { Part: BasePart, DayMaterial: Enum.Material, DayColor: Color3, GlowColor: Color3 }
+-- turn into glowing Neon in their "GlowColor" attribute (Color3) at night. Parts with a SurfaceAppearance (the fantasy
+-- trees' canopies) can't turn Neon; their SurfaceAppearance emits instead: EmissiveStrength goes from 0 by day to the
+-- part's "GlowStrength" attribute (default 1) at night, in EmissiveTint = GlowColor (the emissive mask is set in the kit).
+type Glow = {
+	Part: BasePart,
+	DayMaterial: Enum.Material,
+	DayColor: Color3,
+	GlowColor: Color3,
+	Surface: SurfaceAppearance?,
+	Strength: number,
+}
 local glows: { [BasePart]: Glow } = {}
 local glowOn: boolean? = nil
 
 local function applyGlow(glow: Glow, on: boolean)
+	local surface = glow.Surface
+	if surface then
+		surface.EmissiveStrength = if on then glow.Strength else 0
+		return
+	end
 	glow.Part.Material = if on then Enum.Material.Neon else glow.DayMaterial
 	glow.Part.Color = if on then glow.GlowColor else glow.DayColor
 end
@@ -97,12 +111,19 @@ local function addGlow(instance: Instance)
 		return
 	end
 	local color = instance:GetAttribute("GlowColor")
+	local strength = instance:GetAttribute("GlowStrength")
+	local surface = instance:FindFirstChildOfClass("SurfaceAppearance")
 	local glow = {
 		Part = instance,
 		DayMaterial = instance.Material,
 		DayColor = instance.Color,
 		GlowColor = if typeof(color) == "Color3" then color else instance.Color,
+		Surface = surface,
+		Strength = if type(strength) == "number" then strength else 1,
 	}
+	if surface then
+		surface.EmissiveTint = glow.GlowColor
+	end
 	glows[instance] = glow
 	if glowOn ~= nil then
 		applyGlow(glow, glowOn)
