@@ -1,5 +1,5 @@
 -- Valley terrain (remaster checkpoint B). Studio build helper, not used by the game.
--- Writes the whole Starter Meadow terrain (x/z -640..640, y -48..272) from a height function, water included.
+-- Writes the whole Starter Meadow terrain (x/z -640..640, y -48..400) from a height function, water included.
 -- Usage (Studio command bar / MCP): local V = require(ServerStorage.RemasterTools.ValleyTerrain:Clone())
 --   for row = 1, 5 do V.WriteRow(row) end
 -- Water cells never share a voxel with ground (beds sit below the water's voxel layer), otherwise the water
@@ -57,28 +57,37 @@ local function edgeAt(th: number): number
 	return tbl[#tbl][2]
 end
 
--- Ridge height by bearing, with saddles behind the four portal gates (landmarks show through them).
+-- Ridge height by bearing, and how deep the saddles behind the four portal gates cut (landmarks show through them).
 local SADDLES = { -40, -15, 15, 40 }
-local function peakAt(th: number): number
+local function peakAt(th: number): (number, number)
 	local a = abs(th)
-	local p = lerp(115, 145, smooth((a - 42) / 20))
-	p = lerp(p, 110, smooth((a - 135) / 25))
+	local p = lerp(175, 235, smooth((a - 40) / 25))
+	p = lerp(p, 190, smooth((a - 135) / 25))
+	local saddle = 0
 	for _, s in SADDLES do
-		local d = abs(th - s)
-		if d < 9 then
-			p -= 50 * (1 - smooth(d / 9))
-		end
+		saddle = max(saddle, 1 - smooth(abs(th - s) / 10))
 	end
-	return p
+	return p, saddle
+end
+
+-- 0..1, sharp crests where the noise crosses zero (jagged ridgelines)
+local function ridged(x: number, z: number, scale: number, seed: number): number
+	return 1 - min(1, abs(noise(x / scale, z / scale, seed)) * 2.2)
 end
 
 local function mountain(x: number, z: number, u: number, th: number): number
-	local p = peakAt(th)
-	local h = smooth(u / 45) * 0.3 * p + smooth((u - 25) / 150) * 0.66 * p
-	if u > 230 then
-		h -= smooth((u - 230) / 170) * 0.45 * p
+	local p, saddle = peakAt(th)
+	p *= 1 - 0.62 * saddle
+	-- green foothills (forest at D) with rock cliff bands in places, then the main rise, then jagged rocky crests
+	local foot = smooth(u / 75) * 0.2 * p
+	local band = smooth((u - 22) / 7) * 16 * smooth((noise(x / 70, z / 70, 7.3) - 0.05) * 5)
+	local rise = smooth((u - 55) / 140) * 0.42 * p
+	local crest = (ridged(x, z, 150, 2.7) ^ 2) * 0.42 * p * smooth((u - 90) / 110)
+	local teeth = (ridged(x, z, 48, 5.1) ^ 1.5) * 0.13 * p * smooth((u - 80) / 70)
+	local h = foot + band + rise + (crest + teeth) * (1 - 0.7 * saddle) + noise(x / 20, z / 20, 8.8) * 3 * smooth(u / 40)
+	if u > 280 then
+		h -= smooth((u - 280) / 160) * 0.4 * p
 	end
-	h += noise(x / 95, z / 95, 2.7) * 22 * smooth(u / 70) + noise(x / 55, z / 55, 5.1) * 4 * smooth(u / 30)
 	return h
 end
 
@@ -101,11 +110,33 @@ local function northH(x: number, z: number, R: number, th: number): number
 end
 
 -- Water: river centerline (x, z, half-width), ponds, pools, the channel on top of the waterfall cliff.
+-- (winds between fixed points: the W2/W3 gap, the side bridges at x = -100 / 100, the grand bridge at x = 0, the E2/E3 gap)
 V.River = {
-	{ -281, 60, 8 }, { -245, 59, 7 }, { -203, 58, 7 }, { -175, 52, 7 }, { -140, 54, 7 }, { -100, 60, 7 },
-	{ -60, 63, 7 }, { -36, 63, 8 }, { 0, 63, 8 }, { 36, 63, 8 }, { 60, 63, 7 }, { 100, 60, 7 }, { 140, 54, 7 },
-	{ 175, 52, 7 }, { 203, 58, 7 }, { 245, 59, 7 }, { 268, 60, 7 },
+	{ -281, 60, 9 }, { -264, 67, 9 }, { -246, 66, 7 }, { -228, 61, 6 }, { -205, 58, 6 }, { -186, 51, 8 },
+	{ -168, 46, 11 }, { -148, 50, 10 }, { -128, 57, 7 }, { -112, 61, 6 }, { -100, 60, 6 }, { -88, 57, 7 },
+	{ -72, 53, 10 }, { -54, 58, 11 }, { -36, 63, 9 }, { -18, 64, 8 }, { 0, 63, 8 }, { 18, 62, 8 }, { 36, 59, 9 },
+	{ 54, 57, 11 }, { 72, 59, 10 }, { 88, 62, 7 }, { 100, 60, 6 }, { 114, 57, 7 }, { 132, 51, 10 }, { 152, 47, 11 },
+	{ 172, 50, 8 }, { 190, 55, 6 }, { 205, 58, 6 }, { 224, 62, 7 }, { 243, 67, 10 }, { 258, 65, 8 }, { 270, 61, 7 },
 }
+-- round the bends: Catmull-Rom through the points above, 4 steps per segment
+do
+	local src, out = V.River, {}
+	for i = 1, #src - 1 do
+		local p0, p1, p2, p3 = src[max(1, i - 1)], src[i], src[i + 1], src[min(#src, i + 2)]
+		for k = 0, 3 do
+			local t = k / 4
+			local t2, t3 = t * t, t * t * t
+			local function cr(a, b, c, d)
+				return 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (3 * b - a - 3 * c + d) * t3)
+			end
+			table.insert(out, { cr(p0[1], p1[1], p2[1], p3[1]), cr(p0[2], p1[2], p2[2], p3[2]), lerp(p1[3], p2[3], t) })
+		end
+	end
+	table.insert(out, src[#src])
+	V.River = out
+end
+-- rocks in the river: x, z, radius (tops a little above the water)
+V.RiverRocks = { { -262, 69, 4.5 }, { -166, 43, 4 }, { -70, 50, 4 }, { 56, 53, 4 }, { 150, 44, 4.5 }, { 244, 70, 4 } }
 V.Ponds = { { X = -61, Z = 84, A = 31, B = 16 }, { X = 61, Z = 84, A = 31, B = 16 } }
 V.FallPool = { X = -281, Z = 60, R = 14 }
 V.LowPool = { X = 294, Z = 62, R = 14, Level = -7 }
@@ -271,6 +302,13 @@ function V.Height(x: number, z: number): (number, number?, string?)
 			level, hint = lp.Level, "rockbed"
 		end
 	end
+	for _, rk in V.RiverRocks do
+		local dr = sqrt((x - rk[1]) ^ 2 + (z - rk[2]) ^ 2)
+		if dr < rk[3] then
+			h = max(h, 0.2 + (1 - (dr / rk[3]) ^ 2) * 2.2)
+			level, hint = nil, "rockbed"
+		end
+	end
 	local tc = V.TopChannel
 	local dc = segDist(x, z, tc.X0, tc.Z0, tc.X1, tc.Z1)
 	if dc < tc.W + 4 and h > tc.Level - 6 then
@@ -291,7 +329,7 @@ function V.Height(x: number, z: number): (number, number?, string?)
 	return h, level, hint
 end
 
-V.Region = { X0 = -640, X1 = 640, Z0 = -640, Z1 = 640, Y0 = -48, Y1 = 272 }
+V.Region = { X0 = -640, X1 = 640, Z0 = -640, Z1 = 640, Y0 = -48, Y1 = 400 }
 
 -- Writes one 64 x 64-cell chunk (256 studs square) with its corner at (cx, cz).
 function V.WriteChunk(cx: number, cz: number)
@@ -332,9 +370,9 @@ function V.WriteChunk(cx: number, cz: number)
 				mat = Rock
 			elseif hint == "flat" then
 				mat = Grass
-			elseif slope > 1.15 then
+			elseif slope > 1.25 and h > 3 then
 				mat = Rock
-			elseif h > 118 + noise((cx + ix * RES) / 36, (cz + iz * RES) / 36, 6.6) * 18 and slope > 0.6 then
+			elseif h > 100 + noise((cx + ix * RES) / 60, (cz + iz * RES) / 60, 6.6) * 30 and slope > 0.5 then
 				mat = Rock
 			else
 				mat = Grass
