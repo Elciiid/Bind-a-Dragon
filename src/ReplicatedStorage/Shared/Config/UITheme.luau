@@ -145,7 +145,9 @@ return {
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
 		PhoneCurrencyRow = 20, -- phone: small pills top-left under the Roblox top bar
 		PhoneCurrencyTextSize = 13,
-		PhoneCardTop = 50, -- phone: top of cards under the sky HUD (Spire card)
+		SkyCard = Vector2.new(440, 52), -- PC: day/night card, top-center (max size; 90% of the width on narrow screens)
+		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
+		PhoneCardTop = 58, -- phone: top of cards under the day/night card (PhoneMargin + PhoneSkyCard.Y + Gap)
 		PhonePillWidth = 170, -- phone: luck pill / boost timers column, top-right
 		PhonePillHeight = 28,
 		Badge = 22,
@@ -165,6 +167,7 @@ return {
 		ToastSeconds = 4,
 		SparkleTwinkle = 1.6, -- seconds per sparkle fade in/out
 		BadgePulse = 5, -- pulse speed of attention outlines
+		SkyPhaseChange = 0.45, -- day/night card: pop + icon swing + outline flash when night falls or day breaks
 	},
 
 	-- Free Creator Store UI sounds (verified to load and play in a playtest). "" = silent.

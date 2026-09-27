@@ -28,6 +28,24 @@ local Text = {
 	},
 	SpireStuckTip = "Level up, inscribe runes and temper grades, or use a Wyrmblood Tonic to go higher.",
 	PortalLocked = "Rebirth {rebirths}", -- under the lock on a portal the player can't use yet
+
+	-- Day/night card at the top of the screen (DayNightController). {time} = m:ss left in the phase,
+	-- {constellation} = tonight's constellation, {where} = the luck line below, {luck} = a multiplier like "x1.5".
+	SkyHud = {
+		DayIcon = "☀", -- glyphs that Builder Sans draws (☾ and ✦ show as boxes)
+		NightIcon = "🌙",
+		DayTitle = "Daylight · Night falls in {time}",
+		DayDetail = "The stars are resting · prepare for the next constellation",
+		NightTitle = "Nightfall · {constellation}",
+		NightDetail = "{where} · {time} left",
+		LuckEverywhere = "{luck} luck at every altar",
+		Favors = "favors {area} ({luck})",
+		NoBonus = "Bind at a Star Altar",
+		-- Toast DuskWarningSeconds before night ({seconds}); {where} = DuskFavors or DuskNoFavor.
+		DuskWarning = "Night falls in {seconds}s: {constellation} rises. {where}",
+		DuskFavors = "It favors {area}!",
+		DuskNoFavor = "Head to a Star Altar!",
+	},
 }
 
 -- Replaces {key} with values[key]; unknown keys are left as they are.
