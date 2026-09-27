@@ -584,6 +584,66 @@ function B.BuildBounds()
 end
 
 ---------------------------------------------------------------------------------------------------------------
+-- Tiles: real stone tiles (parts) laid flush on the flagstone terrain in two places: a two-row ring around the
+-- plaza's outer step (gap where the grand bridge lands) and a two-row ring around the market obelisk. Granite
+-- (no material override), alternating warm stone shades, outer row offset half a tile like laid paving; small gold
+-- inlays at the compass points (NightGlow).
+
+function B.BuildTiles()
+	local f = folder(SM, "Tiles", true)
+	local rng = Random.new(2718)
+	local shades = { Color3.fromRGB(184, 174, 154), Color3.fromRGB(163, 155, 139), Color3.fromRGB(174, 168, 158) }
+	local groundParams = RaycastParams.new() -- tiles only where their outer edge is on solid ground (not the river bank)
+	groundParams.FilterType = Enum.RaycastFilterType.Include
+	groundParams.FilterDescendantsInstances = { workspace.Terrain }
+	local function ring(parent: Instance, center: Vector3, r0: number, r1: number, count: number, offset: number, skip: ((Vector3) -> boolean)?)
+		local mid = (r0 + r1) / 2
+		local width = 2 * mid * sin(math.pi / count) * 0.94
+		for i = 0, count - 1 do
+			local angle = (i + offset) / count * 2 * math.pi
+			local at = center + Vector3.new(sin(angle) * mid, 0, cos(angle) * mid)
+			local edge = center + Vector3.new(sin(angle) * (r1 + 0.5), 0, cos(angle) * (r1 + 0.5))
+			local hit = workspace:Raycast(edge + Vector3.new(0, 20, 0), Vector3.new(0, -40, 0), groundParams)
+			local onGround = hit ~= nil and hit.Material ~= Enum.Material.Water and hit.Position.Y > center.Y - 0.3
+			if onGround and (skip == nil or not skip(at)) then
+				local shade = shades[(i % #shades) + 1]:Lerp(Color3.fromRGB(150, 146, 138), rng:NextNumber(0, 0.25))
+				P(parent, "Tile", Vector3.new(width, 0.5, (r1 - r0) * 0.92), CFrame.lookAt(at, Vector3.new(center.X, at.Y, center.Z)), M.Granite, shade, { CastShadow = false })
+			end
+		end
+	end
+	local function inlays(parent: Instance, center: Vector3, r: number)
+		for i = 0, 3 do
+			local angle = i * math.pi / 2
+			local at = center + Vector3.new(sin(angle) * r, 0.05, cos(angle) * r)
+			local inlay = P(parent, "GoldInlay", Vector3.new(1.6, 0.5, 1.6), CFrame.new(at) * CFrame.Angles(0, math.pi / 4 + angle, 0), M.Metal, C.GoldGlow, { CastShadow = false })
+			CollectionService:AddTag(inlay, "NightGlow")
+		end
+	end
+
+	-- Plaza ring on the flagstone between the outer step (r48) and the river bank; the grand bridge lands on the south.
+	local plaza = folder(f, "PlazaRing")
+	local centre = Vector3.new(0, 0, 0)
+	local function onBridge(at: Vector3): boolean
+		return at.Z > 0 and math.abs(at.X) < 8
+	end
+	ring(plaza, centre, 48.4, 52.2, 40, 0, onBridge)
+	ring(plaza, centre, 52.2, 56, 40, 0.5, onBridge)
+	inlays(plaza, centre, 52.2)
+	for i = 0, 3 do -- diagonal inlays too: 8 around the plaza
+		local angle = math.pi / 4 + i * math.pi / 2
+		local at = Vector3.new(sin(angle) * 52.2, 0.05, cos(angle) * 52.2)
+		CollectionService:AddTag(P(plaza, "GoldInlay", Vector3.new(1.6, 0.5, 1.6), CFrame.new(at) * CFrame.Angles(0, angle, 0), M.Metal, C.GoldGlow, { CastShadow = false }), "NightGlow")
+	end
+
+	-- Market square: around the obelisk's stepped base (18 wide).
+	local market = folder(f, "MarketSquare")
+	local obelisk = Vector3.new(0, 0, 112)
+	ring(market, obelisk, 10, 15, 20, 0, nil)
+	ring(market, obelisk, 15, 20, 26, 0.5, nil)
+	inlays(market, obelisk, 15)
+end
+
+---------------------------------------------------------------------------------------------------------------
 -- Travel points: invisible markers where the Travel menu lands a player (TravelService, Config/Travel), standing on
 -- the ground and facing what they came for. One per sanctuary (named after its plot, on the forecourt facing the
 -- gate), plus Altar (plaza, facing the altar), Market (south of the obelisk, facing north) and Spire (court, facing

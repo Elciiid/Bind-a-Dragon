@@ -134,11 +134,14 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   floor, sanctuary terraces (rock pillars, back cliffs), the portal terrace + Spire hill, jagged mountains all around
   (green foothills, rocky peaks, saddles behind the gates so the landmarks show), the winding river, the south gorge.
   Mountains: grass up to the tree line, rock higher up, snowcaps above `SnowLine` (terrain `Sand` colored white:
-  `Snow` carries the Frozen area's stylized override). Flagstone roads and squares = terrain `Cobblestone` (roads from the plaza to each sanctuary, the main road, the
+  `Snow` carries the Frozen area's stylized override). Flagstone roads and squares = terrain `Brick` with the realistic `Valley_Flagstone` MaterialVariant override (AI-generated, owned by the game's creator; `ValleyTerrain.V.RoadMaterial`; not Cobblestone, because overrides restyle parts too and ~360 Valley parts use Cobblestone, while no part uses Brick) (roads from the plaza to each sanctuary, the main road, the
   terrace walkway, the spawn plaza, the Spire court). Solid terrain surfaces end up ~2 studs above the voxel fill
   height, so the script writes solids 2 lower (`SurfaceLift`); keep that in mind for any other terrain script.
 - `SpawnLocation` at the valley mouth (0, 1.3, 160) facing north (new players); `AreaSpawn` (arrivals from other
   areas) on the portal terrace (0, 13.5, -150) facing the altar.
+- `Tiles`: real Granite stone tiles flush on the flagstone (`ValleyBuild.BuildTiles`, 132 parts): a two-row ring around
+  the plaza's outer step (gap at the grand bridge, none over the river bank) and a two-row ring around the market
+  obelisk, with gold inlays (`NightGlow`) at the compass points.
 - `TravelPoints`: invisible markers the Travel menu lands on (`ValleyBuild.BuildTravelPoints`): `Altar` (plaza, facing
   the altar), `Market` (south of the obelisk, facing north), `Spire` (court, facing the door) and one per sanctuary
   named after its plot (forecourt, facing the gate). If a pen moves, rebuild them.
@@ -176,8 +179,8 @@ Salt, Sandstone; Eclipse: LeafyGrass, Concrete, Pavement) so each area can have 
 **Stylized terrain:** `MaterialService` holds 19 `BAD_*` MaterialVariants; these are set as base-material overrides
 (other areas, until they are remastered): Basalt, Asphalt, CrackedLava = lava, Snow, Glacier, Limestone, Ice, Salt =
 storm floor, Sandstone = canyon walls, LeafyGrass = violet moss, Concrete = void stone, Pavement = temple stone. The
-Meadow uses only Roblox's own Grass, Ground, Rock, Cobblestone and Water (no overrides; the Mud/Brick/Sand cartoon
-overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (112, 110, 112),
+Meadow uses Roblox's own Grass, Ground, Rock and Water, plus Brick for the roads with the realistic `Valley_Flagstone`
+override (the Mud/Brick/Sand cartoon overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (112, 110, 112),
 Cobblestone (168, 160, 146), Sand (236, 241, 248) = the snowcaps. `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
 change it). Textures are hand-made
 tileable PNGs (`tools/terrain_textures/gen.py`, uploaded as images); faceted materials have per-facet normal maps.

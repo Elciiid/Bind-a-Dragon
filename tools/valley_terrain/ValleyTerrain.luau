@@ -52,7 +52,11 @@ end
 
 V.Spire = { X = 0, Z = -252, R = 42, Top = 28 }
 
--- Flagstone roads (terrain Cobblestone), each a polyline with a half-width. The W3/E3 roads bend to cross the river
+-- Road material: terrain Brick with the realistic Valley_Flagstone override (MaterialService). Not Cobblestone:
+-- overrides restyle parts too, and hundreds of wall/bridge parts use Cobblestone; no part uses Brick.
+V.RoadMaterial = Enum.Material.Brick
+
+-- Flagstone roads (terrain V.RoadMaterial), each a polyline with a half-width. The W3/E3 roads bend to cross the river
 -- square to it on the side bridges; the bridges themselves are parts.
 V.Roads = {
 	{ W = 8, { 0, 205 }, { 0, 140 } }, -- valley mouth, entrance gate, into the market square
@@ -440,7 +444,7 @@ function V.WriteChunk(cx: number, cz: number)
 			if hint == "bed" then
 				mat = if level and h > level - 0.6 then Grass else Ground
 			elseif hint == "paved" then
-				mat = Enum.Material.Cobblestone
+				mat = V.RoadMaterial
 			elseif hint == "rock" then
 				mat = Rock
 			elseif hint == "rockbed" then
