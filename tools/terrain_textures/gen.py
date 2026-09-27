@@ -168,6 +168,47 @@ def normal_facets(seed, cells, tilt_deg=22):
     return px
 
 
+
+def tex_dotted_grass(base, light, dark, dots, seed, count=900, rmin=1.0, rmax=2.2, clover=False):
+    layers = [ValueNoise(4, seed), ValueNoise(8, seed + 1), ValueNoise(16, seed + 2), ValueNoise(32, seed + 3)]
+    strokes = strokes_map(500, seed + 4, 12, 1.4)
+    rnd = random.Random(seed + 9)
+    dotmaps = []
+    for i, col in enumerate(dots):
+        dotmaps.append((speckle_map(count // len(dots), seed + 20 + i, rmin, rmax), col))
+    leaves = {}
+    if clover:
+        for _ in range(420):
+            cx, cy = rnd.random() * N, rnd.random() * N
+            r = rnd.uniform(2.0, 3.2)
+            for k in range(3):
+                a = k * 2 * math.pi / 3 + rnd.random()
+                ox, oy = cx + math.cos(a) * r, cy + math.sin(a) * r
+                for dy in range(-4, 5):
+                    for dx in range(-4, 5):
+                        d = math.hypot(dx, dy)
+                        if d <= r * 0.9:
+                            leaves[((int(oy) + dy) % N) * N + (int(ox) + dx) % N] = 1 - d / (r * 0.9)
+    px = []
+    for y in range(N):
+        for x in range(N):
+            n = fbm(layers, x, y)
+            c = mix(dark, base, (n - 0.25) * 2.2)
+            c = mix(c, light, (n - 0.65) * 3.0)
+            k = y * N + x
+            s = strokes.get(k)
+            if s:
+                c = mix(c, light, s * 0.4)
+            l = leaves.get(k)
+            if l:
+                c = mix(c, light, 0.35 + 0.45 * l)
+            for m, col in dotmaps:
+                d = m.get(k)
+                if d:
+                    c = mix(c, col, min(1, d * 1.6))
+            px.append(clamp8(c))
+    return px
+
 # ---------------------------------------------------------------- textures
 
 def tex_grass_like(base, light, dark, stroke, seed):
@@ -271,6 +312,9 @@ TEXTURES = {
     "rock": lambda: tex_facets(hexc("A39C94"), hexc("C2BBB0"), hexc("8A8D9C"), hexc("7A7479"), 31, cells=10, edge_w=1.5),
     "mud": lambda: tex_soft(hexc("7E6246"), hexc("977A5A"), hexc("5E4632"), 41, pebbles=(40, 1.5, 3.0, hexc("9C8466"))),
     "sand": lambda: tex_soft(hexc("E8D8A0"), hexc("F4E8BE"), hexc("CDBB84"), 51, specks=(120, 0.8, 1.6), speck_color=hexc("C9B37A")),
+    "cobble": lambda: tex_facets(hexc("CBC2B2"), hexc("E0D8CA"), hexc("A89E8E"), hexc("7F766A"), 181, cells=9, edge_w=2.6),
+    "clover": lambda: tex_dotted_grass(hexc("4E8C34"), hexc("78B84E"), hexc("3A7428"), [hexc("F4F7EE")], 191, count=160, rmin=0.9, rmax=1.6, clover=True),
+    "flowermeadow": lambda: tex_dotted_grass(hexc("66AA42"), hexc("8CC85A"), hexc("4E9234"), [hexc("F7A8C8"), hexc("FFE27A"), hexc("FFFFFF"), hexc("C9A2F0")], 201, count=420, rmin=2.6, rmax=4.6),
     # Volcano Peak
     "basalt": lambda: tex_facets(hexc("4C403E"), hexc("62524E"), hexc("352C2C"), hexc("2A2222"), 61, cells=9, crack=hexc("E0642A"), crack_w=1.3, crack_share=0.22),
     "asphalt": lambda: tex_facets(hexc("40363A"), hexc("54474A"), hexc("2C2427"), hexc("221B1D"), 71, cells=6),
@@ -291,7 +335,7 @@ TEXTURES = {
 
 # normal maps (name -> (seed, cells)) matching the facet color maps above
 NORMALS = {
-    "rock": (31, 10), "basalt": (61, 9), "asphalt": (71, 6), "lava": (81, 7), "glacier": (101, 5),
+    "rock": (31, 10), "cobble": (181, 9), "basalt": (61, 9), "asphalt": (71, 6), "lava": (81, 7), "glacier": (101, 5),
     "limestone": (111, 7), "slate": (131, 8), "voidstone": (161, 7), "templestone": (171, 5),
 }
 

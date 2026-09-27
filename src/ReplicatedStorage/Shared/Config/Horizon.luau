@@ -24,35 +24,35 @@ return {
 	FlashOpacity = 0.9,
 
 	Landmarks = {
-		-- Behind Portal_VolcanoPeak (NE): the volcano with its lava streaks and plume.
+		-- Behind Portal_VolcanoPeak (north-north-east, -67.5°): the volcano with its lava streaks and plume.
 		{
 			Model = "Volcano",
-			Position = Vector3.new(490, -20, -475),
+			Position = Vector3.new(260, -20, -628),
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1,
 			ShowIn = { "StarterMeadow" },
 		},
-		-- Behind Portal_FrozenCliffs (E): the ice crystal spire on its cliff.
+		-- Behind Portal_FrozenCliffs (east-north-east, -22.5°): the ice crystal spire on its cliff.
 		{
 			Model = "IceSpire",
-			Position = Vector3.new(665, -20, -140),
+			Position = Vector3.new(628, -20, -260),
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1,
 			ShowIn = { "StarterMeadow" },
 		},
-		-- Behind Portal_StormCanyon (W): the lightning tower on its mesa.
+		-- Behind Portal_StormCanyon (west-north-west, -157.5°): the lightning tower on its mesa.
 		{
 			Model = "StormTower",
-			Position = Vector3.new(-665, -20, -140),
+			Position = Vector3.new(-628, -20, -260),
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1,
 			ShowIn = { "StarterMeadow" },
 			FlashEvery = NumberRange.new(2.5, 6),
 		},
-		-- Behind Portal_EclipseIsles (NW): the eclipse ring over the temple island.
+		-- Behind Portal_EclipseIsles (north-north-west, -112.5°): the eclipse ring over the floating temple island.
 		{
 			Model = "EclipseRing",
-			Position = Vector3.new(-490, -20, -475),
+			Position = Vector3.new(-260, -20, -628),
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1,
 			ShowIn = { "StarterMeadow" },

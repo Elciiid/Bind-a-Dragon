@@ -32,7 +32,7 @@ _Update this section as work progresses._
 | In-world UI (wow pass, phase 3) | Done (`Config/WorldUI`): `PromptController` draws every ProximityPrompt in the UI theme (Style = Custom; key badge, icon, hold ring, tap/click to use). Portal warp in `PortalController` (whoosh, FOV kick, color flash). `RoostFXController`: owner banners with avatar (replace the server sign locally), "+gold" pops from your roost dragons, level-up/evolve bursts. `StationFXController`: rune/stone count boards, shrine glow and forge flare while you own runes/stones, merchant price board, Spire door record board (`UI/WorldBoard`). Note: Studio screenshots don't show `AlwaysOnTop` billboards (prompts); they do show in play |
 | Game feel (wow pass, phase 4) | Done: `FeedbackController` + `Config/Feedback`: one sound palette (level-up, buy, arm, climb start, floor clear, Index entry, reward, rebirth) with a small camera shake and screen flash, driven by data changes and SpireUpdate; shake/flash off with Low effects. A palette sound replaces the toast chime when both fire together (`Style.MarkFeedbackSound`); UI sounds follow the SoundVolume setting |
 | Settings (wow pass, phase 5) | Done: Settings window (`SettingsController`, menu tile) with Music / Sound sliders (5% steps) and Low effects / Quick binds toggles; applied at once as LocalPlayer attributes (`MusicVolume`, `SoundVolume`, `LowEffects`, `QuickBinds`), saved to `data.Settings` via the `SaveSettings` remote (`SettingsService`: type-checked, clamped, rate-limited) after a short debounce. Defaults in `Config/Data.DefaultSettings`; data version 2 (migration fills missing settings) |
-| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. AI prop kits in `ServerStorage.PropKits` (`AI_<Area>_<Prop>`, pivot at the bottom, `Triangles` attribute) and stylized terrain materials done. Stage 3: Starter Meadow detailed (scenery, waterfall/pond/stream, paths, portal framing, pen fences; `AmbientFXController` lowers world particles with Low effects). Volcano Peak next |
+| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. AI prop kits in `ServerStorage.PropKits` (`AI_<Area>_<Prop>`, pivot at the bottom, `Triangles` attribute) and stylized terrain materials done. Stage 3: Starter Meadow detailed (e1) and rebuilt as a hub (e1b: raised plaza + ring road, 6 big pens, portals in the north half with themed gateways, flagstone roads, market row, groves, ground variety; `AmbientFXController` lowers world particles with Low effects). Volcano Peak next |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons`. Area rosters: `Config/Areas` `Element` + `Species` per area (Meadow = Common/Rare, element areas = all 5 of their element; rolls only over rarities in the roster, `Luck.GetAreaRarityWeights`); favored area ×`FavoredAreaLuck` (`Luck.IsFavored`), shown on the sky HUD and luck panel; Auto-bind uses the nearest unlocked altar's area |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs and the level cap (50 + 5 per rebirth) in `Config/Leveling`, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up in the Dragons panel (`InventoryController`) or via the E prompt on own roost dragons (`DragonPromptController`); one evolution toast per level-up |
@@ -75,34 +75,46 @@ Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a po
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` (rebuilt 2026-09-26 from the
 concept art with the builder's models; north = -Z) is grouped as:
 - `Plaza`: the Star Altar model `StarAltar` (tag `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core` = invisible
-  part on its top platform; Bind prompt range 20) on a round stepped stone `Floor` (radius 42) at the center, `Lanterns`.
-  Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
-- `Pens`: 8 plots on a ring 110 studs out (4 per side; north and south left open): fenced grass pens (Models tagged
-  `RoostPlot`, PrimaryPart `Base`) with attributes `RoamCenter` (floor top center) and `RoamRadius`, a gate with the
-  owner `Sign` facing the plaza, and upgrade stands `UpgradeSlots` / `UpgradeIncome` in front of the gate. Dragons roam
-  client-side (`RoostAnimationController`): Hatchlings hop, Drakes walk, Dragons/Elders fly (per-stage
-  Movement/MoveSpeed/FlyHeight in `Config/Evolution`). Keep server max players ≤ 8, or add plots. If a pen moves,
+  part on its top platform; Bind prompt range 20) on a round stepped stone `Floor` (radius 42), inside a raised
+  flagstone `Ring` (radius 54, parapet, planters on the diagonals, 2-step stairs + a pair of lanterns at N/S/E/W).
+  Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code. Around the plaza runs the
+  flagstone ring road (radius 58–72); every road leaves from it.
+- `Pens` (remaster e1b): **6 plots**, 3 per side on a ring 124 studs out at angles -45°, 0°, 45° (east) and 135°,
+  180°, 225° (west); north (Spire) and south (spawn/market) open. Each is a Model tagged `RoostPlot` (PrimaryPart `Base`,
+  a 54-stud grass disc on a terrace at y 4.5, Atomic) with attributes `RoamCenter` (Base top center) and `RoamRadius`
+  22, an 18-segment AI fence (`Fence`), a leafy gate arch with a beam and the owner `Sign` hanging under it (`Gate`),
+  upgrade stands `UpgradeSlots` / `UpgradeIncome` (+ `...Glow` caps) flanking the gate outside the fence, and `Decor`
+  (nest, thatched shelter, hay, flowers, bushes, a lantern). Dragons roam client-side (`RoostAnimationController`):
+  Hatchlings hop, Drakes walk, Dragons/Elders fly (per-stage Movement/MoveSpeed/FlyHeight in `Config/Evolution`).
+  **Keep server max players ≤ 6**, or add plots (code finds plots by tag; no count is hard-coded). If a pen moves,
   update its `RoamCenter`.
 - `Spire`: the builder's `DragonSpire` (tag `DragonSpire`, PrimaryPart `Entrance` = invisible part in front of the
   door, facing the altar; `EntranceRange` is measured from it) on a terrain hill (top y = 16, center (0, -175)) with
   stone `Stairs` down to the plaza.
-- `Buildings` (south, along the cross path at z ≈ 118): `StarMerchant` stall bottom-left (tag `StarMerchant`, PrimaryPart
-  `Counter`), `RuneShrine` and `DragonstoneForge` bottom-right (tags `RuneShrine` / `DragonstoneForge`, PrimaryPart
-  `PromptPoint` = invisible part at the front at standing height; station prompts have a 12-stud range).
-- `Portals`: `Portal_VolcanoPeak` (NE), `Portal_EclipseIsles` (NW), `Portal_FrozenCliffs` (E), `Portal_StormCanyon` (W),
-  180 studs out between the pens, facing the plaza. Each is the builder's arch `Art` (anchored, collidable ramp) plus
-  a `Surface` part filling the opening (PrimaryPart, tag `AreaPortal`, `AreaId` = destination, CanCollide off): touching
-  it teleports (`AreaService`, server-checked). The return portals (`Portal_StarterMeadow` in VolcanoPeak and each
-  placeholder area) use that area's own arch. `PortalController` draws the Surface per client: destination color,
-  light, swirl and particles when unlocked; dim gray with a lock + "Rebirth X" (close up) when locked (`Config/Portals`).
-- `Scenery` (remaster e1): AI kit props in `Trees` (each with an invisible `TrunkCollider`; the mesh doesn't
-  collide), `Bushes`, `Rocks`, `Flowers` (flowers/mushrooms, no collision), path `Lanterns` (tag `Lantern`). Paths are
-  terrain painted `Ground`: spawn road, station road, roads to the Spire stairs, each portal and each pen gate, and a
-  trail to the pond. `Water`: the `Waterfall` (streak Beams facing the camera on `BeamAnchor`, foam/mist/spray
-  emitters tagged `AmbientFX`, a `SoundSource` tagged `Waterfall` for `Config/Audio`), and `Dressing` (reeds, rocks,
-  cherry blossoms, lily pads, the stream bridge). Each portal has a `Framing` folder (rocks, bushes, a tree). Pen fences
-  are 14 AI fence segments per pen (`Fence` folder; no code uses it). Edit terrain near water with
-  `ReadVoxelChannels`/`WriteVoxelChannels` (plain `ReadVoxels`/`WriteVoxels` drops water in shoreline cells).
+- `Buildings` (market row south of the plaza, along the market road at z = 122): `StarMerchant` (-52, 140) (tag
+  `StarMerchant`, PrimaryPart `Counter`), `RuneShrine` (46, 140) and `DragonstoneForge` (97, 146) (tags `RuneShrine` /
+  `DragonstoneForge`, PrimaryPart `PromptPoint` = invisible part at the front at standing height; station prompts have
+  a 12-stud range), each on a low stone platform (`Platforms`, top y 3.0, a step toward the road).
+- `Portals` (remaster e1b): in the north half between the pens and the Spire, 188 studs out, facing the plaza:
+  `Portal_VolcanoPeak` (-67.5°), `Portal_FrozenCliffs` (-22.5°), `Portal_EclipseIsles` (-112.5°), `Portal_StormCanyon`
+  (-157.5°). The horizon landmarks (`Config/Horizon`) and the dips in the outer hills sit on the same bearings. Each is
+  the builder's arch `Art` (anchored, collidable ramp) plus a `Surface` part filling the opening (PrimaryPart, tag
+  `AreaPortal`, `AreaId` = destination, CanCollide off): touching it teleports (`AreaService`, server-checked), and a
+  `Gateway` folder (stone platform + ramp, lanterns, framing from the destination's prop kit on element-themed ground:
+  basalt / snow / slate / violet moss). The return portals (`Portal_StarterMeadow` in each area) use that area's own
+  arch. `PortalController` draws the Surface per client: destination color, light, swirl and particles when unlocked;
+  dim gray with a lock + "Rebirth X" (close up) when locked (`Config/Portals`).
+- `Roads`: flagstone roads are terrain `Cobblestone` (spawn road, Spire road, market road, a spur to each portal and
+  each pen gate), with `Curbs` parts, `Lanterns` (AI lantern posts tagged `Lantern`; the glass part is the `Lamp`),
+  signposts and the spawn-plaza planters. A dirt trail (terrain `Ground`) leads to the pond.
+- Ground: gentle rolling terrain, pen terraces, flat pads for stations/portals; patches of flower meadow (terrain
+  `Brick`) and clover (terrain `Mud`, also the pond bed) among the grass.
+- `Scenery`: AI kit groves in `Trees` (each with an invisible `TrunkCollider`; the mesh doesn't collide), `Bushes`,
+  `Rocks`, `Flowers` (flowers/mushrooms, no collision), placed away from roads, pens, portals and their sight lines.
+  `Water`: the `Waterfall` (streak Beams facing the camera on `BeamAnchor`, foam/mist/spray emitters tagged
+  `AmbientFX`, a `SoundSource` tagged `Waterfall` for `Config/Audio`), and `Dressing` (reeds, rocks, cherry blossoms,
+  lily pads, the stream bridge). Edit terrain near water with `ReadVoxelChannels`/`WriteVoxelChannels` (plain
+  `ReadVoxels`/`WriteVoxels` drops water in shoreline cells).
 - `SpawnLocation` at the south entrance (0, 2, 160), `AreaSpawn` (arrivals from other areas) just north of it.
 - Dev: `Controllers/Dev/DragonRigDemo.client.luau` animates any Model tagged `DragonRigDemo` (walk -> take off -> fly
   -> land by moving bones). No such model is in the place now (all dragon art was cleared on 2026-09-26).
