@@ -80,7 +80,10 @@ dressing/landmarks/lighting, perches); a painted skybox for weak phones is propo
 modules in `ServerStorage.RemasterTools` (reference copies in `tools/valley_terrain/` and `tools/valley_build/`):
 `ValleyTerrain` (terrain), `ValleyBuild` (hub), `ValleyDetail` (nature, ruins, dressing; deterministic seeds) and
 `ValleyLandmarks` (horizon models); each `Build*` function rebuilds only its own folder. Stand-ins for future custom art
-are named `Placeholder_<Name>`. Grouped as:
+are named `Placeholder_<Name>`. **Ideas for the builder's replacements** (from Kyle's reference remodel, Hakai branch;
+build them as models, not part-by-part, within the part budget): a lodge-style `Placeholder_Shelter` in each sanctuary
+(timber posts, slate roof, a crest in the owner's element color); a royal-blue canopy with gold seams and stars over
+the Star Merchant; a stone chimney with glowing embers and a little smoke on the Dragonstone Forge. Grouped as:
 - `Plaza`: the Star Altar model `StarAltar` (tag `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core` = invisible
   part on its top platform; Bind prompt range 20) on its round stepped stone `Floor` (radius 42), and the
   `AltarShimmer`. `Dressing`: an outer step (radius 48), 8 lanterns, 4 `Placeholder_StarBanner` poles; flagstone base
