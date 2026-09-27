@@ -36,9 +36,41 @@ end
 V.FlatR = 52 -- flat terrace radius (sanctuary 48 + wall)
 V.ApronLen, V.ApronHalf = 66, 17 -- forecourt toward the altar
 V.MesaSlope = 1.4
+-- Rock pillars in each sanctuary's flight zone (future perches): angle from straight back (degrees), height above
+-- the floor. They stand 43 studs out, outside the flight circle (fliers roam up to 34 studs out).
+V.PillarR, V.PillarDist = 6, 43
+V.Pillars = { { -55, 18 }, { -20, 28 }, { 20, 24 }, { 55, 20 } }
+for _, s in V.Sanct do
+	s.PillarList = {}
+	local bx, bz = -s.AX, -s.AZ
+	for _, pl in V.Pillars do
+		local a = math.rad(pl[1])
+		local dx, dz = bx * math.cos(a) - bz * math.sin(a), bx * math.sin(a) + bz * math.cos(a)
+		table.insert(s.PillarList, { X = s.X + dx * V.PillarDist, Z = s.Z + dz * V.PillarDist, Top = s.T + pl[2] })
+	end
+end
 
 V.Spire = { X = 0, Z = -252, R = 42, Top = 28 }
-V.Terrace = { R0 = 140, R1 = 180, Half = 44, Top = 12 }
+
+-- Flagstone roads (terrain Cobblestone), each a polyline with a half-width. The W3/E3 roads bend to cross the river
+-- square to it on the side bridges; the bridges themselves are parts.
+V.Roads = {
+	{ W = 8, { 0, 205 }, { 0, 140 } }, -- valley mouth, entrance gate, into the market square
+	{ W = 8, { 0, 84 }, { 0, 72 } }, -- square to the grand bridge
+	{ W = 7, { 0, -54 }, { 0, -124 } }, -- plaza to the grand stairs of the portal terrace
+	{ W = 5, { -56, 0 }, { -142, 0 } }, -- W2
+	{ W = 5, { 56, 0 }, { 142, 0 } }, -- E2
+	{ W = 5, { -47.5, -29.7 }, { -120.4, -75.2 } }, -- W1
+	{ W = 5, { 47.5, -29.7 }, { 120.4, -75.2 } }, -- E1
+	{ W = 5, { -47.5, 29.7 }, { -102, 46 } }, -- W3: plaza to the west side bridge
+	{ W = 5, { -98, 74 }, { -123.8, 77.4 } }, -- W3: side bridge to the sanctuary stairs
+	{ W = 5, { 47.5, 29.7 }, { 97.7, 46 } }, -- E3
+	{ W = 5, { 102.3, 74 }, { 123.8, 77.4 } },
+}
+V.SpawnPlaza = { X = 0, Z = 160, R = 12 }
+V.Walkway = { R0 = 142, R1 = 158, Half = 42 } -- paved promenade on the portal terrace, in front of the gates
+V.Terrace = { R0 = 133, R1 = 180, Half = 44, Top = 12 } -- front face at R0 is steep: the retaining wall (parts) stands there
+V.SpireCourt = { X = 0, Z = -214, R = 16 } -- paved court at the Spire entrance
 V.WaterLevel = -1
 
 -- Valley edge radius by |bearing| (degrees clockwise from north). The river gaps (W2/W3, E2/E3) reach further out.
@@ -56,6 +88,7 @@ local function edgeAt(th: number): number
 	end
 	return tbl[#tbl][2]
 end
+V.EdgeAt = edgeAt
 
 -- Ridge height by bearing, and how deep the saddles behind the four portal gates cut (landmarks show through them).
 local SADDLES = { -40, -15, 15, 40 }
@@ -97,12 +130,12 @@ local function northH(x: number, z: number, R: number, th: number): number
 	local a = abs(th)
 	local sideOut = max(0, math.rad(a - T.Half) * R)
 	local frontOut = max(0, T.R0 - R)
-	local out = sqrt(sideOut * sideOut + frontOut * frontOut)
+	local out = sqrt((sideOut * 1.35) ^ 2 + (frontOut * 4) ^ 2)
 	local top = T.Top
 	if R > T.R1 then
 		top = T.Top + smooth((R - T.R1) / 120) * 26 + noise(x / 50, z / 50, 3.3) * 3 * smooth((R - T.R1) / 40)
 	end
-	local h = top - out * 1.35
+	local h = top - out
 	local S = V.Spire
 	local dx, dz = x - S.X, z - S.Z
 	local d = sqrt(dx * dx + dz * dz)
@@ -151,6 +184,19 @@ local function segDist(px, pz, ax, az, bx, bz): (number, number)
 	return sqrt((px - cx) ^ 2 + (pz - cz) ^ 2), t
 end
 
+local function roadDist(x: number, z: number): (number, number)
+	local best, width = math.huge, 0
+	for _, road in V.Roads do
+		for i = 1, #road - 1 do
+			local d = segDist(x, z, road[i][1], road[i][2], road[i + 1][1], road[i + 1][2])
+			if d - road.W < best - width then
+				best, width = d, road.W
+			end
+		end
+	end
+	return best, width
+end
+
 local function riverDist(x: number, z: number): (number, number)
 	local best, width = math.huge, 5
 	local pts = V.River
@@ -185,6 +231,11 @@ function V.Height(x: number, z: number): (number, number?, string?)
 	if abs(x) < 16 and z > -135 and z < 175 then
 		h = lerp(0.8, h, smooth((abs(x) - 10) / 6))
 	end
+	local rd, rw = roadDist(x, z)
+	if rd < rw + 3 then
+		h = lerp(0.8, h, smooth((rd - rw) / 3))
+	end
+	local paved = rd < rw or sqrt((x - V.SpawnPlaza.X) ^ 2 + (z - V.SpawnPlaza.Z) ^ 2) < V.SpawnPlaza.R
 
 	-- north: portal terrace, slope, Spire hill
 	local rocky = false
@@ -221,11 +272,17 @@ function V.Height(x: number, z: number): (number, number?, string?)
 		end
 	end
 
-	-- sanctuary terraces (flat top overrides everything)
+	-- sanctuary terraces (flat top overrides everything), their rock pillars and the cliff behind them
 	for _, s in V.Sanct do
 		local vx, vz = x - s.X, z - s.Z
 		local r = sqrt(vx * vx + vz * vz)
 		if r < V.FlatR + 40 then
+			for _, pl in s.PillarList do
+				local dp = sqrt((x - pl.X) ^ 2 + (z - pl.Z) ^ 2)
+				if dp < V.PillarR * (1 + noise(x / 7, z / 7, 3.9) * 0.3) then
+					return pl.Top, nil, "rock"
+				end
+			end
 			local along = vx * s.AX + vz * s.AZ
 			local lateral = abs(vx * s.AZ - vz * s.AX)
 			local apron = math.huge
@@ -237,9 +294,21 @@ function V.Height(x: number, z: number): (number, number?, string?)
 				return s.T, nil, if r <= 48 then "flat" else "paved"
 			end
 			local mh = s.T - e * V.MesaSlope
+			if along > V.ApronLen - 1 and lateral < 7.5 then
+				mh = min(mh, s.T - (along - V.ApronLen) * 0.7 - 1.7) -- room for the steps (parts) down to the road
+			end
 			if mh > h then
 				h = mh
 				rocky = mh > 1.5
+			end
+			-- behind the back half: a ledge 13 studs up, then the cliff rises to 22 (ledges for perching later)
+			local back = -along
+			if back > 5 then
+				local cliff = s.T + 13 + smooth((r - 58) / 6) * 9 + noise(x / 12, z / 12, 6.1) * 2
+				local ch = lerp(h, cliff, smooth((back - 5) / 25))
+				if ch > h then
+					h = ch
+				end
 			end
 		end
 	end
@@ -320,7 +389,11 @@ function V.Height(x: number, z: number): (number, number?, string?)
 		end
 	end
 	if hint == nil then
-		if R < 57 or dm < 30 then
+		local W = V.Walkway
+		local onWalkway = R > W.R0 and R < W.R1 and abs(th) < W.Half and h > V.Terrace.Top - 0.5
+		local SC = V.SpireCourt
+		local onCourt = sqrt((x - SC.X) ^ 2 + (z - SC.Z) ^ 2) < SC.R and h > V.Spire.Top - 0.5
+		if R < 57 or dm < 34 or paved or onWalkway or onCourt then
 			hint = "paved"
 		elseif rocky then
 			hint = "rock"

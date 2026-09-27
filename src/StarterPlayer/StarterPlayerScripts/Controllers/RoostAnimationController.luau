@@ -1,13 +1,17 @@
 --!strict
 -- Makes roost dragons roam their pen, locally on each client (purely visual; the server only spawns them).
 -- Each dragon model has attributes from its evolution stage (Config/Evolution): Movement ("Hop" | "Walk" | "Fly"),
--- MoveSpeed and FlyHeight. The pen comes from the plot's RoamCenter / RoamRadius attributes.
+-- MoveSpeed and FlyHeight. The pen comes from the plot's RoamCenter / RoamRadius attributes; walkers stay in their
+-- stage's zone (model attribute "Zone", e.g. the nesting ground; Shared/RoostZones) when the plot has one.
 --   Hop:  wanders with little jumps, pausing now and then (Hatchlings)
 --   Walk: wanders with a slight bob, pausing now and then (Drakes)
 --   Fly:  circles and swoops at FlyHeight without stopping, banking into turns (Dragons, Elders)
 
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+local RoostZones = require(ReplicatedStorage.Shared.RoostZones)
 
 local PLOT_TAG = "RoostPlot"
 local SCAN_INTERVAL = 0.5 -- how often to look for new/removed dragon models
@@ -64,12 +68,18 @@ local function register(model: Model, plot: Model)
 		end
 	end
 	local look = pivot.LookVector
+	-- walkers keep to their zone (nesting ground, meadow); fliers roam the whole pen
+	local zone = model:GetAttribute("Zone")
+	local zoneCenter: Vector3?, zoneRadius: number = nil, 0
+	if movement ~= "Fly" and type(zone) == "string" then
+		zoneCenter, zoneRadius = RoostZones.Get(plot, zone, center.Y)
+	end
 	local roamer: Roamer = {
 		Model = model,
 		Parts = parts,
 		Offsets = offsets,
-		Center = center,
-		Radius = radius,
+		Center = zoneCenter or center,
+		Radius = if zoneCenter then zoneRadius else radius,
 		GroundY = pivot.Position.Y,
 		Position = pivot.Position,
 		Altitude = 0,

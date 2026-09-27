@@ -13,7 +13,8 @@
 -- World: Models tagged "RoostPlot" are handed out one per player. Each plot is a fenced pen with attributes
 -- "RoamCenter" (Vector3, the floor's top center) and "RoamRadius" (studs dragons may roam from it), a "Sign" part
 -- for the owner's name, and upgrade stands "UpgradeSlots" / "UpgradeIncome" (prompts added by the owner's client).
--- Dragons spawn at random spots in the pen; clients animate them (RoostAnimationController).
+-- Dragons spawn at a random open spot in their stage's zone (Config/Evolution Zone, Shared/RoostZones; the whole pen
+-- if the plot has no zones); clients animate them (RoostAnimationController).
 -- Players without a free plot still earn income, they just have no visuals.
 --
 -- Dragon art: ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId> (Model), else .../<SpeciesId> (Model),
@@ -31,6 +32,7 @@ local MonetizationService = require(script.Parent.MonetizationService)
 local QuestService = require(script.Parent.QuestService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
+local RoostZones = require(ReplicatedStorage.Shared.RoostZones)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
@@ -351,13 +353,19 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 		end
 	end
 
-	-- Stand on the pen floor at a random spot, facing a random way. Clients take over from here and animate it
-	-- (RoostAnimationController) using the movement attributes below; the server never moves it again.
+	-- Stand on the pen floor at a random open spot of the stage's zone, facing a random way. Clients take over from
+	-- here and animate it (RoostAnimationController) using the attributes below; the server never moves it again.
 	local center, radius = getPen(plot)
 	if center then
-		local angle, distance = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(0, radius * 0.7)
-		local spot = center + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		local size = model:GetExtentsSize()
+		local zoneCenter, zoneRadius = RoostZones.Get(plot, stage.Zone, center.Y)
+		local spot: Vector3
+		if zoneCenter then
+			spot = RoostZones.RandomSpot(zoneCenter, zoneRadius, math.max(size.X, size.Z) / 2, rng)
+		else
+			local angle, distance = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(0, radius * 0.7)
+			spot = center + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		end
 		local boxCFrame = model:GetBoundingBox()
 		local pivotOffset = boxCFrame:ToObjectSpace(model:GetPivot())
 		model:PivotTo(CFrame.new(spot) * CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0) * CFrame.new(0, size.Y / 2, 0) * pivotOffset)
@@ -365,6 +373,7 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	model:SetAttribute("Movement", stage.Movement)
 	model:SetAttribute("MoveSpeed", stage.MoveSpeed)
 	model:SetAttribute("FlyHeight", stage.FlyHeight)
+	model:SetAttribute("Zone", stage.Zone)
 
 	local rarity = DragonStats.GetRarity(species.Rarity)
 	local grade = DragonStats.GetGrade(dragon)
