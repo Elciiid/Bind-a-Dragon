@@ -60,6 +60,7 @@ local TEMPLATE: PlayerData = {
 	Dragons = {},
 	NextDragonId = 1,
 	RoostDragonIds = {},
+	RoostUnplacedDragonIds = {},
 	RoostSlotUpgrades = 0,
 	RoostIncomeLevel = 0,
 
@@ -99,6 +100,7 @@ local TEMPLATE: PlayerData = {
 -- Top-level keys that stay on the server and are never sent to the client.
 local PRIVATE_KEYS = {
 	PurchaseIds = true,
+	RoostUnplacedDragonIds = true,
 }
 
 -- How often (seconds) changed data is sent to clients.

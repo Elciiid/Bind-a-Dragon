@@ -1,7 +1,7 @@
 --!strict
 -- Dragon inventory: the "Dragons" menu tile opens a window (UI/Window) with a card per dragon: element-colored card,
--- rarity gem tag, stage, level, gold/sec, power, trait and grade, and buttons to level up (+1 / +10 / Max) or place
--- it in the roost. The header shows roost slots and Wyrm Runes / Dragonstones. The server checks everything.
+-- rarity gem tag, stage, level, gold/sec, power, trait and grade, and buttons to level up (+1 / +10 / Max) and to
+-- place it in the roost or take it out again. The header shows roost slots and Wyrm Runes / Dragonstones. The server checks everything.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -21,6 +21,7 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
+local returnFromRoost = ReplicatedStorage.Remotes.ReturnFromRoost :: RemoteEvent
 
 local REFRESH_INTERVAL = 0.5 -- seconds; while open, changed values are written into the existing cards
 local CARD_SIZE = Vector2.new(214, 172)
@@ -55,6 +56,7 @@ type Card = {
 	Max: Button.Button,
 	RoostLabel: TextLabel,
 	Place: Button.Button,
+	TakeOut: Button.Button,
 	Glow: UIStroke?,
 	GlowThickness: number,
 }
@@ -172,9 +174,20 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 	max.Instance.LayoutOrder = 3
 	max.Instance.Size = UDim2.new(0.26, -2, 1, 0)
 
-	-- Roost: a label when placed, a button otherwise (only one shows)
+	-- Roost: "In roost" + Take out when placed, Place in roost otherwise
 	local roostLabel = text(card, "✓ In roost", "Heavy", 16, theme.Colors.Positive, 136, 26)
+	roostLabel.Size = UDim2.new(0.5, -14, 0, 26)
 	roostLabel.TextXAlignment = Enum.TextXAlignment.Center
+	local takeOut = Button.new(card, {
+		Text = "Take out",
+		Kind = "Neutral",
+		TextSize = 14,
+		OnClick = function()
+			returnFromRoost:FireServer(dragonId)
+		end,
+	})
+	takeOut.Instance.Position = UDim2.new(0.5, 0, 0, 134)
+	takeOut.Instance.Size = UDim2.new(0.5, -6, 0, 30)
 	local place = Button.new(card, {
 		Text = "Place in roost",
 		Kind = "Confirm",
@@ -198,6 +211,7 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		Max = max,
 		RoostLabel = roostLabel,
 		Place = place,
+		TakeOut = takeOut,
 		Glow = glow,
 		GlowThickness = if glow then glow.Thickness else 0,
 	}
@@ -229,8 +243,9 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 	setButton(card.PlusTen, `+{math.max(tenLevels, 1)}\n{Format.Number(tenCost)}`, tenLevels > 0 and data.Gold >= oneCost)
 	setButton(card.Max, "Max", canAfford)
 
-	if card.RoostLabel.Visible ~= inRoost then
+	if card.RoostLabel.Visible ~= inRoost or card.Place.Instance.Visible == inRoost then
 		card.RoostLabel.Visible = inRoost
+		card.TakeOut.Instance.Visible = inRoost
 		card.Place.Instance.Visible = not inRoost
 	end
 	if card.Glow then

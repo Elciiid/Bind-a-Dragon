@@ -8,7 +8,9 @@
 -- Gold potions (BoostService) multiply in-game income, idle included. The 2x AFK Income pass doubles offline
 -- and idle income only.
 -- Weekly rebirth cap: at the cap, banked gold stops at one rebirth's cost, with a message.
--- Slots: empty roost slots are filled automatically with the player's best-earning unplaced dragons.
+-- Slots: empty roost slots are filled automatically with the player's best-earning unplaced dragons. A dragon the
+-- player took out (ReturnFromRoost, Dragons panel) is skipped by the auto-fill until they place it again
+-- (data.RoostUnplacedDragonIds, server-only).
 --
 -- World: Models tagged "RoostPlot" are handed out one per player. Each plot is a fenced pen with attributes
 -- "RoamCenter" (Vector3, the floor's top center) and "RoamRadius" (studs dragons may roam from it), a "Sign" part
@@ -50,16 +52,19 @@ local rng = Random.new()
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
+local returnFromRoost = ReplicatedStorage.Remotes.ReturnFromRoost :: RemoteEvent
 
 local plotOwners: { [Model]: Player } = {}
 local plotOf: { [Player]: Model } = {}
 local shown: { [Player]: { [string]: Shown } } = {} -- dragonId -> model on the player's plot
 local unpaid: { [Player]: number } = {} -- fractional gold carried between payouts
 local lastPlace: { [Player]: number } = {}
+local lastReturn: { [Player]: number } = {}
 local lastActive: { [Player]: number } = {} -- os.clock() of the player's last movement
 local lastPosition: { [Player]: Vector3 } = {}
 local capNotified: { [Player]: boolean } = {} -- "rebirth cap reached" shown this session
 local PLACE_INTERVAL = 0.25 -- seconds between PlaceInRoost requests per player (anti-spam)
+local RETURN_INTERVAL = 0.25 -- seconds between ReturnFromRoost requests per player (anti-spam)
 
 local RoostService = {}
 
@@ -84,6 +89,15 @@ local function fillSlots(data: PlayerData)
 			placed[id] = true
 		end
 	end
+	local explicitlyUnplaced: { [string]: boolean } = {}
+	for i = #data.RoostUnplacedDragonIds, 1, -1 do
+		local id = data.RoostUnplacedDragonIds[i]
+		if data.Dragons[id] == nil or placed[id] or explicitlyUnplaced[id] then
+			table.remove(data.RoostUnplacedDragonIds, i)
+		else
+			explicitlyUnplaced[id] = true
+		end
+	end
 
 	local slots = DragonStats.GetRoostSlots(data)
 	while #data.RoostDragonIds > slots do
@@ -95,7 +109,7 @@ local function fillSlots(data: PlayerData)
 
 	local candidates = {}
 	for id, dragon in data.Dragons do
-		if not placed[id] then
+		if not placed[id] and not explicitlyUnplaced[id] then
 			table.insert(candidates, { Id = id, Income = DragonStats.GetGoldPerSecond(dragon) })
 		end
 	end
@@ -126,6 +140,11 @@ local function onPlaceInRoost(player: Player, dragonId: unknown)
 	local dragon = data and data.Dragons[dragonId]
 	if data == nil or dragon == nil or table.find(data.RoostDragonIds, dragonId) then
 		return
+	end
+	for index = #data.RoostUnplacedDragonIds, 1, -1 do
+		if data.RoostUnplacedDragonIds[index] == dragonId then
+			table.remove(data.RoostUnplacedDragonIds, index)
+		end
 	end
 
 	local slots = DragonStats.GetRoostSlots(data)
@@ -424,6 +443,38 @@ local function refreshPlot(player: Player, data: PlayerData)
 	end
 end
 
+-- ReturnFromRoost(dragonId): put an owned, placed dragon back into inventory. A persistent exclusion keeps the
+-- selected dragon from immediately being auto-picked for the slot that opens up.
+local function onReturnFromRoost(player: Player, dragonId: unknown)
+	if typeof(dragonId) ~= "string" or #dragonId > 20 then
+		return
+	end
+	local now = os.clock()
+	if now - (lastReturn[player] or 0) < RETURN_INTERVAL then
+		return
+	end
+	lastReturn[player] = now
+
+	local data = DataService:GetData(player)
+	if data == nil or data.Dragons[dragonId] == nil then
+		return
+	end
+	local index = table.find(data.RoostDragonIds, dragonId)
+	if index == nil then
+		return
+	end
+	table.remove(data.RoostDragonIds, index)
+	if not table.find(data.RoostUnplacedDragonIds, dragonId) then
+		table.insert(data.RoostUnplacedDragonIds, dragonId)
+	end
+	fillSlots(data)
+	refreshPlot(player, data)
+
+	local dragon = data.Dragons[dragonId]
+	local species = dragon and Dragons[dragon.SpeciesId]
+	notify:FireClient(player, `{if species then species.Name else "Dragon"} returned to your inventory.`, "success")
+end
+
 local function clearPlot(plot: Model)
 	setSign(plot, nil)
 end
@@ -470,6 +521,7 @@ function RoostService:Start()
 	end
 
 	placeInRoost.OnServerEvent:Connect(onPlaceInRoost)
+	returnFromRoost.OnServerEvent:Connect(onReturnFromRoost)
 
 	DataService:OnDataLoaded(function(player, data)
 		payOffline(player, data)
@@ -482,6 +534,7 @@ function RoostService:Start()
 		releasePlot(player)
 		unpaid[player] = nil
 		lastPlace[player] = nil
+		lastReturn[player] = nil
 		lastActive[player] = nil
 		lastPosition[player] = nil
 		capNotified[player] = nil
