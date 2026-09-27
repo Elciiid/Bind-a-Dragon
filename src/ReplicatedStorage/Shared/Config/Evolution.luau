@@ -21,6 +21,9 @@ export type Stage = {
 	Movement: Movement, -- Hop = walks with little jumps, Walk = walks, Fly = flies around at FlyHeight
 	MoveSpeed: number, -- studs per second
 	FlyHeight: number, -- studs above the pen floor (Fly only)
+	-- Optional: each dragon of this stage gets its own cruise height in this range (spread evenly by dragon id, so a
+	-- sanctuary's fliers cruise in layers); FlyHeight is used when absent.
+	FlyHeightRange: NumberRange?,
 	-- Where in a sanctuary it appears (and walks, for Hop/Walk): the plot's Zones/<Zone>Zone disc ("Nest" = the
 	-- nesting ground, "Meadow" = the open meadow; see Shared/RoostZones). Fliers take off there and use the whole pen.
 	Zone: string,
@@ -33,7 +36,7 @@ local Stages: { Stage } = {
 	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, PowerMultiplier = 1, ModelScale = 1, Movement = "Hop", MoveSpeed = 4, FlyHeight = 0, Zone = "Nest", PerchSize = 0 },
 	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, PowerMultiplier = 2.5, ModelScale = 1.4, Movement = "Walk", MoveSpeed = 5, FlyHeight = 0, Zone = "Meadow", PerchSize = 0 },
 	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, PowerMultiplier = 6, ModelScale = 1.9, Movement = "Fly", MoveSpeed = 8, FlyHeight = 8, Zone = "Meadow", PerchSize = 1 },
-	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, ModelScale = 2.5, Movement = "Fly", MoveSpeed = 10, FlyHeight = 16, Zone = "Meadow", PerchSize = 2 },
+	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, ModelScale = 2.5, Movement = "Fly", MoveSpeed = 10, FlyHeight = 30, FlyHeightRange = NumberRange.new(24, 36), Zone = "Meadow", PerchSize = 2 }, -- above the pillars (up to ~27) and the back cliff
 }
 
 return {

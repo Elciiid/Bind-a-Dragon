@@ -272,6 +272,18 @@ local function setSign(plot: Model, owner: Player?)
 	label.TextColor3 = Color3.fromRGB(255, 220, 120)
 end
 
+-- Each dragon's own cruise height within its stage's FlyHeightRange, spread evenly by dragon id (golden-ratio
+-- steps), so a sanctuary's fliers cruise in layers. Stages without a range use FlyHeight.
+local function cruiseHeight(stage: any, dragonId: string): number
+	local range = stage.FlyHeightRange
+	if typeof(range) ~= "NumberRange" then
+		return stage.FlyHeight
+	end
+	local n = tonumber(dragonId) or #dragonId
+	local fraction = (n * 0.6180339887) % 1
+	return range.Min + (range.Max - range.Min) * fraction
+end
+
 local function findTemplate(speciesId: string, stageId: string): (Model?, boolean)
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local folder = assets and assets:FindFirstChild("Dragons")
@@ -391,7 +403,9 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	end
 	model:SetAttribute("Movement", stage.Movement)
 	model:SetAttribute("MoveSpeed", stage.MoveSpeed)
-	model:SetAttribute("FlyHeight", stage.FlyHeight)
+	model:SetAttribute("FlyHeight", cruiseHeight(stage, dragon.Id))
+	model:SetAttribute("SpeciesId", dragon.SpeciesId) -- clients look up the bone rig (Config/DragonRigs) by these
+	model:SetAttribute("Stage", stage.Id)
 	model:SetAttribute("Zone", stage.Zone)
 	model:SetAttribute("PerchSize", stage.PerchSize)
 

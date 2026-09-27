@@ -4,6 +4,7 @@
 --   GiveDragons:Invoke(player, { "Solflare", "Borealis" }, level, placeInRoost?)
 -- adds one dragon per species id at that level (capped at the player's level cap) and, with placeInRoost, puts the
 -- new dragons first in the roost (the roost redraws on the next payout). Returns the new dragon ids.
+--   SetRoostSlots:Invoke(player, slots) sets the roost slot upgrades so the roost has that many slots (max MaxSlots).
 -- A BindableFunction in ServerStorage can't be reached by clients; it is never created outside Studio.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,6 +15,7 @@ local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 
 local DevService = {}
 
@@ -55,6 +57,13 @@ local function giveDragons(player: Player, speciesIds: { string }, level: number
 	return ids
 end
 
+local function setRoostSlots(player: Player, slots: number): number
+	local data = DataService:GetData(player)
+	assert(data, "SetRoostSlots: player data not loaded yet")
+	data.RoostSlotUpgrades = math.clamp(math.floor(slots) - RoostConfig.BaseSlots, 0, RoostConfig.MaxSlots - RoostConfig.BaseSlots)
+	return DragonStats.GetRoostSlots(data)
+end
+
 function DevService:Start()
 	if not RunService:IsStudio() then
 		return
@@ -66,6 +75,10 @@ function DevService:Start()
 	give.Name = "GiveDragons"
 	give.OnInvoke = giveDragons
 	give.Parent = folder
+	local slots = Instance.new("BindableFunction")
+	slots.Name = "SetRoostSlots"
+	slots.OnInvoke = setRoostSlots
+	slots.Parent = folder
 end
 
 return DevService

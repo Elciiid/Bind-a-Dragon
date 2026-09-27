@@ -21,6 +21,17 @@ return {
 	-- Flying dragons now and then land on a perch in their sanctuary and rest (client-side only,
 	-- RoostAnimationController). Perches are parts named "Perch" in the plot's "Perches" folder; their "Size" attribute
 	-- (1 = a ledge, 2 = a pillar top that also fits Elders) must be at least the stage's PerchSize (Config/Evolution).
+	-- Fliers steer apart when they come too close (client-side roaming, RoostAnimationController). Two fliers are
+	-- "too close" when their footprints (half their width/length, wings included) plus Margin overlap and they are at
+	-- about the same height; each then turns away and drifts apart.
+	Separation = {
+		Margin = 2, -- studs of extra space between footprints
+		TurnWeight = 1.6, -- how strongly the heading turns away (1 = as much as toward its target)
+		Push = 0.6, -- share of its speed a flier drifts sideways while too close
+		Climb = 10, -- studs the higher of two crowded fliers may climb above its cruise height to pass over
+		ClimbRate = 4, -- studs per second it climbs (and settles back afterwards)
+	},
+
 	Perch = {
 		Chance = 0.15, -- chance, each time a flier reaches its flight target, that it heads for a free perch instead
 		Seconds = NumberRange.new(6, 15), -- how long it rests on the perch
