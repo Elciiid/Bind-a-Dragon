@@ -406,6 +406,7 @@ V.Region = { X0 = -640, X1 = 640, Z0 = -640, Z1 = 640, Y0 = -48, Y1 = 400 }
 -- Solid terrain ends up ~2 studs above its voxel fill height (measured with raycasts and by walking, 2026-09-27;
 -- water levels are exact), so solids are written 2 studs lower to put every surface at its designed height.
 V.SurfaceLift = 2
+V.SnowLine = 195 -- snowcaps above this height (+/- 20 with noise); terrain Sand is colored white for them
 
 -- Writes one 64 x 64-cell chunk (256 studs square) with its corner at (cx, cz).
 function V.WriteChunk(cx: number, cz: number)
@@ -446,12 +447,19 @@ function V.WriteChunk(cx: number, cz: number)
 				mat = Rock
 			elseif hint == "flat" then
 				mat = Grass
-			elseif slope > 1.35 and h > 3 then
-				mat = Rock
-			elseif h > 125 + noise((cx + ix * RES) / 60, (cz + iz * RES) / 60, 6.6) * 30 and slope > 0.6 then
-				mat = Rock
 			else
-				mat = Grass
+				-- mountains: green up to the tree line (rock only on real cliffs low down), rock higher up, snowcaps on the
+				-- highest peaks (Sand tinted white: the Snow material carries the Frozen area's stylized override)
+				local n = noise((cx + ix * RES) / 60, (cz + iz * RES) / 60, 6.6)
+				if h > V.SnowLine + n * 20 and slope < 1.9 then
+					mat = Enum.Material.Sand
+				elseif slope > (if h < 90 then 1.9 elseif h < 150 then 1.35 else 0.9) and h > 3 then
+					mat = Rock
+				elseif h > 150 + n * 20 and slope > 0.55 then
+					mat = Rock
+				else
+					mat = Grass
+				end
 			end
 			for iy = 1, ny do
 				local bottom = G.Y0 + (iy - 1) * RES

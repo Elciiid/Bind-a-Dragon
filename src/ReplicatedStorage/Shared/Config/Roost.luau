@@ -17,4 +17,14 @@ return {
 	-- A player in game with no input for this long counts as idle: their roost earns like offline
 	-- (OfflineIncomeMultiplier, sharing the OfflineCapHours daily cap). Keeps AFK farming slower than active play.
 	IdleAfterSeconds = 1200,
+
+	-- Flying dragons now and then land on a perch in their sanctuary and rest (client-side only,
+	-- RoostAnimationController). Perches are parts named "Perch" in the plot's "Perches" folder; their "Size" attribute
+	-- (1 = a ledge, 2 = a pillar top that also fits Elders) must be at least the stage's PerchSize (Config/Evolution).
+	Perch = {
+		Chance = 0.15, -- chance, each time a flier reaches its flight target, that it heads for a free perch instead
+		Seconds = NumberRange.new(6, 15), -- how long it rests on the perch
+		ApproachHeight = 6, -- studs above the perch while flying in
+		GlideDistance = 14, -- starts gliding down this far (horizontally) from the perch
+	},
 }

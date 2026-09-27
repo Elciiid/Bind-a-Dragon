@@ -24,13 +24,16 @@ export type Stage = {
 	-- Where in a sanctuary it appears (and walks, for Hop/Walk): the plot's Zones/<Zone>Zone disc ("Nest" = the
 	-- nesting ground, "Meadow" = the open meadow; see Shared/RoostZones). Fliers take off there and use the whole pen.
 	Zone: string,
+	-- Fliers only: the smallest perch it lands on (0 = never perches, 1 = ledges and pillars, 2 = big pillar tops only).
+	-- Perch settings in Config/Roost.Perch.
+	PerchSize: number,
 }
 
 local Stages: { Stage } = {
-	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, PowerMultiplier = 1, ModelScale = 1, Movement = "Hop", MoveSpeed = 4, FlyHeight = 0, Zone = "Nest" },
-	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, PowerMultiplier = 2.5, ModelScale = 1.4, Movement = "Walk", MoveSpeed = 5, FlyHeight = 0, Zone = "Meadow" },
-	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, PowerMultiplier = 6, ModelScale = 1.9, Movement = "Fly", MoveSpeed = 8, FlyHeight = 8, Zone = "Meadow" },
-	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, ModelScale = 2.5, Movement = "Fly", MoveSpeed = 10, FlyHeight = 16, Zone = "Meadow" },
+	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, PowerMultiplier = 1, ModelScale = 1, Movement = "Hop", MoveSpeed = 4, FlyHeight = 0, Zone = "Nest", PerchSize = 0 },
+	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, PowerMultiplier = 2.5, ModelScale = 1.4, Movement = "Walk", MoveSpeed = 5, FlyHeight = 0, Zone = "Meadow", PerchSize = 0 },
+	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, PowerMultiplier = 6, ModelScale = 1.9, Movement = "Fly", MoveSpeed = 8, FlyHeight = 8, Zone = "Meadow", PerchSize = 1 },
+	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, ModelScale = 2.5, Movement = "Fly", MoveSpeed = 10, FlyHeight = 16, Zone = "Meadow", PerchSize = 2 },
 }
 
 return {

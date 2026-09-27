@@ -32,11 +32,11 @@ _Update this section as work progresses._
 | In-world UI (wow pass, phase 3) | Done (`Config/WorldUI`): `PromptController` draws every ProximityPrompt in the UI theme (Style = Custom; key badge, icon, hold ring, tap/click to use). Portal warp in `PortalController` (whoosh, FOV kick, color flash). `RoostFXController`: owner banners with avatar (replace the server sign locally), "+gold" pops from your roost dragons, level-up/evolve bursts. `StationFXController`: rune/stone count boards, shrine glow and forge flare while you own runes/stones, merchant price board, Spire door record board (`UI/WorldBoard`). Note: Studio screenshots don't show `AlwaysOnTop` billboards (prompts); they do show in play |
 | Game feel (wow pass, phase 4) | Done: `FeedbackController` + `Config/Feedback`: one sound palette (level-up, buy, arm, climb start, floor clear, Index entry, reward, rebirth) with a small camera shake and screen flash, driven by data changes and SpireUpdate; shake/flash off with Low effects. A palette sound replaces the toast chime when both fire together (`Style.MarkFeedbackSound`); UI sounds follow the SoundVolume setting |
 | Settings (wow pass, phase 5) | Done: Settings window (`SettingsController`, menu tile) with Music / Sound sliders (5% steps) and Low effects / Quick binds toggles; applied at once as LocalPlayer attributes (`MusicVolume`, `SoundVolume`, `LowEffects`, `QuickBinds`), saved to `data.Settings` via the `SaveSettings` remote (`SettingsService`: type-checked, clamped, rate-limited) after a short debounce. Defaults in `Config/Data.DefaultSettings`; data version 2 (migration fills missing settings) |
-| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. AI prop kits in `ServerStorage.PropKits` (`AI_<Area>_<Prop>`, pivot at the bottom, `Triangles` attribute) and stylized terrain materials done. Stage 3: Starter Meadow detailed (e1) and rebuilt as a hub (e1b: raised plaza + ring road, 6 big pens, portals in the north half with themed gateways, flagstone roads, market row, groves, ground variety; `AmbientFXController` lowers world particles with Low effects). Art direction "The Starlit Highlands" (plan section 2b): `SunColor` per look (`AtmosphereController`), `NightGlow` tag (parts glow Neon at night, `WorldLifeController`). Now: the Starter Meadow rebuilt as "the Valley" from the concept image (checkpoints A–E; B terrain, C hub layout with spawn zones, D nature/ruins/landmarks/lighting done; E perches next). Volcano Peak after the Valley |
+| World remaster (plan: `E:\Roblox\Bind A Dragon - World & UI Remaster Plan.md`) | In progress (overnight run, log: `E:\Roblox\Bind A Dragon - Remaster Progress Log.md`). Stage 2 blockout done: areas moved ≥ 1,200 studs apart (see World), terrain shapes for all 5 areas, horizon landmarks (`HorizonController`, `Config/Horizon`), portal streaming in `AreaService`. AI prop kits in `ServerStorage.PropKits` (`AI_<Area>_<Prop>`, pivot at the bottom, `Triangles` attribute) and stylized terrain materials done. Stage 3: Starter Meadow detailed (e1) and rebuilt as a hub (e1b: raised plaza + ring road, 6 big pens, portals in the north half with themed gateways, flagstone roads, market row, groves, ground variety; `AmbientFXController` lowers world particles with Low effects). Art direction "The Starlit Highlands" (plan section 2b): `SunColor` per look (`AtmosphereController`), `NightGlow` tag (parts glow Neon at night, `WorldLifeController`). Now: the Starter Meadow rebuilt as "the Valley" from the concept image (checkpoints A–E done: terrain, hub layout with spawn zones, nature/ruins/landmarks/lighting, perches for flying dragons). Proposed: painted skybox for weak phones Volcano Peak after the Valley |
 | Binding (RNG, rarity, per-player rolls) | Done: `BindingService` (altars tagged `StarAltar` + `AreaId` attribute), placeholder roster in `Config/Dragons`. Area rosters: `Config/Areas` `Element` + `Species` per area (Meadow = Common/Rare, element areas = all 5 of their element; rolls only over rarities in the roster, `Luck.GetAreaRarityWeights`); favored area ×`FavoredAreaLuck` (`Luck.IsFavored`), shown on the sky HUD and luck panel; Auto-bind uses the nearest unlocked altar's area |
 | Luck system | Done: `Shared/Luck` (same math on server + client), `Config/Luck`; Stardust offerings (F at altar), moon phases, constellation luck, group luck, area luck, capped. Panel in `LuckController` |
 | Dragons: leveling + evolution | Done: `DragonService` (LevelUpDragon remote, bulk-capable), costs and the level cap (50 + 5 per rebirth) in `Config/Leveling`, evolution branches in `dragon.Evolutions` give income bonus + accent color. Level up in the Dragons panel (`InventoryController`) or via the E prompt on own roost dragons (`DragonPromptController`); one evolution toast per level-up |
-| Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. Roost is a Dragon Sanctuary where dragons roam (`RoostAnimationController`); new dragons appear in their stage's zone (nesting ground / meadow, `Shared/RoostZones`, `Config/Evolution` `Zone`) and walkers stay in it; "Place in roost" in the Dragons panel |
+| Roost + AFK income | Done: `RoostService` (payouts, offline capped, auto-fill slots, plot visuals), `Shared/DragonStats`, `Config/Roost`, `Config/Evolution`. Roost is a Dragon Sanctuary where dragons roam (`RoostAnimationController`); new dragons appear in their stage's zone (nesting ground / meadow, `Shared/RoostZones`, `Config/Evolution` `Zone`) and walkers stay in it; fliers land on the sanctuary's perches now and then (`Config/Roost.Perch`); "Place in roost" in the Dragons panel |
 | Gold sinks (Stardust shop, roost upgrades) | Done: `EconomyService` (Star Merchant prompt on `StarMerchant` tag, price resets at dawn; BuyRoostUpgrade Slots/Income), `Config/Economy`, `MerchantController`; roost upgrades are bought at stands in front of the roost (`RoostUpgradeController`) |
 | Rebirth + area unlocks | Done: `RebirthService` (RequestRebirth, cost in `Config/Rebirth`, ★ badge), `AreaService` (portals tagged `AreaPortal` → `AreaSpawn`, server-checked), `RebirthController` button + confirm panel. Volcano Peak built; Frozen Cliffs, Storm Canyon and Eclipse Isles are placeholder shells (see World) |
 | Traits + grades | Done: `Config/Traits` (11 traits, 7 grades), rolls in `DragonService` (RollTrait/RollGrade, must be at the station), `RollStationController` panel at the Rune Shrine ("Inscribe a Rune") / Dragonstone Forge ("Temper"); wording in `Config/Text`, no dice/gacha words in player-facing text. Dragons have Power (`DragonStats.GetPower`). Wyrm Runes/Dragonstones come from the Spire, quests, streak and Index |
@@ -74,8 +74,8 @@ Mythic 0.5% at x1 → 4.2% at the x10 cap → 7.1% at the x20 hard cap with a po
 
 **World (built in Studio, lives in the place file, not Git):** `Workspace.StarterMeadow` is being rebuilt as **"the
 Valley"** (remaster master prompt, reference image `assets/concepts/valley_day.webp`, plan
-`E:\Roblox\Bind A Dragon - Valley Layout Proposal.md`). Checkpoints B (terrain), C (hub layout) and D (nature, ruins,
-dressing, landmarks, lighting) are done; E (perches) follows. North = -Z, the altar at the origin. Built by the Studio
+`E:\Roblox\Bind A Dragon - Valley Layout Proposal.md`). Checkpoints A-E are done (terrain, hub layout, nature/ruins/
+dressing/landmarks/lighting, perches); a painted skybox for weak phones is proposed (plan file, section 9). North = -Z, the altar at the origin. Built by the Studio
 modules in `ServerStorage.RemasterTools` (reference copies in `tools/valley_terrain/` and `tools/valley_build/`):
 `ValleyTerrain` (terrain), `ValleyBuild` (hub), `ValleyDetail` (nature, ruins, dressing; deterministic seeds) and
 `ValleyLandmarks` (horizon models); each `Build*` function rebuilds only its own folder. Stand-ins for future custom art
@@ -92,8 +92,10 @@ are named `Placeholder_<Name>`. Grouped as:
   lintel with a gold star) with the owner `Sign` hanging under the lintel, the upgrade stands `UpgradeSlots` /
   `UpgradeIncome` (+ `...Glow` caps) on the forecourt outside the gate, 2 lanterns, steps down to the road; the
   nesting ground (front left: `Placeholder_Nest` x3, hay, `Placeholder_Shelter`) and the meadow (`Placeholder_Trough`,
-  boulders). Four terrain rock pillars (18-28 studs, 43 out) and a two-step cliff stand behind the back half (future
-  perches); fliers stay within 34 studs. `Zones`: invisible discs `NestZone` (radius 13) and `MeadowZone` (radius 20):
+  boulders). Four terrain rock pillars (18-28 studs, 43 out) and a two-step cliff stand behind the back half; fliers
+  stay within 34 studs. `Perches`: invisible parts named `Perch` on the four pillar tops (attribute `Size` 2, fit
+  Elders) and two on the cliff ledge (`Size` 1): fliers now and then land on a free one and rest
+  (`RoostAnimationController`, `Config/Roost.Perch`, stage `PerchSize` in `Config/Evolution`). `Zones`: invisible discs `NestZone` (radius 13) and `MeadowZone` (radius 20):
   new dragons appear in their stage's zone (`Config/Evolution` `Zone`, `Shared/RoostZones`, `RoostService`), and
   Hatchlings/Drakes roam only inside it (`RoostAnimationController`); fliers use the whole pen.
   Dragons roam client-side (`RoostAnimationController`): Hatchlings hop, Drakes walk, Dragons/Elders fly (per-stage
@@ -127,7 +129,8 @@ are named `Placeholder_<Name>`. Grouped as:
 - Terrain: written by `ServerStorage.RemasterTools.ValleyTerrain` (reference copy `tools/valley_terrain/`): valley
   floor, sanctuary terraces (rock pillars, back cliffs), the portal terrace + Spire hill, jagged mountains all around
   (green foothills, rocky peaks, saddles behind the gates so the landmarks show), the winding river, the south gorge.
-  Flagstone roads and squares = terrain `Cobblestone` (roads from the plaza to each sanctuary, the main road, the
+  Mountains: grass up to the tree line, rock higher up, snowcaps above `SnowLine` (terrain `Sand` colored white:
+  `Snow` carries the Frozen area's stylized override). Flagstone roads and squares = terrain `Cobblestone` (roads from the plaza to each sanctuary, the main road, the
   terrace walkway, the spawn plaza, the Spire court). Solid terrain surfaces end up ~2 studs above the voxel fill
   height, so the script writes solids 2 lower (`SurfaceLift`); keep that in mind for any other terrain script.
 - `SpawnLocation` at the valley mouth (0, 1.3, 160) facing north (new players); `AreaSpawn` (arrivals from other
@@ -144,9 +147,9 @@ are named `Placeholder_<Name>`. Grouped as:
 - `Dressing`: crystals at each portal gate in its area's color (glass by day, `NightGlow` at night), the obelisk's
   signpost words (SurfaceGuis), market crates and barrels, lily pads, road lanterns, the east cascade (beam + foam
   tagged `AmbientFX`).
-- `ServerStorage.ValleyHold`: the old layout's dressing, moved out during the rebuild (scenery, roads, lanterns, pen
-  fences/gates/decor, portal gateways, the plaza ring, station platforms, Spire stairs). Realistic trees/rocks get
-  reused; cartoon AI props get deleted at the end. Backup of the meadow before the Valley:
+- `ServerStorage.ValleyHold`: what's left of the old layout: realistic Creator Store trees/rocks/ferns/flowers,
+  Enchanted AI props and old part-built pieces (curbs, plaza ring, platforms, stairs). The 509 cartoon AI props were
+  deleted on 2026-09-27 (copies remain in the backup below). Backup of the meadow before the Valley:
   `ServerStorage.Backups.StarterMeadow_2026-09-27_BeforeValley` (tags stripped; terrain, lighting, materials, horizon
   models).
 - Dev: `Controllers/Dev/DragonRigDemo.client.luau` animates any Model tagged `DragonRigDemo` (walk -> take off -> fly
@@ -168,7 +171,7 @@ Salt, Sandstone; Eclipse: LeafyGrass, Concrete, Pavement) so each area can have 
 storm floor, Sandstone = canyon walls, LeafyGrass = violet moss, Concrete = void stone, Pavement = temple stone. The
 Meadow uses only Roblox's own Grass, Ground, Rock, Cobblestone and Water (no overrides; the Mud/Brick/Sand cartoon
 overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (112, 110, 112),
-Cobblestone (168, 160, 146). `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
+Cobblestone (168, 160, 146), Sand (236, 241, 248) = the snowcaps. `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
 change it). Textures are hand-made
 tileable PNGs (`tools/terrain_textures/gen.py`, uploaded as images); faceted materials have per-facet normal maps.
 Overrides also restyle **parts** with those materials, so part-built art should avoid them (Slate is deliberately not

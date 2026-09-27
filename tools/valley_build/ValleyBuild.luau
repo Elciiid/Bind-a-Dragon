@@ -419,9 +419,11 @@ function B.BuildSanctuary(plot: Model)
 	if old then
 		old:Destroy()
 	end
-	local zonesOld = plot:FindFirstChild("Zones")
-	if zonesOld then
-		zonesOld:Destroy()
+	for _, name in { "Zones", "Perches" } do
+		local oldFolder = plot:FindFirstChild(name)
+		if oldFolder then
+			oldFolder:Destroy()
+		end
 	end
 	local sf = Instance.new("Folder")
 	sf.Name = "Sanctuary"
@@ -493,6 +495,26 @@ function B.BuildSanctuary(plot: Model)
 	zones.Parent = plot
 	for name, z in { NestZone = B.NestZone, MeadowZone = B.MeadowZone } do
 		disc(zones, name, at(z.Forward, z.Side, 0.1), z.Radius, 0.2, M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
+	end
+
+	-- perches for flying dragons (RoostAnimationController): the flat tops of the four rock pillars (Size 2, fit Elders)
+	-- and two spots on the back cliff's ledge (Size 1); each faces the sanctuary center
+	local perches = Instance.new("Folder")
+	perches.Name = "Perches"
+	perches.Parent = plot
+	local function perch(pos: Vector3, size: number)
+		local p = P(perches, "Perch", Vector3.new(2, 0.4, 2), CFrame.lookAt(pos, Vector3.new(center.X, pos.Y, center.Z)), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
+		p:SetAttribute("Size", size)
+	end
+	for _, pl in s.PillarList do
+		perch(Vector3.new(pl.X, pl.Top, pl.Z), 2)
+	end
+	for _, deg in { -36, 36 } do
+		local a = rad(deg)
+		local bx, bz = -fwd.X, -fwd.Z
+		local dx, dz = bx * cos(a) - bz * sin(a), bx * sin(a) + bz * cos(a)
+		local x, z = s.X + dx * 55, s.Z + dz * 55
+		perch(Vector3.new(x, ground(x, z), z), 1)
 	end
 
 	-- nesting ground: three straw nests, hay, a timber shelter against the wall

@@ -16,7 +16,7 @@ local M = Enum.Material
 local noise, sqrt, abs, max, min, rad, sin, cos = math.noise, math.sqrt, math.abs, math.max, math.min, math.rad, math.sin, math.cos
 
 D.TreeTint = Color3.new(0.88, 1, 0.82) -- brighter, greener conifers (they read black untinted)
-D.MaxTrees = 210
+D.MaxTrees = 260
 
 ---------------------------------------------------------------------------------------------------------------
 -- Where nature may go
@@ -140,7 +140,7 @@ function D.BuildNature()
 				if R > 290 and saddleDistance(th) < 9 then
 					p *= 0.25
 				end
-				if h < 115 and slope < 0.95 and rng:NextNumber() < p and farFrom(x, z, 12) and open(x, z, 8) then
+				if h < 130 and slope < 1.2 and rng:NextNumber() < p and farFrom(x, z, 12) and open(x, z, 8) then
 					local isFir = rng:NextNumber() < 0.55
 					local list = if isFir then firs else pines
 					local template = list[rng:NextInteger(1, #list)]

@@ -374,6 +374,7 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	model:SetAttribute("MoveSpeed", stage.MoveSpeed)
 	model:SetAttribute("FlyHeight", stage.FlyHeight)
 	model:SetAttribute("Zone", stage.Zone)
+	model:SetAttribute("PerchSize", stage.PerchSize)
 
 	local rarity = DragonStats.GetRarity(species.Rarity)
 	local grade = DragonStats.GetGrade(dragon)
