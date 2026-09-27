@@ -240,6 +240,15 @@ To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on W
   Studio (Workspace, models in ReplicatedStorage, etc.) is not deleted by Rojo syncs. New folders under those
   sync automatically; editing `default.project.json` itself needs a `rojo serve` restart + reconnect.
   Workspace/builds are owned in Studio; code lives in the repo.
+- **Art pipeline (dragon models):** Meshy GLBs go in `assets/Dragons/` (not in Git: `*.glb` / `*.fbx` are ignored),
+  then `D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <in.glb> <out.fbx> --stage Elder` makes a
+  Roblox-ready FBX in `assets/Dragons/fbx/`: helper meshes removed, tiny UniRig tip bones merged into their parents,
+  ~10k triangles (max 20k per mesh), max 4 bone weights per vertex, base-color texture only at 1024 px (embedded),
+  head facing Roblox forward (auto from the tail chain; `--flip` / `--no-flip` override), scaled to the stage length
+  (Hatchling 6, Drake 8.5, Dragon 11, Elder 15 studs), feet at the origin; FBX mesh + armature, Apply Scalings = FBX
+  All, no leaf bones. It prints a report (bones per chain, weights, triangles, texture). Import the FBX with Studio's
+  3D Importer, then the model goes to `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` with a PrimaryPart and
+  a bottom-center pivot facing -Z, no scripts.
 - Third-party code is copied into `src/ServerScriptService/Packages` with its license, no package manager. ProfileStore is there, from MadStudioRoblox/ProfileStore @ 45c9847.
 - Services/Controllers are ModuleScripts that may expose `Init()` (setup) and `Start()` (run).
   `ServerScriptService/Main.server.luau` and `StarterPlayerScripts/Main.client.luau` load them all automatically.

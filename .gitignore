@@ -17,6 +17,6 @@ Thumbs.db
 .DS_Store
 
 # 3D source files (shared via Drive, too large for Git)
-assets/*.glb
-assets/*.fbx
-assets/*.fbm/
+*.glb
+*.fbx
+*.fbm/
