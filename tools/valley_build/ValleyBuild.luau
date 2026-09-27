@@ -330,6 +330,36 @@ function B.BuildPlaza()
 	end
 end
 
+-- Crystal ring: 8 star-blue crystal clusters (kit AI_Ench_MagicCrystals) on gold sockets around the altar, on the
+-- lower floor step between the roads and stairs (bearings 22.5 + 45n, so the south view from the spawn stays open).
+-- Glass by day, glowing at night (NightGlow).
+B.CrystalRing = { Radius = 40, Y = 2.8, Scale = 0.7, Color = Color3.fromRGB(120, 180, 255) }
+
+function B.BuildCrystalRing()
+	local f = folder(SM.Plaza, "CrystalRing", true)
+	local ring = B.CrystalRing
+	local rng = Random.new(1618)
+	for i = 0, 7 do
+		local r = rad(22.5 + i * 45)
+		local pos = Vector3.new(ring.Radius * sin(r), ring.Y, -ring.Radius * cos(r))
+		local m = KIT.AI_Ench_MagicCrystals:Clone()
+		m.Name = "AltarCrystal"
+		m:ScaleTo(ring.Scale)
+		m:PivotTo(CFrame.new(pos + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0)) -- on the socket
+		m.Parent = f
+		local crystals = m:FindFirstChild("Crystals") :: BasePart
+		crystals.Material = M.Glass
+		crystals.Color = ring.Color
+		crystals.Transparency = 0.05
+		glow(crystals, ring.Color)
+		local rock = m:FindFirstChild("Rock") :: BasePart
+		rock.Material = M.Slate
+		rock.Color = C.StoneDark
+		local width = rock.Size.X + 0.6
+		P(m, "Socket", Vector3.new(0.7, width, width), CFrame.new(pos + Vector3.new(0, 0.35, 0)) * CFrame.Angles(0, 0, math.pi / 2), M.Metal, C.GoldGlow, { Shape = Enum.PartType.Cylinder })
+	end
+end
+
 ---------------------------------------------------------------------------------------------------------------
 -- Portal terrace: retaining wall, grand stairs, stairs up to the Spire, a themed ground disc under each gate
 

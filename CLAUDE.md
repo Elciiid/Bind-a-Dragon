@@ -85,8 +85,9 @@ build them as models, not part-by-part, within the part budget): a lodge-style `
 (timber posts, slate roof, a crest in the owner's element color); a royal-blue canopy with gold seams and stars over
 the Star Merchant; a stone chimney with glowing embers and a little smoke on the Dragonstone Forge. Grouped as:
 - `Plaza`: the Star Altar model `StarAltar` (tag `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core` = invisible
-  part on its top platform; Bind prompt range 20) on its round stepped stone `Floor` (radius 42), and the
-  `AltarShimmer`. `Dressing`: an outer step (radius 48), 8 lanterns, 4 `Placeholder_StarBanner` poles; flagstone base
+  part on its top platform; Bind prompt range 20) on its round stepped stone `Floor` (radius 42), the
+  `AltarShimmer` and the `CrystalRing` (8 star-blue crystal clusters on gold sockets on the lower floor step, between
+  the roads, `NightGlow`; `ValleyBuild.BuildCrystalRing`). `Dressing`: an outer step (radius 48), 8 lanterns, 4 `Placeholder_StarBanner` poles; flagstone base
   (terrain, radius 57). Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
 - `Pens`: **6 plots** = the Dragon Sanctuaries on terraces, 3 per side on a circle 220 studs out at bearings ±58°,
   ±90°, ±122° from north: W1 (-187, -117) top y 10, W2 (-220, 0) y 8, W3 (-187, 117) y 6, E1–E3 mirrored; gates face
