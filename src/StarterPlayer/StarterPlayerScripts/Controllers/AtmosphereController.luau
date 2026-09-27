@@ -87,6 +87,7 @@ local function apply(look: Look, tintColor: Color3, tint: number)
 	Lighting.OutdoorAmbient = look.OutdoorAmbient:Lerp(tintColor, tint)
 	Lighting.Brightness = look.Brightness
 	Lighting.ExposureCompensation = look.Exposure
+	Lighting.ColorShift_Top = look.SunColor
 	atmosphere.Density = look.Density
 	atmosphere.Offset = look.Offset
 	atmosphere.Color = look.HazeColor

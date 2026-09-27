@@ -2,8 +2,9 @@
 -- Small life in the world (client only):
 --  * Lanterns (Models tagged "Lantern" with a "Lamp" part and a PointLight): unlit glass by day, glowing at dusk with a
 --    gentle flicker. Only the nearest few cast light (phone budget); the rest just glow.
---  * Drifting particles around the camera, per area and time of day (petals and fireflies in the meadow, embers at the
+--  * Drifting particles around the camera, per area and time of day (light motes in the meadow, embers at the
 --    volcano, snow at the cliffs...). Fewer with Low effects.
+--  * Night glow: parts tagged "NightGlow" turn into glowing Neon (their "GlowColor" attribute) at night.
 -- Settings: Config/Atmosphere (Lanterns, DriftBox, each area's DayDrift / NightDrift).
 
 local CollectionService = game:GetService("CollectionService")
@@ -80,6 +81,34 @@ local function chooseLit(eye: Vector3)
 	lit = chosen
 end
 
+-- Night glow: parts tagged "NightGlow" (mushroom caps, rune carvings, magic flowers) keep their normal look by day and
+-- turn into glowing Neon in their "GlowColor" attribute (Color3) at night.
+type Glow = { Part: BasePart, DayMaterial: Enum.Material, DayColor: Color3, GlowColor: Color3 }
+local glows: { [BasePart]: Glow } = {}
+local glowOn: boolean? = nil
+
+local function applyGlow(glow: Glow, on: boolean)
+	glow.Part.Material = if on then Enum.Material.Neon else glow.DayMaterial
+	glow.Part.Color = if on then glow.GlowColor else glow.DayColor
+end
+
+local function addGlow(instance: Instance)
+	if not instance:IsA("BasePart") or glows[instance] then
+		return
+	end
+	local color = instance:GetAttribute("GlowColor")
+	local glow = {
+		Part = instance,
+		DayMaterial = instance.Material,
+		DayColor = instance.Color,
+		GlowColor = if typeof(color) == "Color3" then color else instance.Color,
+	}
+	glows[instance] = glow
+	if glowOn ~= nil then
+		applyGlow(glow, glowOn)
+	end
+end
+
 local function makeEmitter(name: string): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = name
@@ -138,6 +167,14 @@ function WorldLifeController:Start()
 		task.spawn(addLantern, instance)
 	end
 
+	CollectionService:GetInstanceAddedSignal("NightGlow"):Connect(addGlow)
+	CollectionService:GetInstanceRemovedSignal("NightGlow"):Connect(function(instance)
+		glows[instance :: BasePart] = nil
+	end)
+	for _, instance in CollectionService:GetTagged("NightGlow") do
+		addGlow(instance)
+	end
+
 	driftPart = Instance.new("Part")
 	driftPart.Name = "DriftVolume"
 	driftPart.Anchored = true
@@ -174,6 +211,13 @@ function WorldLifeController:Start()
 			end
 			if lantern.Lamp.Material ~= material then
 				lantern.Lamp.Material = material
+			end
+		end
+		local glowNow = night >= AtmosphereConfig.NightGlowAt
+		if glowNow ~= glowOn then
+			glowOn = glowNow
+			for _, glow in glows do
+				applyGlow(glow, glowNow)
 			end
 		end
 		for lantern in lit do

@@ -25,6 +25,7 @@ export type Look = {
 	Tint: Color3,
 	SunRays: number,
 	DepthBlur: number, -- DepthOfField far intensity (0 = off); gentle blur of the far distance only
+	SunColor: Color3, -- Lighting.ColorShift_Top: tints sunlit surfaces (black = no tint; warm gold = golden hour)
 }
 
 -- Floating particles near the camera (petals, fireflies, embers, snow...). Texture: an image id.
@@ -48,7 +49,6 @@ export type AreaLook = {
 }
 
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
-local PETALS = "rbxthumb://type=Asset&id=13190142512&w=150&h=150" -- free Creator Store decal "pretty petals"
 
 local function look(t: { [string]: any }): Look
 	-- defaults shared by all presets
@@ -67,6 +67,7 @@ local function look(t: { [string]: any }): Look
 		Tint = Color3.new(1, 1, 1),
 		SunRays = 0.05,
 		DepthBlur = 0.06,
+		SunColor = Color3.new(0, 0, 0),
 	}
 	for key, value in t do
 		base[key] = value
@@ -76,35 +77,52 @@ end
 
 local Areas: { [string]: AreaLook } = {
 	StarterMeadow = {
+		-- The Starlit Highlands, Starter Meadow by day: sunny late morning, crisp clear air, bright ambient, soft shadows,
+		-- gentle bloom.
 		Day = look({
-			Ambient = Color3.fromRGB(95, 90, 100),
-			OutdoorAmbient = Color3.fromRGB(145, 135, 125),
-			HazeColor = Color3.fromRGB(215, 210, 200),
-			Decay = Color3.fromRGB(106, 118, 140),
-			Density = 0.2, -- thinner than the default so the horizon landmarks (700+ studs) still show by day
-			Haze = 0.7,
-			Glare = 0.2,
-			Tint = Color3.fromRGB(255, 250, 240),
-			Saturation = 0.14,
+			Ambient = Color3.fromRGB(112, 112, 122),
+			OutdoorAmbient = Color3.fromRGB(150, 150, 158),
+			Brightness = 3.2,
+			Exposure = 0.12,
+			HazeColor = Color3.fromRGB(205, 225, 245),
+			Decay = Color3.fromRGB(150, 180, 215),
+			Density = 0.12, -- crisp air; the horizon landmarks (700+ studs) stay clear
+			Offset = 0,
+			Haze = 0.4,
+			Glare = 0.15,
+			BloomIntensity = 0.35,
+			BloomSize = 24,
+			BloomThreshold = 1.6,
+			Contrast = 0.1,
+			Saturation = 0.12,
+			Tint = Color3.fromRGB(252, 252, 250),
+			SunRays = 0.07,
+			DepthBlur = 0.03,
+			SunColor = Color3.fromRGB(50, 38, 18),
 		}),
+		-- Night is the show: bright starry sky, clearly visible; gold runes and glowing flowers/mushrooms carry the colour.
 		Night = look({
-			Ambient = Color3.fromRGB(60, 70, 120),
-			OutdoorAmbient = Color3.fromRGB(75, 90, 155),
-			Brightness = 1.4,
-			Exposure = 0.15,
-			Density = 0.28,
-			HazeColor = Color3.fromRGB(90, 100, 160),
-			Decay = Color3.fromRGB(40, 45, 95),
-			Haze = 1.6,
-			BloomIntensity = 1,
-			BloomSize = 36,
+			Ambient = Color3.fromRGB(72, 82, 132),
+			OutdoorAmbient = Color3.fromRGB(98, 114, 178),
+			Brightness = 1.8,
+			Exposure = 0.4,
+			Density = 0.14,
+			Offset = 0,
+			HazeColor = Color3.fromRGB(80, 100, 165),
+			Decay = Color3.fromRGB(40, 52, 115),
+			Haze = 0.5,
+			BloomIntensity = 1.2,
+			BloomSize = 30,
 			BloomThreshold = 1.1,
-			Contrast = 0.12,
-			Tint = Color3.fromRGB(225, 232, 255),
+			Contrast = 0.08,
+			Saturation = 0.16,
+			Tint = Color3.fromRGB(214, 224, 255),
 			SunRays = 0,
+			SunColor = Color3.fromRGB(28, 38, 80),
 		}),
-		DayDrift = { Texture = PETALS, Color = Color3.new(1, 1, 1), Rate = 3, Size = 1.1, Speed = 1.5, Lifetime = 9, Rise = -0.4, Glow = 0, Spin = 40 },
-		NightDrift = { Texture = SPARKLE, Color = Color3.fromRGB(215, 255, 140), Rate = 5, Size = 0.35, Speed = 0.6, Lifetime = 6, Rise = 0.05, Glow = 1, Spin = 0 },
+		-- a few golden light motes by day (magic is an accent), fireflies at night
+		DayDrift = { Texture = SPARKLE, Color = Color3.fromRGB(255, 232, 160), Rate = 4, Size = 0.26, Speed = 0.5, Lifetime = 8, Rise = 0.1, Glow = 1, Spin = 0 },
+		NightDrift = { Texture = SPARKLE, Color = Color3.fromRGB(226, 255, 140), Rate = 12, Size = 0.36, Speed = 0.7, Lifetime = 6, Rise = 0.08, Glow = 1, Spin = 0 },
 	},
 	VolcanoPeak = {
 		Day = look({
@@ -240,6 +258,10 @@ return {
 	-- World particle effects placed in the areas (ParticleEmitters tagged "AmbientFX": waterfall foam and mist, ...).
 	-- With Low effects they run at this share of their rate (AmbientFXController).
 	AmbientFXLowRate = 0.3,
+
+	-- Parts tagged "NightGlow" (mushroom caps, rune carvings, magic flowers) light up in their "GlowColor" attribute
+	-- once the night blend passes this (0 = day, 1 = full night). WorldLifeController.
+	NightGlowAt = 0.4,
 
 	-- Lanterns (Models tagged "Lantern" with a Neon "Lamp" part): on at dusk, gentle flicker, off by day.
 	Lanterns = {
