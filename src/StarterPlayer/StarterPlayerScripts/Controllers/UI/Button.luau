@@ -37,11 +37,11 @@ function Button.new(parent: Instance, props: Props): Button
 	instance.Text = ""
 	instance.AutoButtonColor = false
 	instance.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Corner(instance, theme.SmallCorner)
-	Style.Stroke(instance, theme.Colors.TextStroke, theme.Strokes.Button)
+	Style.Corner(instance, theme.SmallCorner + 2)
+	Style.Stroke(instance, theme.Colors.TrimDark, theme.Strokes.Button)
 	local kind: Kind = props.Kind or "Primary"
 	local base = colorsFor(kind)
-	local gradient = Style.Gradient(instance, Style.Shade(base, 0.18), Style.Shade(base, -0.18))
+	local gradient = Style.Gradient(instance, Style.Shade(base, 0.16), Style.Shade(base, -0.2))
 
 	local row = Instance.new("Frame")
 	row.Name = "Row"
@@ -94,14 +94,15 @@ function Button.SetKind(self: Button, kind: Kind)
 	self.Kind = kind
 	if self.Enabled then
 		local base = colorsFor(kind)
-		self.Gradient.Color = ColorSequence.new(Style.Shade(base, 0.18), Style.Shade(base, -0.18))
+		self.Gradient.Color = ColorSequence.new(Style.Shade(base, 0.16), Style.Shade(base, -0.2))
 	end
 end
 
 function Button.SetEnabled(self: Button, enabled: boolean)
 	self.Enabled = enabled
 	local base = if enabled then colorsFor(self.Kind) else Style.Theme.Colors.Disabled
-	self.Gradient.Color = ColorSequence.new(Style.Shade(base, 0.18), Style.Shade(base, -0.18))
+	self.Gradient.Color = ColorSequence.new(Style.Shade(base, 0.16), Style.Shade(base, -0.2))
+	self.Label.TextTransparency = if enabled then 0 else 0.15
 end
 
 return Button

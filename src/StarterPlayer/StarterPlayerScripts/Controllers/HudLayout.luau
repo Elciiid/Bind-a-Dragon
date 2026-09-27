@@ -29,8 +29,10 @@ local player = Players.LocalPlayer
 local gui: ScreenGui? = nil
 local menu: Frame
 local currency: Frame
+local rightMenu: Frame? = nil
 local phone = false
 local entries: { [string]: MenuEntry } = {}
+local sideEntries: { [string]: IconButton.IconButton } = {}
 local pills: { CurrencyPill.CurrencyPill } = {}
 local popups: { Popup } = {}
 local listeners: { (boolean) -> () } = {}
@@ -136,6 +138,26 @@ local function layoutCurrency()
 	end
 end
 
+local function layoutSideButtons()
+	local frame = rightMenu
+	if frame == nil then
+		return
+	end
+	local sizes = UITheme.Sizes
+	local cell = if phone then sizes.PhoneSideButton else sizes.SideButton
+	local count = 0
+	for _ in sideEntries do
+		count += 1
+	end
+	frame.Size = UDim2.fromOffset(cell.X, count * cell.Y + math.max(0, count - 1) * sizes.Gap)
+	frame.AnchorPoint = Vector2.new(1, 0.5)
+	frame.Position = UDim2.new(1, -(if phone then sizes.PhoneMargin else sizes.Margin), 0.5, 0)
+	for _, button in sideEntries do
+		button.Instance.Size = UDim2.fromOffset(cell.X, cell.Y)
+		button.Label.TextSize = if phone then sizes.PhoneMenuLabelSize else sizes.MenuLabelSize
+	end
+end
+
 local function layoutPopups()
 	for _, popup in popups do
 		popup.Panel.Size = if phone then UDim2.fromScale(0.96, 0.96) else popup.PcSize
@@ -148,6 +170,7 @@ local function relayout()
 	end
 	layoutCurrency()
 	layoutMenu()
+	layoutSideButtons()
 	layoutPopups()
 	for _, listener in listeners do
 		task.spawn(listener, phone)
@@ -226,6 +249,39 @@ function HudLayout.AddMenuButton(id: string): TextButton
 	entries[id] = { Button = button, Text = look.Label, PhoneText = look.Label }
 	relayout()
 	return button.Instance
+end
+
+-- A single pinned shortcut on the right edge (e.g. the player's placed dragons).
+function HudLayout.AddSideButton(id: string): TextButton
+	ensure()
+	local look = UITheme.SideButtons[id] or {
+		Label = id,
+		Color = UITheme.Colors.Info,
+		Icon = UITheme.Icons.Menu_Dragons,
+	}
+	if rightMenu == nil then
+		local frame = Instance.new("Frame")
+		frame.Name = "RightMenu"
+		frame.BackgroundTransparency = 1
+		frame.Parent = gui :: ScreenGui
+		local layout = Instance.new("UIListLayout")
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Padding = UDim.new(0, UITheme.Sizes.Gap)
+		layout.Parent = frame
+		rightMenu = frame
+	end
+	local button = IconButton.new(rightMenu :: Frame, { Icon = look.Icon, Label = look.Label, Color = look.Color })
+	button.Instance.Name = id
+	sideEntries[id] = button
+	layoutSideButtons()
+	return button.Instance
+end
+
+function HudLayout.SetSideBadge(id: string, count: number)
+	local button = sideEntries[id]
+	if button then
+		button:SetBadge(count)
+	end
 end
 
 -- Changes a menu tile's label (e.g. "Rebirth ★3"); phones can use a shorter one ("★3").

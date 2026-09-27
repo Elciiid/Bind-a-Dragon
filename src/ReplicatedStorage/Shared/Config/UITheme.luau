@@ -2,8 +2,8 @@
 -- UI theme: every color, font, size, motion timing, sound and icon the UI uses. The component kit
 -- (StarterPlayerScripts/Controllers/UI) and HudLayout read only from here, so the whole game restyles from this file.
 --
--- Look: dragon-themed (night-sky navy/indigo panels, gold trim, star sparkles, constellation title bars) with
--- standard Roblox controls (chunky rounded buttons, green confirm, red cancel/close, red badges).
+-- Look: dragon-themed (night-sky navy/indigo panels, antique-gold trim, star sparkles and constellation title
+-- bars). Controls use a shared twilight surface with soft jewel-tone accents from the portals in the world.
 -- Icons/sounds: an empty string ("") means "none": icons fall back to a styled tile, sounds stay silent.
 -- Art slots are empty until the artist delivers panel frame art; panels use a procedural look until then.
 
@@ -25,6 +25,7 @@ local Icons: { [string]: string } = {
 	Menu_Shop = "rbxassetid://109078212372624",
 	Menu_Boosts = "rbxassetid://79993778967468",
 	Menu_Rebirth = "rbxassetid://112960311566243",
+	Menu_PlacedPets = "rbxassetid://115314657694318",
 
 	Potion_GildedDraught = "rbxassetid://84406193624731",
 	Potion_HoardElixir = "rbxassetid://109789505573815",
@@ -65,25 +66,27 @@ return {
 		Sparkle = Color3.fromRGB(255, 244, 200),
 		Constellation = Color3.fromRGB(170, 190, 255),
 
-		Text = Color3.new(1, 1, 1),
-		TextMuted = Color3.fromRGB(196, 202, 238),
+		Text = Color3.fromRGB(255, 247, 226),
+		TextMuted = Color3.fromRGB(196, 202, 226),
 		TextStroke = Color3.fromRGB(20, 14, 40),
 		Title = Color3.fromRGB(255, 214, 102),
 
-		-- Buttons (standard Roblox meanings).
-		Confirm = Color3.fromRGB(70, 205, 95),
-		Cancel = Color3.fromRGB(232, 72, 72),
-		Primary = Color3.fromRGB(255, 190, 50),
-		Neutral = Color3.fromRGB(96, 110, 196),
-		Disabled = Color3.fromRGB(120, 120, 140),
-		Close = Color3.fromRGB(232, 72, 72),
-		Badge = Color3.fromRGB(235, 50, 60),
+		-- Jewel tones keep actions clear while sharing the game's twilight palette.
+		Confirm = Color3.fromRGB(50, 144, 119), -- moonlit jade
+		Cancel = Color3.fromRGB(157, 69, 98), -- muted rose
+		Primary = Color3.fromRGB(171, 121, 43), -- warm stargold
+		Neutral = Color3.fromRGB(71, 86, 139), -- dusk blue
+		Disabled = Color3.fromRGB(91, 91, 116),
+		Close = Color3.fromRGB(157, 69, 98),
+		Badge = Color3.fromRGB(172, 70, 99),
+		MenuTop = Color3.fromRGB(75, 70, 119),
+		MenuBottom = Color3.fromRGB(31, 29, 70),
 
 		Gold = Color3.fromRGB(255, 210, 70),
 		Stardust = Color3.fromRGB(170, 220, 255),
-		Positive = Color3.fromRGB(120, 235, 140),
-		Negative = Color3.fromRGB(255, 110, 110),
-		Info = Color3.fromRGB(170, 200, 255),
+		Positive = Color3.fromRGB(128, 217, 177),
+		Negative = Color3.fromRGB(235, 145, 163),
+		Info = Color3.fromRGB(160, 198, 239),
 	},
 
 	Rarity = Rarity,
@@ -92,13 +95,22 @@ return {
 
 	-- Menu buttons (id -> look). Order = reading order in the grid.
 	Menu = {
-		Shop = { Label = "Shop", Color = Color3.fromRGB(255, 186, 60), Order = 1, Icon = Icons.Menu_Shop },
-		Quests = { Label = "Quests", Color = Color3.fromRGB(80, 200, 110), Order = 2, Icon = Icons.Menu_Quests },
-		Index = { Label = "Index", Color = Color3.fromRGB(235, 150, 60), Order = 3, Icon = Icons.Menu_Index },
-		Boosts = { Label = "Boosts", Color = Color3.fromRGB(170, 100, 235), Order = 4, Icon = Icons.Menu_Boosts },
-		Dragons = { Label = "Dragons", Color = Color3.fromRGB(70, 150, 235), Order = 5, Icon = Icons.Menu_Dragons },
-		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(235, 90, 150), Order = 6, Icon = Icons.Menu_Rebirth },
+		Shop = { Label = "Shop", Color = Color3.fromRGB(230, 186, 101), Order = 1, Icon = Icons.Menu_Shop },
+		Quests = { Label = "Quests", Color = Color3.fromRGB(112, 211, 173), Order = 2, Icon = Icons.Menu_Quests },
+		Index = { Label = "Index", Color = Color3.fromRGB(128, 190, 232), Order = 3, Icon = Icons.Menu_Index },
+		Boosts = { Label = "Boosts", Color = Color3.fromRGB(188, 145, 235), Order = 4, Icon = Icons.Menu_Boosts },
+		Dragons = { Label = "Dragons", Color = Color3.fromRGB(112, 193, 224), Order = 5, Icon = Icons.Menu_Dragons },
+		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(220, 133, 169), Order = 6, Icon = Icons.Menu_Rebirth },
 	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string } },
+
+	-- The roost shortcut is pinned to the right side of the HUD, outside the main menu grid.
+	SideButtons = {
+		PlacedPets = {
+			Label = "Placed",
+			Color = Color3.fromRGB(164, 142, 238),
+			Icon = Icons.Menu_PlacedPets,
+		},
+	} :: { [string]: { Label: string, Color: Color3, Icon: string } },
 
 	-- Shop item icons (Config/Products keys). "" = styled placeholder tile.
 	ShopIcons = {
@@ -128,7 +140,7 @@ return {
 	Strokes = {
 		Trim = 3, -- gold outer trim on panels
 		InnerLine = 2, -- dark line inside the trim
-		Button = 2.5, -- dark outline on buttons
+		Button = 2.25, -- soft antique-gold outline on buttons
 		TextStroke = 0.35, -- TextStrokeTransparency on light text
 	},
 
@@ -139,6 +151,8 @@ return {
 		MenuButton = Vector2.new(74, 74), -- PC: icon tiles in a 2-column grid, left middle
 		PhoneMenuButton = Vector2.new(58, 48), -- phone: same grid, smaller (3 rows fit above the thumbstick)
 		MenuColumns = 2,
+		SideButton = Vector2.new(74, 74), -- pinned roost shortcut on the right edge
+		PhoneSideButton = Vector2.new(60, 54),
 		MenuLabelSize = 13,
 		PhoneMenuLabelSize = 11,
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
@@ -157,9 +171,9 @@ return {
 		PopIn = 0.18, -- window open (scale 0.85 -> 1, Back easing)
 		PopOut = 0.12,
 		StartScale = 0.85,
-		Hover = 1.05, -- button scale on hover
-		Press = 0.93, -- button scale while pressed
-		PressTime = 0.08,
+		Hover = 1.04, -- button scale on hover
+		Press = 0.96, -- button scale while pressed
+		PressTime = 0.1,
 		ToastIn = 0.25,
 		ToastSeconds = 4,
 		SparkleTwinkle = 1.6, -- seconds per sparkle fade in/out
@@ -188,8 +202,8 @@ return {
 	Layers = {
 		Hud = 0,
 		Cards = 5, -- luck panel, Spire card, boost timers
-		Popups = 10, -- windows
-		Notifications = 20,
+		Notifications = 8, -- toasts stay above the HUD but behind open windows
+		Popups = 10, -- windows take priority over transient messages
 	},
 
 	-- A screen whose short side is at most this many pixels uses the phone layout.

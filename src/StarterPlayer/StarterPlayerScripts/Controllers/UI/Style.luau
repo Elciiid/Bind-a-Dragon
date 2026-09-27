@@ -139,10 +139,22 @@ end
 function Style.AttachPress(button: GuiButton, sound: string?)
 	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
 	scale.Parent = button
+	local outline = button:FindFirstChildOfClass("UIStroke") :: UIStroke?
+	local outlineColor: Color3? = if outline then outline.Color else nil
+	local outlineThickness: number? = if outline then outline.Thickness else nil
 	local hovering, pressing = false, false
 	local function update()
 		local target = if pressing then UITheme.Motion.Press elseif hovering then UITheme.Motion.Hover else 1
 		TweenService:Create(scale, TweenInfo.new(UITheme.Motion.PressTime), { Scale = target }):Play()
+		if outline and outlineColor and outlineThickness then
+			local color = if hovering and not pressing then UITheme.Colors.Trim else outlineColor
+			local thickness = if hovering and not pressing then outlineThickness + 0.75 else outlineThickness
+			TweenService:Create(
+				outline,
+				TweenInfo.new(UITheme.Motion.PressTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+				{ Color = color, Thickness = thickness }
+			):Play()
+		end
 	end
 	button.MouseEnter:Connect(function()
 		hovering = true

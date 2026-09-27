@@ -34,9 +34,22 @@ function IconButton.new(parent: Instance, props: Props): IconButton
 	instance.Text = ""
 	instance.AutoButtonColor = false
 	instance.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Gradient(instance, Style.Shade(props.Color, 0.25), Style.Shade(props.Color, -0.2))
-	Style.Corner(instance, theme.SmallCorner + 2)
-	Style.Stroke(instance, theme.Colors.TextStroke, theme.Strokes.Button)
+	-- Keep every tile on the twilight surface; the element-colored rune on the edge identifies its action.
+	Style.Gradient(instance, theme.Colors.MenuTop, theme.Colors.MenuBottom)
+	Style.Corner(instance, theme.SmallCorner + 3)
+	Style.Stroke(instance, theme.Colors.TrimDark, theme.Strokes.Button)
+
+	local rune = Instance.new("Frame")
+	rune.Name = "RuneAccent"
+	rune.AnchorPoint = Vector2.new(0.5, 0.5)
+	rune.Position = UDim2.new(0, 6, 0.54, 0)
+	rune.Size = UDim2.fromOffset(3, 20)
+	rune.BackgroundColor3 = props.Color
+	rune.BackgroundTransparency = 0.12
+	rune.BorderSizePixel = 0
+	rune.ZIndex = 3
+	Style.Round(rune)
+	rune.Parent = instance
 
 	local icon = Icon.new(instance, props.Icon, props.Color, props.Label)
 	icon.AnchorPoint = Vector2.new(0.5, 0)
@@ -62,7 +75,7 @@ function IconButton.new(parent: Instance, props: Props): IconButton
 	badge.Visible = false
 	badge.ZIndex = 3
 	Style.Round(badge)
-	Style.Stroke(badge, Color3.new(1, 1, 1), 1.5)
+	Style.Stroke(badge, theme.Colors.Trim, 1.5)
 	Style.Pad(badge, 3)
 
 	local pulse = Style.Stroke(instance, theme.Colors.Sparkle, 0)

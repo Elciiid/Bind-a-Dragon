@@ -98,7 +98,7 @@ function Window.new(props: Props): Window
 	title.TextStrokeTransparency = 0
 	title.ZIndex = 3
 
-	-- Red X close
+	-- Rose-gold close control
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
 	close.AnchorPoint = Vector2.new(1, 0.5)
@@ -111,7 +111,7 @@ function Window.new(props: Props): Window
 	close.TextStrokeTransparency = 0
 	close.Parent = titleBar
 	local closeBack = Style.Backdrop(close, Style.Shade(theme.Colors.Close, 0.15), Style.Shade(theme.Colors.Close, -0.2), theme.SmallCorner)
-	Style.Stroke(closeBack, theme.Colors.TextStroke, theme.Strokes.Button)
+	Style.Stroke(closeBack, theme.Colors.TrimDark, theme.Strokes.Button)
 	Style.AttachPress(close, "Close")
 
 	-- Content area

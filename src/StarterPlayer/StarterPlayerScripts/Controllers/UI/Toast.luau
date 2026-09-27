@@ -36,7 +36,7 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 	local holder = Instance.new("Frame") -- keeps the list slot while the card slides
 	holder.Name = "Toast"
 	holder.BackgroundTransparency = 1
-	holder.Size = UDim2.new(1, 0, 0, 38)
+	holder.Size = UDim2.new(1, 0, 0, 44)
 	holder.LayoutOrder = -math.floor(os.clock() * 1000) -- newest on top
 	holder.Parent = parent
 
@@ -65,14 +65,14 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 		image.Size = UDim2.fromOffset(28, 28)
 		x = 46
 	end
-	local label = Style.Label(card, text, "Bold", theme.TextSizes.Body, accent)
+	local label = Style.Label(card, text, "Bold", 14, theme.Colors.Text)
 	label.Position = UDim2.fromOffset(x, 0)
 	label.Size = UDim2.new(1, -(x + 8), 1, 0)
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextScaled = true
-	local limit = Instance.new("UITextSizeConstraint")
-	limit.MaxTextSize = theme.TextSizes.Body
-	limit.Parent = label
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextWrapped = true
+	label.TextScaled = false
+	label.TextStrokeTransparency = 0.85
 
 	if kind == "success" or kind == "reward" then
 		Style.Play("Confirm")
