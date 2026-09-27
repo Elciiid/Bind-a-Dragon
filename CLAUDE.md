@@ -244,7 +244,7 @@ To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on W
   then `D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <in.glb> <out.fbx> --stage Elder` makes a
   Roblox-ready FBX in `assets/Dragons/fbx/`: helper meshes removed, tiny UniRig tip bones merged into their parents,
   ~10k triangles (max 20k per mesh), max 4 bone weights per vertex, base-color texture only at 1024 px (embedded),
-  head facing Roblox forward (auto from the tail chain; `--flip` / `--no-flip` override), scaled to the stage length
+  head facing Roblox forward (glTF front turned 180 degrees; `--no-flip` overrides), scaled to the stage length
   (Hatchling 6, Drake 8.5, Dragon 11, Elder 15 studs), feet at the origin; FBX mesh + armature, Apply Scalings = FBX
   All, no leaf bones. It prints a report (bones per chain, weights, triangles, texture). Import the FBX with Studio's
   3D Importer, then the model goes to `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` with a PrimaryPart and

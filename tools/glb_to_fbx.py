@@ -2,7 +2,7 @@
 
 Run with Blender in background mode:
     D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <input.glb> <output.fbx> [--stage Elder]
-        [--tris 10000] [--max-tris 20000] [--texture 1024] [--flip] [--no-flip]
+        [--tris 10000] [--max-tris 20000] [--texture 1024] [--no-flip]
 
 What it does:
   1. imports the GLB, deletes helper meshes (meshes not skinned to the armature, e.g. Meshy's "Icosphere");
@@ -10,8 +10,8 @@ What it does:
   3. decimates each skinned mesh to ~--tris triangles (never above --max-tris; UVs and weights are kept);
   4. limits every vertex to its 4 strongest bone weights (Roblox's max) and normalizes them;
   5. keeps only the base-color texture, downscaled to --texture px, embedded in the FBX;
-  6. turns the model so its head faces Blender +Y (= Roblox's forward, -Z / LookVector, after the FBX axis change):
-     the tail is found as the leaf bone with the most ancestors; --flip / --no-flip override;
+  6. turns the model 180 degrees so its head faces Blender +Y (= Roblox's forward, -Z / LookVector, after the FBX axis
+     change); glTF models face +Z, i.e. Blender -Y after import. --no-flip keeps the imported facing;
   7. scales it so the body length (along the facing axis) is the stage length in studs, feet on the ground (Z = 0),
      centered on the origin;
   8. exports FBX: mesh + armature, Apply Scalings = FBX All, no leaf bones, no animation, textures embedded.
@@ -68,14 +68,6 @@ def select_only(obj):
     bpy.context.view_layer.objects.active = obj
 
 
-def depth(bone):
-    d = 0
-    while bone.parent:
-        bone = bone.parent
-        d += 1
-    return d
-
-
 def main():
     opts = parse_args()
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -102,21 +94,12 @@ def main():
     tris_before = sum(triangles(o) for o in skinned)
     bones_before = len(arm.data.bones)
 
-    # facing: the tail tip = the leaf bone with the most ancestors (tails are the longest chains)
-    leaves = [b for b in arm.data.bones if not b.children]
-    tail_leaf = max(leaves, key=depth)
-    root = arm.data.bones[0]
-    while root.parent:
-        root = root.parent
-    tail_dir = (tail_leaf.head_local - root.head_local)
-    long_axis = 0 if abs(tail_dir.x) > abs(tail_dir.y) else 1
-    # rotate about Z so the tail points to Blender -Y (head to +Y)
-    tail_2d = mathutils.Vector((tail_dir.x, tail_dir.y))
-    angle = mathutils.Vector((0, -1)).angle_signed(tail_2d) if tail_2d.length > 1e-6 else 0.0
-    if opts["flip"] is not None:  # manual override of the auto facing: --flip = 180 degrees, --no-flip = as imported
-        angle = 3.14159265 if opts["flip"] else 0.0
-    report["tail tip bone"] = tail_leaf.name
-    report["turned (degrees)"] = round(-angle * 57.2958, 1) if opts["flip"] is None else ("180 (--flip)" if opts["flip"] else "0 (--no-flip)")
+    # facing: glTF models face +Z, which Blender's glTF importer turns into -Y. Roblox's forward (-Z) comes from
+    # Blender +Y through the FBX axis change, so turn 180 degrees. --no-flip keeps the imported facing, --flip forces
+    # the turn (for models that don't follow the glTF convention).
+    angle = 3.14159265 if opts["flip"] is not False else 0.0
+    long_axis = 1  # body length runs along Y (front to back)
+    report["turned (degrees)"] = 180 if angle else 0
 
     # body length before scaling, for the tip-bone threshold
     def mesh_bounds():
