@@ -1,5 +1,5 @@
 --!strict
--- Chunky rounded text button. Kinds (UITheme.Colors): Confirm (green), Cancel (red), Primary (gold), Neutral.
+-- Chunky rounded text button. Kinds (UITheme.Colors): Confirm (jade), Cancel (rose), Primary (stargold), Neutral.
 -- Optional icon on the left. Press/hover scale and click sound. SetEnabled(false) greys it out and ignores clicks.
 
 local Style = require(script.Parent.Style)
@@ -30,6 +30,11 @@ local function colorsFor(kind: Kind): Color3
 	return (Style.Theme.Colors :: any)[kind] or Style.Theme.Colors.Primary
 end
 
+local function gradientFor(base: Color3): ColorSequence
+	local shades = Style.Theme.Buttons
+	return ColorSequence.new(Style.Shade(base, shades.ShadeTop), Style.Shade(base, shades.ShadeBottom))
+end
+
 function Button.new(parent: Instance, props: Props): Button
 	local theme = Style.Theme
 	local instance = Instance.new("TextButton")
@@ -37,11 +42,11 @@ function Button.new(parent: Instance, props: Props): Button
 	instance.Text = ""
 	instance.AutoButtonColor = false
 	instance.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Corner(instance, theme.SmallCorner)
-	Style.Stroke(instance, theme.Colors.TextStroke, theme.Strokes.Button)
+	Style.Corner(instance, theme.SmallCorner + theme.Buttons.CornerExtra)
+	Style.Stroke(instance, theme.Colors.ButtonStroke, theme.Strokes.Button)
 	local kind: Kind = props.Kind or "Primary"
-	local base = colorsFor(kind)
-	local gradient = Style.Gradient(instance, Style.Shade(base, 0.18), Style.Shade(base, -0.18))
+	local gradient = Style.Gradient(instance, Color3.new(1, 1, 1), Color3.new(1, 1, 1))
+	gradient.Color = gradientFor(colorsFor(kind))
 
 	local row = Instance.new("Frame")
 	row.Name = "Row"
@@ -93,15 +98,14 @@ end
 function Button.SetKind(self: Button, kind: Kind)
 	self.Kind = kind
 	if self.Enabled then
-		local base = colorsFor(kind)
-		self.Gradient.Color = ColorSequence.new(Style.Shade(base, 0.18), Style.Shade(base, -0.18))
+		self.Gradient.Color = gradientFor(colorsFor(kind))
 	end
 end
 
 function Button.SetEnabled(self: Button, enabled: boolean)
 	self.Enabled = enabled
-	local base = if enabled then colorsFor(self.Kind) else Style.Theme.Colors.Disabled
-	self.Gradient.Color = ColorSequence.new(Style.Shade(base, 0.18), Style.Shade(base, -0.18))
+	self.Gradient.Color = gradientFor(if enabled then colorsFor(self.Kind) else Style.Theme.Colors.Disabled)
+	self.Label.TextTransparency = if enabled then 0 else Style.Theme.Buttons.DisabledTextTransparency
 end
 
 return Button

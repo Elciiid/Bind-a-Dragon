@@ -2,8 +2,9 @@
 -- UI theme: every color, font, size, motion timing, sound and icon the UI uses. The component kit
 -- (StarterPlayerScripts/Controllers/UI) and HudLayout read only from here, so the whole game restyles from this file.
 --
--- Look: dragon-themed (night-sky navy/indigo panels, gold trim, star sparkles, constellation title bars) with
--- standard Roblox controls (chunky rounded buttons, green confirm, red cancel/close, red badges).
+-- Look: dragon-themed (night-sky navy/indigo panels, antique-gold trim, star sparkles, constellation title bars).
+-- Controls use soft jewel tones from the portals in the world (jade confirm, rose cancel/close, stargold primary,
+-- dusk-blue neutral); menu tiles share one twilight surface with a thin colored stripe (Kyle's restyle, Hakai branch).
 -- Icons/sounds: an empty string ("") means "none": icons fall back to a styled tile, sounds stay silent.
 -- Art slots are empty until the artist delivers panel frame art; panels use a procedural look until then.
 
@@ -65,40 +66,43 @@ return {
 		Sparkle = Color3.fromRGB(255, 244, 200),
 		Constellation = Color3.fromRGB(170, 190, 255),
 
-		Text = Color3.new(1, 1, 1),
-		TextMuted = Color3.fromRGB(196, 202, 238),
+		Text = Color3.fromRGB(255, 247, 226),
+		TextMuted = Color3.fromRGB(196, 202, 226),
 		TextStroke = Color3.fromRGB(20, 14, 40),
 		Title = Color3.fromRGB(255, 214, 102),
 
-		-- Buttons (standard Roblox meanings).
-		Confirm = Color3.fromRGB(70, 205, 95),
-		Cancel = Color3.fromRGB(232, 72, 72),
-		Primary = Color3.fromRGB(255, 190, 50),
-		Neutral = Color3.fromRGB(96, 110, 196),
-		Disabled = Color3.fromRGB(120, 120, 140),
-		Close = Color3.fromRGB(232, 72, 72),
-		Badge = Color3.fromRGB(235, 50, 60),
+		-- Buttons: jewel tones that keep the usual meanings (green-ish confirm, red-ish cancel) in the twilight palette.
+		Confirm = Color3.fromRGB(50, 144, 119), -- moonlit jade
+		Cancel = Color3.fromRGB(157, 69, 98), -- muted rose
+		Primary = Color3.fromRGB(171, 121, 43), -- warm stargold
+		Neutral = Color3.fromRGB(71, 86, 139), -- dusk blue
+		Disabled = Color3.fromRGB(91, 91, 116),
+		Close = Color3.fromRGB(157, 69, 98),
+		Badge = Color3.fromRGB(172, 70, 99),
+		ButtonStroke = Color3.fromRGB(176, 118, 36), -- outline on buttons and tiles (antique gold)
+		MenuTop = Color3.fromRGB(75, 70, 119), -- menu tiles: one twilight surface for every tile
+		MenuBottom = Color3.fromRGB(31, 29, 70),
 
 		Gold = Color3.fromRGB(255, 210, 70),
 		Stardust = Color3.fromRGB(170, 220, 255),
-		Positive = Color3.fromRGB(120, 235, 140),
-		Negative = Color3.fromRGB(255, 110, 110),
-		Info = Color3.fromRGB(170, 200, 255),
+		Positive = Color3.fromRGB(128, 217, 177),
+		Negative = Color3.fromRGB(235, 145, 163),
+		Info = Color3.fromRGB(160, 198, 239),
 	},
 
 	Rarity = Rarity,
 	Element = Element,
 	Icons = Icons,
 
-	-- Menu buttons (id -> look). Order = reading order in the grid.
+	-- Menu buttons (id -> look). Order = reading order in the grid. Color = the tile's stripe and fallback icon tint.
 	Menu = {
-		Shop = { Label = "Shop", Color = Color3.fromRGB(255, 186, 60), Order = 1, Icon = Icons.Menu_Shop },
-		Quests = { Label = "Quests", Color = Color3.fromRGB(80, 200, 110), Order = 2, Icon = Icons.Menu_Quests },
-		Index = { Label = "Index", Color = Color3.fromRGB(235, 150, 60), Order = 3, Icon = Icons.Menu_Index },
-		Boosts = { Label = "Boosts", Color = Color3.fromRGB(170, 100, 235), Order = 4, Icon = Icons.Menu_Boosts },
-		Dragons = { Label = "Dragons", Color = Color3.fromRGB(70, 150, 235), Order = 5, Icon = Icons.Menu_Dragons },
-		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(235, 90, 150), Order = 6, Icon = Icons.Menu_Rebirth },
-		Settings = { Label = "Settings", Color = Color3.fromRGB(120, 130, 170), Order = 7, Icon = "" }, -- no icon yet: styled tile
+		Shop = { Label = "Shop", Color = Color3.fromRGB(230, 186, 101), Order = 1, Icon = Icons.Menu_Shop },
+		Quests = { Label = "Quests", Color = Color3.fromRGB(112, 211, 173), Order = 2, Icon = Icons.Menu_Quests },
+		Index = { Label = "Index", Color = Color3.fromRGB(128, 190, 232), Order = 3, Icon = Icons.Menu_Index },
+		Boosts = { Label = "Boosts", Color = Color3.fromRGB(188, 145, 235), Order = 4, Icon = Icons.Menu_Boosts },
+		Dragons = { Label = "Dragons", Color = Color3.fromRGB(112, 193, 224), Order = 5, Icon = Icons.Menu_Dragons },
+		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(220, 133, 169), Order = 6, Icon = Icons.Menu_Rebirth },
+		Settings = { Label = "Settings", Color = Color3.fromRGB(160, 170, 205), Order = 7, Icon = "" }, -- no icon yet: styled tile
 	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string } },
 
 	-- Shop item icons (Config/Products keys). "" = styled placeholder tile.
@@ -122,6 +126,7 @@ return {
 		Body = 16,
 		Small = 13,
 		Button = 18,
+		Toast = 14,
 	},
 
 	Corner = 12, -- panels
@@ -129,7 +134,8 @@ return {
 	Strokes = {
 		Trim = 3, -- gold outer trim on panels
 		InnerLine = 2, -- dark line inside the trim
-		Button = 2.5, -- dark outline on buttons
+		Button = 2.25, -- antique-gold outline on buttons and tiles (Colors.ButtonStroke)
+		HoverGrow = 0.75, -- hover: the outline turns Trim gold and grows this much
 		TextStroke = 0.35, -- TextStrokeTransparency on light text
 	},
 
@@ -156,15 +162,26 @@ return {
 		TitleBar = 48, -- window title bar height (PC)
 		PhoneTitleBar = 38,
 		Close = 36, -- red X button
+		Toast = 44, -- toast card height
+		TileStripe = Vector2.new(3, 20), -- menu tiles: the colored stripe on the left edge
+		TileStripeInset = 6, -- its distance from the tile's left edge
+	},
+
+	-- Text buttons (UI/Button): vertical gradient from the kind color, lighter at the top.
+	Buttons = {
+		ShadeTop = 0.16,
+		ShadeBottom = -0.2,
+		CornerExtra = 2, -- added to SmallCorner (tiles add 3)
+		DisabledTextTransparency = 0.15,
 	},
 
 	Motion = {
 		PopIn = 0.18, -- window open (scale 0.85 -> 1, Back easing)
 		PopOut = 0.12,
 		StartScale = 0.85,
-		Hover = 1.05, -- button scale on hover
-		Press = 0.93, -- button scale while pressed
-		PressTime = 0.08,
+		Hover = 1.04, -- button scale on hover
+		Press = 0.96, -- button scale while pressed
+		PressTime = 0.1,
 		ToastIn = 0.25,
 		ToastSeconds = 4,
 		SparkleTwinkle = 1.6, -- seconds per sparkle fade in/out

@@ -147,14 +147,26 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Motion
 
--- Hover grows, press shrinks (UIScale, so layouts aren't disturbed). Plays the click sound on activation.
+-- Hover grows, press shrinks (UIScale, so layouts aren't disturbed); on hover the outline turns gold and thickens.
+-- Plays the click sound on activation.
 function Style.AttachPress(button: GuiButton, sound: string?)
 	local scale = button:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
 	scale.Parent = button
+	local outline = button:FindFirstChildOfClass("UIStroke")
+	local outlineColor = if outline then outline.Color else nil
+	local outlineThickness = if outline then outline.Thickness else nil
 	local hovering, pressing = false, false
 	local function update()
 		local target = if pressing then UITheme.Motion.Press elseif hovering then UITheme.Motion.Hover else 1
-		TweenService:Create(scale, TweenInfo.new(UITheme.Motion.PressTime), { Scale = target }):Play()
+		local info = TweenInfo.new(UITheme.Motion.PressTime)
+		TweenService:Create(scale, info, { Scale = target }):Play()
+		if outline and outlineColor and outlineThickness then
+			local lit = hovering and not pressing
+			TweenService:Create(outline, info, {
+				Color = if lit then UITheme.Colors.Trim else outlineColor,
+				Thickness = if lit then outlineThickness + UITheme.Strokes.HoverGrow else outlineThickness,
+			}):Play()
+		end
 	end
 	button.MouseEnter:Connect(function()
 		hovering = true

@@ -1,6 +1,7 @@
 --!strict
--- Menu tile: a rounded square in the button's color with its icon on top and a label below, a red count badge
--- (top-right) and an optional pulsing outline. Size is set by the caller (HudLayout).
+-- Menu tile: a rounded square on the shared twilight surface (UITheme MenuTop/MenuBottom) with a thin stripe in the
+-- button's color on the left edge, its icon on top and a label below, a count badge (top-right) and an optional
+-- pulsing outline. Size is set by the caller (HudLayout).
 
 local RunService = game:GetService("RunService")
 
@@ -34,9 +35,20 @@ function IconButton.new(parent: Instance, props: Props): IconButton
 	instance.Text = ""
 	instance.AutoButtonColor = false
 	instance.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Gradient(instance, Style.Shade(props.Color, 0.25), Style.Shade(props.Color, -0.2))
-	Style.Corner(instance, theme.SmallCorner + 2)
-	Style.Stroke(instance, theme.Colors.TextStroke, theme.Strokes.Button)
+	Style.Gradient(instance, theme.Colors.MenuTop, theme.Colors.MenuBottom)
+	Style.Corner(instance, theme.SmallCorner + theme.Buttons.CornerExtra + 1)
+	Style.Stroke(instance, theme.Colors.ButtonStroke, theme.Strokes.Button)
+
+	local stripe = Instance.new("Frame")
+	stripe.Name = "Stripe"
+	stripe.AnchorPoint = Vector2.new(0.5, 0.5)
+	stripe.Position = UDim2.new(0, theme.Sizes.TileStripeInset, 0.5, 0)
+	stripe.Size = UDim2.fromOffset(theme.Sizes.TileStripe.X, theme.Sizes.TileStripe.Y)
+	stripe.BackgroundColor3 = props.Color
+	stripe.BorderSizePixel = 0
+	stripe.ZIndex = 3
+	stripe.Parent = instance
+	Style.Round(stripe)
 
 	local icon = Icon.new(instance, props.Icon, props.Color, props.Label)
 	icon.AnchorPoint = Vector2.new(0.5, 0)
@@ -62,7 +74,7 @@ function IconButton.new(parent: Instance, props: Props): IconButton
 	badge.Visible = false
 	badge.ZIndex = 3
 	Style.Round(badge)
-	Style.Stroke(badge, Color3.new(1, 1, 1), 1.5)
+	Style.Stroke(badge, theme.Colors.Trim, 1.5)
 	Style.Pad(badge, 3)
 
 	local pulse = Style.Stroke(instance, theme.Colors.Sparkle, 0)

@@ -36,7 +36,7 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 	local holder = Instance.new("Frame") -- keeps the list slot while the card slides
 	holder.Name = "Toast"
 	holder.BackgroundTransparency = 1
-	holder.Size = UDim2.new(1, 0, 0, 38)
+	holder.Size = UDim2.new(1, 0, 0, theme.Sizes.Toast)
 	holder.LayoutOrder = -math.floor(os.clock() * 1000) -- newest on top
 	holder.Parent = parent
 
@@ -44,10 +44,19 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 	card.Size = UDim2.fromScale(1, 1)
 	card.Position = UDim2.fromOffset(0, -12)
 	card.GroupTransparency = 1
-	card.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Gradient(card, theme.Colors.PanelTop, theme.Colors.PanelBottom)
+	card.BackgroundTransparency = 1
 	Style.Corner(card, theme.SmallCorner)
 	card.Parent = holder
+	-- The gradient goes on a background frame: a UIGradient on the CanvasGroup would tint the whole group (text too).
+	local back = Instance.new("Frame")
+	back.Name = "Back"
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = Color3.new(1, 1, 1)
+	back.BorderSizePixel = 0
+	back.ZIndex = 0
+	back.Parent = card
+	Style.Gradient(back, theme.Colors.PanelTop, theme.Colors.PanelBottom)
+	Style.Corner(back, theme.SmallCorner)
 	Style.Stroke(holder, accent, 2) -- stroke on the holder so it isn't clipped by the canvas
 	Style.Corner(holder, theme.SmallCorner)
 
@@ -65,14 +74,12 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 		image.Size = UDim2.fromOffset(28, 28)
 		x = 46
 	end
-	local label = Style.Label(card, text, "Bold", theme.TextSizes.Body, accent)
+	local label = Style.Label(card, text, "Bold", theme.TextSizes.Toast, theme.Colors.Text)
 	label.Position = UDim2.fromOffset(x, 0)
 	label.Size = UDim2.new(1, -(x + 8), 1, 0)
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextScaled = true
-	local limit = Instance.new("UITextSizeConstraint")
-	limit.MaxTextSize = theme.TextSizes.Body
-	limit.Parent = label
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextWrapped = true
 
 	if kind == "success" or kind == "reward" then
 		Style.Play("Confirm")

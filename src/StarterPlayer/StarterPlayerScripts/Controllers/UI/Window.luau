@@ -111,7 +111,7 @@ function Window.new(props: Props): Window
 	close.TextStrokeTransparency = 0
 	close.Parent = titleBar
 	local closeBack = Style.Backdrop(close, Style.Shade(theme.Colors.Close, 0.15), Style.Shade(theme.Colors.Close, -0.2), theme.SmallCorner)
-	Style.Stroke(closeBack, theme.Colors.TextStroke, theme.Strokes.Button)
+	Style.Stroke(closeBack, theme.Colors.ButtonStroke, theme.Strokes.Button)
 	Style.AttachPress(close, "Close")
 
 	-- Content area
