@@ -1,5 +1,5 @@
 --!strict
--- Horizon landmarks (client only, HorizonController): big stand-in silhouettes of the other areas' landmarks, shown
+-- Horizon landmarks (client only, HorizonController): big silhouettes of the other areas' landmarks, shown
 -- on the horizon behind each Meadow portal so the world feels connected. They are cloned on the client from
 -- ReplicatedStorage.Assets.Horizon.<Model> (built in Studio, lives in the place file), have no collision and are not
 -- streamed. Positions are the model's base (its pivot), in studs; the model turns to face FaceTowards.
@@ -29,7 +29,7 @@ return {
 			Model = "Volcano",
 			Position = Vector3.new(490, -20, -475),
 			FaceTowards = MEADOW_CENTER,
-			Scale = 1.25,
+			Scale = 1,
 			ShowIn = { "StarterMeadow" },
 		},
 		-- Behind Portal_FrozenCliffs (E): the ice crystal spire on its cliff.

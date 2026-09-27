@@ -81,6 +81,8 @@ local Areas: { [string]: AreaLook } = {
 			OutdoorAmbient = Color3.fromRGB(145, 135, 125),
 			HazeColor = Color3.fromRGB(215, 210, 200),
 			Decay = Color3.fromRGB(106, 118, 140),
+			Density = 0.2, -- thinner than the default so the horizon landmarks (700+ studs) still show by day
+			Haze = 0.7,
 			Glare = 0.2,
 			Tint = Color3.fromRGB(255, 250, 240),
 			Saturation = 0.14,
@@ -234,6 +236,10 @@ return {
 	-- Drifting particles: a box around the camera (studs), only near the ground.
 	DriftBox = Vector3.new(90, 16, 90),
 	DriftLowEffects = 0.35, -- rate multiplier with Low effects
+
+	-- World particle effects placed in the areas (ParticleEmitters tagged "AmbientFX": waterfall foam and mist, ...).
+	-- With Low effects they run at this share of their rate (AmbientFXController).
+	AmbientFXLowRate = 0.3,
 
 	-- Lanterns (Models tagged "Lantern" with a Neon "Lamp" part): on at dusk, gentle flicker, off by day.
 	Lanterns = {

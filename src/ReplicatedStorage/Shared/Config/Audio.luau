@@ -19,6 +19,7 @@ return {
 	WorldSources = {
 		{ Tag = "DragonstoneForge", Sound = "rbxassetid://150367086", Volume = 0.5, MaxDistance = 45, NightOnly = false }, -- "Torch_Burn"
 		{ Tag = "StarAltar", Sound = "rbxassetid://92474343494275", Volume = 0.35, MaxDistance = 60, NightOnly = true }, -- "Healing Winds & Soft Chimes"
+		{ Tag = "Waterfall", Sound = "rbxassetid://9116496316", Volume = 0.45, MaxDistance = 110, NightOnly = false }, -- "Medium Size Waterfall 1" (Pro Sound Effects)
 	},
 	CrossfadeSmoothing = 2, -- seconds to reach a new volume
 }
