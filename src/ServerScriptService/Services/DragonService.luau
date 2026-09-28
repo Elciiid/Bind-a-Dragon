@@ -101,7 +101,14 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 	if evolvedTo then
 		local name = if species then species.Name else "Your dragon"
 		local article = if evolvedTo.Name:match("^[AEIOUaeiou]") then "an" else "a"
-		notify:FireClient(player, `{name} evolved into {article} {evolvedTo.Name}{evolvedUnder}!`, "success")
+		local state = Cycle.GetState()
+		notify:FireClient(player, `{name} evolved into {article} {evolvedTo.Name}{evolvedUnder}!`, "moment", {
+			Moment = "Evolve",
+			SpeciesId = dragon.SpeciesId,
+			Level = dragon.Level,
+			Stage = evolvedTo.Name,
+			Under = if state.IsNight then state.Constellation.Name else nil,
+		})
 	end
 
 	QuestService:Progress(player, "Levels", leveled)
@@ -228,7 +235,11 @@ local function grantStarter(player: Player, data: PlayerDataTypes.PlayerData)
 	data.Dragons[dragonId] = { Id = dragonId, SpeciesId = speciesId, Level = 1, ObtainedAt = os.time() }
 	table.insert(data.RoostDragonIds, dragonId)
 	IndexService:Sync(player, data)
-	notify:FireClient(player, `Your first dragon, {Dragons[speciesId].Name}, has hatched in your roost!`, "success")
+	notify:FireClient(player, `Your first dragon, {Dragons[speciesId].Name}, has hatched in your roost!`, "moment", {
+		Moment = "NewDragon",
+		SpeciesId = speciesId,
+		Level = 1,
+	})
 end
 
 function DragonService:Start()

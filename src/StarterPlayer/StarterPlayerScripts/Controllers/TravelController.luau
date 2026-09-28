@@ -46,7 +46,6 @@ end
 function TravelController:Init()
 	local gui = HudLayout.MakeScreenGui("TravelHud", "Hud")
 	gui.ScreenInsets = Enum.ScreenInsets.None -- the row sits at the very top, in the middle of Roblox's top bar
-	HudLayout.HideWithPopups(gui) -- phones: out of the way while a window is open
 	local row = Instance.new("Frame")
 	row.Name = "TravelRow"
 	row.AnchorPoint = Vector2.new(0.5, 0)
@@ -78,9 +77,13 @@ function TravelController:Init()
 		local small = if phone then sizes.PhoneTravelIcon else sizes.TravelIcon
 		local home = if phone then sizes.PhoneTravelHomeIcon else sizes.TravelHomeIcon
 		local label = if phone then sizes.PhoneHudLabel else sizes.HudLabel - 2
-		list.Padding = UDim.new(0, if phone then 10 else 18)
+		-- equal slots: the same width for every button (labels never clip, even spacing whatever the icon size)
+		local slot = if phone then sizes.PhoneTravelSlot else sizes.TravelSlot
+		list.Padding = UDim.new(0, if phone then 4 else 8)
 		for id, icon in icons do
 			icon:Resize(if id == "Home" then home else small, label)
+			icon.Instance.Size = UDim2.fromOffset(slot, icon.Instance.Size.Y.Offset)
+			icon.Label.Size = UDim2.new(1, 0, 0, label)
 		end
 		row.Position = UDim2.new(0.5, 0, 0, if phone then sizes.PhoneTravelTop else sizes.TravelTop)
 		row.Size = UDim2.fromOffset(0, home + label + 2)

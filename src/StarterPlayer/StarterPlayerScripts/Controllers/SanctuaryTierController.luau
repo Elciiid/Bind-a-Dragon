@@ -15,7 +15,7 @@ local SoundService = game:GetService("SoundService")
 
 local AtmosphereController = require(script.Parent.AtmosphereController)
 local EffectsQuality = require(script.Parent.EffectsQuality)
-local Toast = require(script.Parent.UI.Toast)
+local NotificationController = require(script.Parent.NotificationController)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Settings = require(ReplicatedStorage.Shared.Config.WorldUI).SanctuaryTiers
@@ -106,7 +106,8 @@ local function burst(plot: Model, tier: number)
 		part:Destroy()
 	end)
 	if plot:GetAttribute("OwnerUserId") == Players.LocalPlayer.UserId then
-		Toast.Show(Text.Format(Text.UpgradeStands.TierUp, { tier = Settings.Names[tier] }), "success")
+		NotificationController:Moment({ Moment = "Tier", Tier = tier, Name = Settings.Names[tier] },
+			Text.Format(Text.UpgradeStands.TierUp, { tier = Settings.Names[tier] }))
 	end
 end
 

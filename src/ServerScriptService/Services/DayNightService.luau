@@ -17,7 +17,11 @@ function DayNightService:Start()
 		if state.IsNight and state.Constellation.Rare and lastAnnouncedNight ~= state.NightIndex then
 			lastAnnouncedNight = state.NightIndex
 			local luckText = if state.Constellation.Luck > 1 then ` Bind luck x{state.Constellation.Luck} tonight!` else ""
-			announcement:FireAllClients(`A rare constellation rises: {state.Constellation.Name}!{luckText}`)
+			announcement:FireAllClients(`A rare constellation rises: {state.Constellation.Name}!{luckText}`, {
+				Moment = "Constellation",
+				Name = state.Constellation.Name,
+				Luck = state.Constellation.Luck,
+			})
 		end
 		task.wait(1)
 	end

@@ -1,7 +1,8 @@
 --!strict
--- Window: the standard popup panel (UI renewal frame). Navy glass with a gold ornamental border (Style.PanelLook), a
--- jewel title banner with a small star hanging on the top edge (UI/Banner), a big round ruby close button on the
--- top-right corner, and a pop-in/out animation with sounds and a sparkle burst out of the banner on open.
+-- Window: the standard popup panel (UI renewal part 2). An indigo -> violet panel with a sparkle pattern, a soft glow
+-- and a gold ornamental border (Style.PanelLook), a jewel title banner with a star hanging on the top edge
+-- (UI/Banner), a big round 3D rose close button on the top-right corner, and a pop-in (scale + fade) with sounds and
+-- a sparkle burst out of the banner. HudLayout places windows below the travel bar and the sky pill.
 -- Windows register with HudLayout, so they draw above the HUD and fill the screen on phones. Only one window is open
 -- at a time: opening one closes any other window or station panel (HudLayout.ClaimFocus).
 --
@@ -27,6 +28,7 @@ Window.__index = Window
 
 export type Window = typeof(setmetatable({} :: {
 	Gui: ScreenGui,
+	Fader: CanvasGroup,
 	Frame: Frame,
 	TitleBar: Frame, -- the banner's holder
 	Banner: Banner.Banner,
@@ -64,19 +66,42 @@ function Window.new(props: Props): Window
 	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 	banner.Holder.Position = UDim2.fromScale(0.5, 0)
 
-	-- Big round close button on the top-right corner
+	-- Big round 3D close button on the top-right corner: a rose face on a darker edge, dropping onto it when pressed
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
 	close.AnchorPoint = Vector2.new(0.5, 0.5)
 	close.Position = UDim2.new(1, -12, 0, 12)
 	close.Text = ""
 	close.AutoButtonColor = false
-	close.BackgroundColor3 = Color3.new(1, 1, 1)
+	close.BackgroundTransparency = 1
 	close.ZIndex = 10
-	Style.Gradient(close, theme.Colors.CloseTop, theme.Colors.CloseBottom)
-	Style.Round(close)
-	Style.GoldBorder(close, 3)
 	close.Parent = frame
+	local closeEdge = Instance.new("Frame")
+	closeEdge.Name = "Edge"
+	closeEdge.Size = UDim2.fromScale(1, 1)
+	closeEdge.BackgroundColor3 = Style.Shade(theme.Colors.CloseBottom, -0.4)
+	closeEdge.ZIndex = 10
+	Style.Round(closeEdge)
+	closeEdge.Parent = close
+	local closeFace = Instance.new("Frame")
+	closeFace.Name = "Face"
+	closeFace.Size = UDim2.new(1, 0, 1, -theme.Sizes.ButtonEdge)
+	closeFace.BackgroundColor3 = Color3.new(1, 1, 1)
+	closeFace.ZIndex = 10
+	Style.Gradient(closeFace, theme.Colors.CloseTop, theme.Colors.CloseBottom)
+	Style.Round(closeFace)
+	Style.GoldBorder(closeFace, 3)
+	closeFace.Parent = close
+	close.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			closeFace.Position = UDim2.fromOffset(0, theme.Sizes.ButtonEdge - 1)
+		end
+	end)
+	close.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			closeFace.Position = UDim2.new()
+		end
+	end)
 	local closeGloss = Instance.new("Frame")
 	closeGloss.Name = "Gloss"
 	closeGloss.AnchorPoint = Vector2.new(0.5, 0)
@@ -86,8 +111,8 @@ function Window.new(props: Props): Window
 	closeGloss.BackgroundTransparency = 0.78
 	closeGloss.ZIndex = 10
 	Style.Round(closeGloss)
-	closeGloss.Parent = close
-	local cross = Style.Label(close, "X", "Title", 26)
+	closeGloss.Parent = closeFace
+	local cross = Style.Label(closeFace, "X", "Title", 26)
 	cross.Name = "Cross"
 	cross.AnchorPoint = Vector2.new(0.5, 0.5)
 	cross.Position = UDim2.fromScale(0.5, 0.54)
@@ -114,8 +139,17 @@ function Window.new(props: Props): Window
 	content.ZIndex = 2
 	content.Parent = frame
 
+	-- while fading in/out the window sits in this CanvasGroup (it covers the screen, so the layout doesn't change)
+	local fader = Instance.new("CanvasGroup")
+	fader.Name = "Fader"
+	fader.Size = UDim2.fromScale(1, 1)
+	fader.BackgroundTransparency = 1
+	fader.Visible = false
+	fader.Parent = gui
+
 	local self = setmetatable({
 		Gui = gui,
+		Fader = fader,
 		Frame = frame,
 		TitleBar = banner.Holder,
 		Banner = banner,
@@ -169,6 +203,23 @@ function Window.SetIcon(self: Window, key: string)
 	self.Banner:SetIcon(key)
 end
 
+-- Fades the window in or out: it moves into the screen-sized CanvasGroup for the fade and back out after it (a
+-- CanvasGroup the size of the window would clip the banner, the close button and the glow).
+local function fade(self: Window, show: boolean)
+	local fader = self.Fader
+	self.Frame.Parent = fader
+	fader.GroupTransparency = if show then 1 else 0
+	fader.Visible = true
+	local tween = TweenService:Create(fader, TweenInfo.new(Style.Theme.Motion.WindowFade), { GroupTransparency = if show then 0 else 1 })
+	tween.Completed:Connect(function(state)
+		if state == Enum.PlaybackState.Completed and self.IsOpen == show then
+			self.Frame.Parent = self.Gui
+			fader.Visible = false
+		end
+	end)
+	tween:Play()
+end
+
 function Window.Open(self: Window)
 	if self.IsOpen then
 		return
@@ -181,6 +232,7 @@ function Window.Open(self: Window)
 	local motion = Style.Theme.Motion
 	self.Scale.Scale = motion.StartScale
 	self.Frame.Visible = true
+	fade(self, true)
 	TweenService:Create(self.Scale, TweenInfo.new(motion.PopIn, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	Style.Play("Open")
 	local width = self.Frame.AbsoluteSize.X / math.max(self.Scale.Scale, 0.01)
@@ -198,6 +250,7 @@ function Window.Close(self: Window)
 	self.Closing = true
 	HudLayout.ReleaseFocus(self)
 	local motion = Style.Theme.Motion
+	fade(self, false)
 	local tween = TweenService:Create(self.Scale, TweenInfo.new(motion.PopOut, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = motion.StartScale })
 	tween.Completed:Connect(function()
 		if self.Closing then

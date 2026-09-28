@@ -1,7 +1,8 @@
 --!strict
--- Toasts: small navy-glass cards with a gold border that slide in, stay UITheme.Motion.ToastSeconds, and fade out.
--- Kinds: "success" (green stripe, confirm sound), "error" (red stripe, error sound), "info", "reward" (gold),
--- "announce" (gold, server-wide). An optional icon key shows on the left.
+-- Toasts (UI renewal part 2): a short pill with a big icon popping out on the left and one line in the title font,
+-- bouncing in and fading out after UITheme.Motion.ToastSeconds. The pill has a gold border and a soft glow in the
+-- kind's color. Kinds: "success" (jade, confirm sound), "error" (rose, error sound), "info" (blue), "reward" (gold),
+-- "announce" (gold, server-wide). An optional icon key; without one the kind shows a small star.
 
 local TweenService = game:GetService("TweenService")
 
@@ -11,6 +12,7 @@ local Icon = require(script.Parent.Icon)
 local Toast = {}
 
 local container: Frame? = nil
+local phone = false
 
 local KIND_COLORS: { [string]: Color3 } = {
 	success = Style.Theme.Colors.Positive,
@@ -25,62 +27,103 @@ function Toast.SetContainer(frame: Frame)
 	container = frame
 end
 
-function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
-	local parent = container
-	if parent == nil then
-		return
-	end
-	local theme = Style.Theme
-	local accent = color or KIND_COLORS[kind or "info"] or theme.Colors.Info
+-- Phones use the smaller pill (NotificationController calls this on layout changes).
+function Toast.SetPhone(isPhone: boolean)
+	phone = isPhone
+end
 
-	local holder = Instance.new("Frame") -- keeps the list slot while the card slides
+-- Builds a toast pill in `parent` (also used by the style-sheet mockup). Returns the holder and the fading group.
+function Toast.Build(parent: Instance, text: string, kind: string?, icon: string?, color: Color3?): (Frame, CanvasGroup, Frame)
+	local theme = Style.Theme
+	local sizes = theme.Sizes
+	local accent = color or KIND_COLORS[kind or "info"] or theme.Colors.Info
+	local height = if phone then sizes.PhoneToastPill else sizes.ToastPill
+	local iconSize = if phone then sizes.PhoneToastIcon else sizes.ToastIcon
+
+	local holder = Instance.new("Frame") -- keeps the list slot while the pill animates
 	holder.Name = "Toast"
 	holder.BackgroundTransparency = 1
-	holder.Size = UDim2.new(1, 0, 0, theme.Sizes.Toast)
-	holder.LayoutOrder = -math.floor(os.clock() * 1000) -- newest on top
+	holder.Size = UDim2.new(1, 0, 0, height + 10)
 	holder.Parent = parent
 
-	local card = Instance.new("CanvasGroup")
-	card.Size = UDim2.fromScale(1, 1)
-	card.Position = UDim2.fromOffset(0, -12)
-	card.GroupTransparency = 1
-	card.BackgroundTransparency = 1
-	Style.Corner(card, theme.SmallCorner)
-	card.Parent = holder
-	-- The gradient goes on a background frame: a UIGradient on the CanvasGroup would tint the whole group (text too).
-	local back = Instance.new("Frame")
-	back.Name = "Back"
-	back.Size = UDim2.fromScale(1, 1)
-	back.BackgroundColor3 = Color3.new(1, 1, 1)
-	back.BorderSizePixel = 0
-	back.ZIndex = 0
-	back.Parent = card
-	back.BackgroundTransparency = theme.GlassTransparency
-	Style.Gradient(back, theme.Colors.GlassTop, theme.Colors.GlassBottom)
-	Style.Corner(back, theme.SmallCorner)
-	Style.GoldBorder(holder, 2.5) -- stroke on the holder so it isn't clipped by the canvas
-	Style.Corner(holder, theme.SmallCorner)
+	local group = Instance.new("CanvasGroup") -- fades the whole toast (sized to the holder, so nothing is clipped)
+	group.Name = "Fade"
+	group.Size = UDim2.fromScale(1, 1)
+	group.BackgroundTransparency = 1
+	group.GroupTransparency = 1
+	group.Parent = holder
 
-	local stripe = Instance.new("Frame")
-	stripe.Size = UDim2.new(0, 6, 1, 0)
-	stripe.BackgroundColor3 = accent
-	stripe.BorderSizePixel = 0
-	stripe.Parent = card
+	local pill = Instance.new("Frame")
+	pill.Name = "Pill"
+	pill.AnchorPoint = Vector2.new(0.5, 0.5)
+	pill.Position = UDim2.fromScale(0.5, 0.5)
+	pill.Size = UDim2.fromOffset(0, height)
+	pill.AutomaticSize = Enum.AutomaticSize.X
+	pill.BackgroundColor3 = Color3.new(1, 1, 1)
+	Style.Gradient(pill, theme.Colors.PanelV2Top, theme.Colors.PanelV2Bottom)
+	Style.Round(pill)
+	Style.GoldBorder(pill, 2.5)
+	pill.Parent = group
+	local tint = Style.Glow(pill, accent, 8, 0.6, 0) -- the kind's color glowing through
+	tint.Name = "Tint"
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, math.floor(iconSize * 0.95) + 4) -- room for the icon
+	pad.PaddingRight = UDim.new(0, math.floor(height * 0.45))
+	pad.Parent = pill
 
-	local x = 14
+	local image: GuiObject
 	if icon then
-		local image = Icon.new(card, icon, accent, icon)
-		image.AnchorPoint = Vector2.new(0, 0.5)
-		image.Position = UDim2.new(0, 12, 0.5, 0)
-		image.Size = UDim2.fromOffset(28, 28)
-		x = 46
+		image = Icon.new(pill, icon, accent, icon)
+	else
+		local star = Instance.new("TextLabel")
+		star.BackgroundTransparency = 1
+		star.Text = "★"
+		star.Font = Enum.Font.GothamBlack
+		star.TextScaled = true
+		star.TextColor3 = accent
+		Style.Outline(star, 2)
+		star.Parent = pill
+		image = star
 	end
-	local label = Style.Label(card, text, "Bold", theme.TextSizes.Toast, theme.Colors.Text)
-	label.Position = UDim2.fromOffset(x, 0)
-	label.Size = UDim2.new(1, -(x + 8), 1, 0)
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.TextWrapped = true
+	image.AnchorPoint = Vector2.new(0.5, 0.5)
+	image.Position = UDim2.new(0, -math.floor(iconSize * 0.5) - 4, 0.5, 0) -- in the left padding, popping out
+	image.Size = UDim2.fromOffset(iconSize, iconSize)
+	image.ZIndex = 3
+
+	local label = Style.Label(pill, text, "Title", if phone then 15 else 20, theme.Colors.Text)
+	label.Name = "Text"
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.Size = UDim2.fromScale(0, 1)
+	label.TextWrapped = false
+	label.ZIndex = 2
+	Style.Outline(label, 1.5)
+	return holder, group, pill
+end
+
+export type Handle = {
+	SetText: (Handle, string) -> (),
+	Extend: (Handle) -> (), -- restart its time on screen (and a little pop), e.g. when the same message comes again
+}
+
+local order = 0
+
+-- Shows one toast in the container; onGone runs after it has faded out. NotificationController queues these (at most
+-- a few at once, repeats merged into "x2"); other code should call NotificationController:Show instead.
+function Toast.Spawn(text: string, kind: string?, icon: string?, color: Color3?, onGone: (() -> ())?): Handle
+	local theme = Style.Theme
+	local parent = container
+	local handle = {} :: Handle
+	if parent == nil then
+		function handle.SetText(_self: Handle, _text: string) end
+		function handle.Extend(_self: Handle) end
+		if onGone then
+			task.defer(onGone)
+		end
+		return handle
+	end
+	local holder, group, pill = Toast.Build(parent, text, kind, icon, color)
+	order += 1
+	holder.LayoutOrder = order -- oldest on top, new ones below
 
 	if kind == "success" or kind == "reward" then
 		Style.Play("Confirm")
@@ -88,17 +131,40 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 		Style.Play("Error")
 	end
 
-	local tweenIn = TweenInfo.new(theme.Motion.ToastIn, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-	TweenService:Create(card, tweenIn, { GroupTransparency = 0, Position = UDim2.fromOffset(0, 0) }):Play()
-	task.delay(theme.Motion.ToastSeconds, function()
-		local stroke = holder:FindFirstChildOfClass("UIStroke")
-		TweenService:Create(card, TweenInfo.new(0.4), { GroupTransparency = 1 }):Play()
-		if stroke then
-			TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+	local pop = Instance.new("UIScale")
+	pop.Scale = 0.5
+	pop.Parent = pill
+	TweenService:Create(pop, TweenInfo.new(theme.Motion.ToastBounce, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(group, TweenInfo.new(0.15), { GroupTransparency = 0 }):Play()
+
+	local deadline = os.clock() + theme.Motion.ToastSeconds
+	local label = pill:FindFirstChild("Text") :: TextLabel
+	function handle.SetText(_self: Handle, newText: string)
+		label.Text = newText
+	end
+	function handle.Extend(_self: Handle)
+		deadline = os.clock() + theme.Motion.ToastSeconds
+		pop.Scale = 1.15
+		TweenService:Create(pop, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+	task.spawn(function()
+		while os.clock() < deadline do
+			task.wait(deadline - os.clock())
 		end
-		task.wait(0.4)
+		TweenService:Create(group, TweenInfo.new(0.3), { GroupTransparency = 1 }):Play()
+		TweenService:Create(pop, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.85 }):Play()
+		task.wait(0.3)
 		holder:Destroy()
+		if onGone then
+			onGone()
+		end
 	end)
+	return handle
+end
+
+-- A toast without the queue (kept for older callers).
+function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
+	Toast.Spawn(text, kind, icon, color)
 end
 
 return Toast

@@ -51,6 +51,10 @@ local Icons: { [string]: string } = {
 	Travel_Market = "rbxassetid://89424033701741",
 	Tab_Items = "rbxassetid://86820373487722",
 	Tab_Collection = "rbxassetid://109516944039537",
+
+	-- UI renewal part 2 (tools/ui_art/gen.py, assets/ui/): sky pill sun / moon (stand-ins until painted versions)
+	Sky_Sun = "rbxassetid://138017457452642",
+	Sky_Moon = "rbxassetid://119449803886759",
 }
 
 -- Per rarity / element: colors come from their game configs (one source); icons from above.
@@ -83,12 +87,12 @@ return {
 		Title = Color3.fromRGB(255, 214, 102),
 
 		-- Buttons: jewel tones that keep the usual meanings (green-ish confirm, red-ish cancel) in the twilight palette.
-		Confirm = Color3.fromRGB(50, 144, 119), -- moonlit jade
-		Cancel = Color3.fromRGB(157, 69, 98), -- muted rose
-		Primary = Color3.fromRGB(171, 121, 43), -- warm stargold
-		Neutral = Color3.fromRGB(71, 86, 139), -- dusk blue
-		Disabled = Color3.fromRGB(91, 91, 116),
-		Close = Color3.fromRGB(157, 69, 98),
+		Confirm = Color3.fromRGB(38, 196, 128), -- jade: go / buy
+		Cancel = Color3.fromRGB(236, 78, 118), -- rose: stop / close
+		Primary = Color3.fromRGB(248, 178, 36), -- gold: upgrade
+		Neutral = Color3.fromRGB(66, 134, 238), -- sky blue: neutral
+		Disabled = Color3.fromRGB(116, 116, 132), -- clearly grey
+		Close = Color3.fromRGB(236, 78, 118),
 		Badge = Color3.fromRGB(172, 70, 99),
 		ButtonStroke = Color3.fromRGB(176, 118, 36), -- outline on buttons and tiles (antique gold)
 		MenuTop = Color3.fromRGB(75, 70, 119), -- menu tiles: one twilight surface for every tile
@@ -105,6 +109,14 @@ return {
 		Negative = Color3.fromRGB(235, 145, 163),
 		Info = Color3.fromRGB(160, 198, 239),
 
+		-- UI renewal part 2 panels: deep indigo -> violet with a faint sparkle pattern and a soft outer glow.
+		PanelV2Top = Color3.fromRGB(38, 30, 104),
+		PanelV2Bottom = Color3.fromRGB(88, 42, 146),
+		PanelGlow = Color3.fromRGB(160, 120, 255), -- soft glow around windows
+		PatternTint = Color3.fromRGB(220, 210, 255), -- the sparkle pattern on panels
+		ButtonText = Color3.fromRGB(255, 255, 255),
+		DisabledText = Color3.fromRGB(205, 205, 214),
+		DuskGlow = Color3.fromRGB(255, 150, 90), -- sky pill glow in the last seconds before night
 		-- UI renewal window frame (Style.PanelLook / UI/Window): navy glass, gold ornamental border, jewel title banner.
 		GlassTop = Color3.fromRGB(30, 38, 96),
 		GlassBottom = Color3.fromRGB(12, 14, 46),
@@ -206,7 +218,7 @@ return {
 		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
 		TravelButton = Vector2.new(116, 38), -- PC: Travel button, top, left of the day/night card
 		PhoneTravelButton = Vector2.new(96, 34), -- phone: right edge, between the boost timers and the jump button
-		PhoneCardTop = 100, -- phone: top of cards under the travel row + day/night pill (their banner hangs above it)
+		PhoneCardTop = 118, -- phone: top of cards under the travel row + day/night pill (their banner hangs above it)
 		PhonePillWidth = 170, -- phone: luck pill / boost timers column, top-right
 		PhonePillHeight = 28,
 		Badge = 22,
@@ -229,6 +241,24 @@ return {
 		CloseButton = 52, -- big round close button on the top-right corner (PC)
 		PhoneCloseButton = 40,
 		WindowPadding = 16, -- content inset from the border
+		ButtonEdge = 5, -- the 3D bottom edge of buttons (pixels; the face drops onto it when pressed)
+		PopupTopGap = 10, -- windows start this far below the sky pill (they never cover the top bar)
+		ToastPill = 48, -- toast pill height (PC)
+		PhoneToastPill = 36,
+		ToastIcon = 58, -- the toast's icon, bigger than the pill so it pops out
+		PhoneToastIcon = 42,
+		RewardCard = Vector2.new(420, 340), -- centered reward pop-up (PC; phones scale it down)
+		RewardIcon = 150,
+		SkyPillV2 = Vector2.new(250, 46), -- PC: compact day/night pill (day: one line; night: + a small second line)
+		PhoneSkyPillV2 = Vector2.new(190, 34),
+		SkyIcon = 56, -- the sun / moon, bigger than the pill
+		SkyPillGap = 8, -- PC: gap between the travel labels and the sky pill
+		PhoneSkyPillGap = 4,
+		SkyPillExtraLine = 12, -- PC: extra pill height at night (the small second line)
+		PhoneSkyPillExtraLine = 9,
+		TravelSlot = 96, -- PC: every travel button gets a slot this wide, so the labels never clip and spacing is even
+		PhoneTravelSlot = 62,
+		PhoneSkyIcon = 40,
 
 		-- UI renewal HUD (pixels). Icons are ~1.5x the old tile icons; labels in the title font.
 		HudIcon = 80, -- PC: left column icons (Inventory, Quests, Shop, Rebirth)
@@ -282,6 +312,13 @@ return {
 		ReadySpeed = 3, -- hops per ~2 seconds
 		ProgressDots = 16, -- dots in the progress ring around a calm icon
 		OpenSparkles = 10, -- windows: sparkles fly out of the title banner on open
+		WindowFade = 0.16, -- windows fade in while they pop (scale + fade)
+		ButtonBounce = 1.07, -- chunky buttons: scale on hover (Back easing)
+		ButtonSquish = Vector2.new(1.05, 0.9), -- width/height while pressed
+		ToastBounce = 0.35, -- toasts pop in with a bounce
+		RewardSpin = 18, -- seconds per turn of the rays behind a reward pop-up
+		RewardBurst = 26, -- sparkles in a reward burst (Low effects: a third)
+		DuskPulse = 1.2, -- seconds per pulse of the sky pill's glow at dusk
 		BannerStarSpin = 6, -- seconds per slow wobble of the banner star
 		CloseHoverTurn = 90, -- degrees the close X turns on hover
 	},
@@ -298,6 +335,15 @@ return {
 
 	-- Art slots (9-slice images from the artist). Empty = procedural look.
 	Art = {
+		-- UI renewal part 2 (tools/ui_art/gen.py, assets/ui/)
+		PanelPattern = "rbxassetid://127657628261123", -- tileable faint sparkles (panels, cards)
+		PatternTile = 180, -- pixels per tile
+		PatternTransparency = 0.7,
+		Glow = "rbxassetid://137636172705115", -- soft glow, 9-sliced around panels / cards
+		GlowSlice = Rect.new(60, 60, 68, 68),
+		GlowBody = 44, -- pixels from the glow image's edge to its solid body
+		GlowSpread = 34, -- pixels the panel glow reaches out
+		Rays = "rbxassetid://78172100001188", -- light rays behind reward pop-ups
 		PanelFrame = "", -- panel border with dragon scales
 		PanelFrameSlice = Rect.new(24, 24, 104, 104),
 		TitleOrnament = "", -- constellation ornament behind titles
@@ -310,6 +356,12 @@ return {
 		Cards = 5, -- luck panel, Spire card, boost timers
 		Popups = 10, -- windows
 		Notifications = 20,
+	},
+
+	-- Toasts (NotificationController): one queue, at most MaxVisible on screen; the same message again adds "x2".
+	Toasts = {
+		MaxVisible = 2,
+		Gap = 6, -- pixels under the sky pill
 	},
 
 	-- A screen whose short side is at most this many pixels uses the phone layout.

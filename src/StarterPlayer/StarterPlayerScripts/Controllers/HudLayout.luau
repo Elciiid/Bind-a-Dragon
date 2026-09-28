@@ -105,6 +105,22 @@ function HudLayout.TopbarBottom(): number
 	return if inset.Height > 0 then inset.Max.Y else 44
 end
 
+-- The top of the day/night pill (screen pixels): under the travel row with a gap.
+function HudLayout.SkyPillTop(): number
+	local sizes = UITheme.Sizes
+	return if phone
+		then sizes.PhoneTravelTop + sizes.PhoneTravelHomeIcon + sizes.PhoneHudLabel + sizes.PhoneSkyPillGap
+		else sizes.TravelTop + sizes.TravelHomeIcon + sizes.HudLabel + sizes.SkyPillGap
+end
+
+-- The bottom of the top bar + the sky pill at its tallest (night), in screen pixels. Windows and toasts start below
+-- it, so they never cover the travel buttons or the pill.
+function HudLayout.TopReserved(): number
+	local sizes = UITheme.Sizes
+	local pill = if phone then sizes.PhoneSkyPillV2.Y + sizes.PhoneSkyPillExtraLine else sizes.SkyPillV2.Y + sizes.SkyPillExtraLine
+	return HudLayout.SkyPillTop() + pill
+end
+
 -- Phone: the currency row's top (under the top bar).
 local function phoneCurrencyTop(): number
 	return HudLayout.TopbarBottom() + 2
@@ -174,9 +190,21 @@ local function layoutCurrency()
 	end
 end
 
+-- Windows sit below the top bar and the sky pill (TopReserved), with room for the banner hanging over their top edge.
+-- Window guis start under Roblox's top bar, so the reserve is measured from there.
 local function layoutPopups()
+	local sizes = UITheme.Sizes
+	local overhang = if phone then sizes.PhoneBanner / 2 + sizes.PhoneBannerStar * 0.62 else sizes.Banner / 2 + sizes.BannerStar * 0.62
+	local reserve = math.max(0, HudLayout.TopReserved() - HudLayout.TopbarBottom()) + sizes.PopupTopGap + math.ceil(overhang)
 	for _, popup in popups do
-		popup.Panel.Size = if phone then UDim2.fromScale(0.94, 0.88) else popup.PcSize -- room for the banner on top
+		if phone then
+			popup.Panel.Size = UDim2.new(0.94, 0, 1, -(reserve + 8))
+			popup.Panel.Position = UDim2.new(0.5, 0, 0.5, math.floor(reserve / 2) - 2)
+		else
+			local pc = popup.PcSize
+			popup.Panel.Size = UDim2.new(pc.X.Scale, pc.X.Offset, pc.Y.Scale, pc.Y.Offset - reserve)
+			popup.Panel.Position = UDim2.new(0.5, 0, 0.5, math.floor(reserve / 2))
+		end
 	end
 end
 

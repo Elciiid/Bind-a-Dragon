@@ -122,7 +122,14 @@ local function onRequestRebirth(player: Player)
 	if #unlocked > 0 then
 		table.insert(parts, table.concat(unlocked, " "))
 	end
-	notify:FireClient(player, table.concat(parts, " "), "success")
+	notify:FireClient(player, table.concat(parts, " "), "moment", {
+		Moment = "Rebirth",
+		Rebirths = data.Rebirths,
+		Income = Format.Multiplier(DragonStats.GetRebirthBonus(data.Rebirths)),
+		CapFrom = capBefore,
+		CapTo = capAfter,
+		Unlocked = unlocked,
+	})
 	announcement:FireAllClients(`{player.DisplayName} reached Rebirth {data.Rebirths}!`)
 	updateBadge(player)
 end

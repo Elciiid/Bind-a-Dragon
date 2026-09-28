@@ -7,6 +7,7 @@ local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
 
 local Style = {}
 Style.Theme = UITheme
@@ -313,6 +314,9 @@ end
 -- Sparkles burst out of a point (e.g. a window's title banner when it opens) and fade. `layer` is a frame covering
 -- the area (the sparkles are drawn in it); `at` is the burst center in that frame's pixels.
 function Style.SparkleBurst(layer: GuiObject, at: Vector2, count: number, reach: number?)
+	if EffectsQuality.IsLow() then
+		count = math.ceil(count / 3) -- Low effects: a few sparkles only
+	end
 	local rng = Random.new()
 	for _ = 1, count do
 		local size = rng:NextInteger(6, 11)
@@ -342,15 +346,69 @@ function Style.SparkleBurst(layer: GuiObject, at: Vector2, count: number, reach:
 	end
 end
 
--- The window/panel look (UI renewal): navy glass with a soft light across the top, a gold border with a thin gold
--- line inside it, gold corner ornaments with a jewel, a small ornament in the middle of the bottom edge, sparkles.
+-- A soft glow (UITheme.Art.Glow, 9-sliced) around a frame, reaching `spread` pixels out. It is a child, so it draws
+-- over its parent's own background: give the parent a transparent background (PanelLook does) or keep it faint.
+function Style.Glow(parent: GuiObject, color: Color3, spread: number, transparency: number, zIndex: number?): ImageLabel
+	local art = UITheme.Art
+	local glow = Instance.new("ImageLabel")
+	glow.Name = "Glow"
+	glow.BackgroundTransparency = 1
+	glow.Image = art.Glow
+	glow.ImageColor3 = color
+	glow.ImageTransparency = transparency
+	glow.ScaleType = Enum.ScaleType.Slice
+	glow.SliceCenter = art.GlowSlice
+	glow.SliceScale = spread / art.GlowBody -- the glow's solid body lines up with the frame's edge
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.fromScale(0.5, 0.5)
+	glow.Size = UDim2.new(1, spread * 2, 1, spread * 2)
+	glow.ZIndex = zIndex or -3
+	glow.Parent = parent
+	return glow
+end
+
+-- The faint sparkle pattern (UITheme.Art.PanelPattern) filling a frame.
+function Style.Pattern(parent: GuiObject, radius: number?, zIndex: number?): ImageLabel?
+	local art = UITheme.Art
+	if art.PanelPattern == "" then
+		return nil
+	end
+	local pattern = Instance.new("ImageLabel")
+	pattern.Name = "Pattern"
+	pattern.BackgroundTransparency = 1
+	pattern.Size = UDim2.fromScale(1, 1)
+	pattern.Image = art.PanelPattern
+	pattern.ImageColor3 = UITheme.Colors.PatternTint
+	pattern.ImageTransparency = art.PatternTransparency
+	pattern.ScaleType = Enum.ScaleType.Tile
+	pattern.TileSize = UDim2.fromOffset(art.PatternTile, art.PatternTile)
+	pattern.ZIndex = zIndex or -2
+	Style.Corner(pattern, radius or UITheme.Corner)
+	pattern.Parent = parent
+	return pattern
+end
+
+-- The window/panel look (UI renewal part 2): a deep indigo -> violet panel with a faint sparkle pattern, a soft light
+-- across the top, a soft outer glow, a gold border with a thin gold line inside, gold corner gems with a jewel and
+-- gold beads, a small gem mid-bottom and twinkling sparkles. The frame itself stays transparent (so the glow can sit
+-- behind the panel); the panel is its "Back" child. Content goes in the frame as before (ZIndex 1+).
 function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	local sizes = UITheme.Sizes
-	frame.BackgroundColor3 = Color3.new(1, 1, 1)
-	frame.BackgroundTransparency = UITheme.GlassTransparency
-	Style.Gradient(frame, UITheme.Colors.GlassTop, UITheme.Colors.GlassBottom)
-	Style.Corner(frame, UITheme.Corner)
-	Style.GoldBorder(frame, sizes.Border)
+	local colors = UITheme.Colors
+	frame.BackgroundTransparency = 1
+	Style.Glow(frame, colors.PanelGlow, UITheme.Art.GlowSpread, 0.25, -3)
+
+	local back = Instance.new("Frame")
+	back.Name = "Back"
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = Color3.new(1, 1, 1)
+	back.BorderSizePixel = 0
+	back.ZIndex = -2
+	Style.Gradient(back, colors.PanelV2Top, colors.PanelV2Bottom)
+	Style.Corner(back, UITheme.Corner)
+	Style.GoldBorder(back, sizes.Border)
+	back.Parent = frame
+	Style.Pattern(back, UITheme.Corner, -2)
 
 	if UITheme.Art.PanelFrame ~= "" then
 		local art = Instance.new("ImageLabel")
@@ -360,20 +418,20 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 		art.Image = UITheme.Art.PanelFrame
 		art.ScaleType = Enum.ScaleType.Slice
 		art.SliceCenter = UITheme.Art.PanelFrameSlice
-		art.ZIndex = 0
+		art.ZIndex = -1
 		art.Parent = frame
 	else
-		local sheen = Instance.new("Frame") -- the glass catching light
+		local sheen = Instance.new("Frame") -- light across the top
 		sheen.Name = "Sheen"
-		sheen.BackgroundColor3 = UITheme.Colors.GlassSheen
+		sheen.BackgroundColor3 = colors.GlassSheen
 		sheen.BorderSizePixel = 0
 		sheen.Position = UDim2.fromOffset(sizes.Border, sizes.Border)
-		sheen.Size = UDim2.new(1, -sizes.Border * 2, 0.35, 0)
-		sheen.ZIndex = 0
+		sheen.Size = UDim2.new(1, -sizes.Border * 2, 0.3, 0)
+		sheen.ZIndex = -1
 		Style.Corner(sheen, UITheme.Corner - 2)
 		local fade = Instance.new("UIGradient")
 		fade.Rotation = 90
-		fade.Transparency = NumberSequence.new(0.84, 1)
+		fade.Transparency = NumberSequence.new(0.8, 1)
 		fade.Parent = sheen
 		sheen.Parent = frame
 
@@ -383,9 +441,9 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 		inner.Position = UDim2.fromOffset(inset, inset)
 		inner.Size = UDim2.new(1, -inset * 2, 1, -inset * 2)
 		inner.BackgroundTransparency = 1
-		inner.ZIndex = 0
+		inner.ZIndex = -1
 		Style.Corner(inner, UITheme.Corner - inset + 2)
-		local line = Style.Stroke(inner, UITheme.Colors.Trim, 1.5)
+		local line = Style.Stroke(inner, colors.Trim, 1.5)
 		line.Transparency = 0.55
 		inner.Parent = frame
 
@@ -396,7 +454,6 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 			local gem = Style.Ornament(frame, size)
 			gem.Name = "CornerOrnament"
 			gem.Position = UDim2.new(corner.X, cx, corner.Y, cy)
-			-- two gold beads running along each edge from the corner
 			for step = 1, 2 do
 				for _, along in { Vector2.new(1, 0), Vector2.new(0, 1) } do
 					local offset = size * 0.35 + step * 9
@@ -410,7 +467,7 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 						cy + along.Y * offset * (if corner.Y == 0 then 1 else -1)
 					)
 					bead.Size = UDim2.fromOffset(6 - step, 6 - step)
-					bead.BackgroundColor3 = UITheme.Colors.Trim
+					bead.BackgroundColor3 = colors.Trim
 					bead.BorderSizePixel = 0
 					bead.ZIndex = 3
 					Style.Round(bead)
@@ -418,21 +475,9 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 				end
 			end
 		end
-		local bottom = Style.Ornament(frame, math.floor(size * 0.7), UITheme.Colors.BannerTop)
+		local bottom = Style.Ornament(frame, math.floor(size * 0.7), colors.BannerTop)
 		bottom.Name = "BottomOrnament"
 		bottom.Position = UDim2.new(0.5, 0, 1, 0)
-	end
-	if UITheme.Art.PanelTexture ~= "" then
-		local texture = Instance.new("ImageLabel")
-		texture.Name = "Texture"
-		texture.Size = UDim2.fromScale(1, 1)
-		texture.BackgroundTransparency = 1
-		texture.Image = UITheme.Art.PanelTexture
-		texture.ScaleType = Enum.ScaleType.Tile
-		texture.TileSize = UDim2.fromOffset(128, 128)
-		texture.ImageTransparency = 0.85
-		texture.ZIndex = 0
-		texture.Parent = frame
 	end
 	if sparkles and sparkles > 0 then
 		Style.Sparkles(frame, sparkles)
@@ -445,7 +490,7 @@ function Style.WorldPanel(frame: GuiObject, accent: Color3?, star: boolean?)
 	local world = UITheme.WorldPanel
 	frame.BackgroundColor3 = Color3.new(1, 1, 1)
 	frame.BackgroundTransparency = world.Transparency
-	Style.Gradient(frame, UITheme.Colors.GlassTop, UITheme.Colors.GlassBottom)
+	Style.Gradient(frame, UITheme.Colors.PanelV2Top, UITheme.Colors.PanelV2Bottom)
 	Style.Corner(frame, world.Corner)
 	Style.GoldBorder(frame, world.Border)
 	if accent then
@@ -488,33 +533,49 @@ end
 -- Title-font text with a thick dark outline (world labels, big numbers): reads on any background.
 function Style.Outline(label: TextLabel | TextButton, thickness: number?)
 	label.TextStrokeTransparency = 1
-	local outline = label:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	local existing = label:FindFirstChild("Outline")
+	local outline = if existing and existing:IsA("UIStroke") then existing else Instance.new("UIStroke")
+	outline.Name = "Outline" -- a named stroke, so a border stroke on the same label is left alone
 	outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 	outline.Color = UITheme.Colors.IconLabelStroke
 	outline.Thickness = thickness or 2
 	outline.Parent = label
 end
 
--- A card inside a panel: a lighter glass box with a soft gold outline, or an accent outline and a color band on the
--- left (element/rarity).
+-- A card inside a panel (UI renewal part 2): tinted by its accent (rarity / element / kind) with a soft glow in that
+-- color and a bright outline; without an accent it's a plain lighter panel with a soft gold outline.
 function Style.CardLook(frame: GuiObject, accent: Color3?)
+	local colors = UITheme.Colors
 	frame.BackgroundColor3 = Color3.new(1, 1, 1)
-	frame.BackgroundTransparency = 0.08
-	Style.Gradient(frame, UITheme.Colors.CardTop, UITheme.Colors.CardBottom)
-	Style.Corner(frame, UITheme.SmallCorner + 2)
-	local stroke = Style.Stroke(frame, accent or UITheme.Colors.Trim, if accent then 2 else 1.5)
-	if accent == nil then
+	frame.BackgroundTransparency = 0.04
+	local top = if accent then colors.CardTop:Lerp(accent, 0.3) else colors.CardTop
+	local bottom = if accent then colors.CardBottom:Lerp(accent, 0.12) else colors.CardBottom
+	Style.Gradient(frame, top, bottom)
+	Style.Corner(frame, UITheme.SmallCorner + 4)
+	local stroke = Style.Stroke(frame, if accent then Style.Shade(accent, 0.25) else colors.Trim, if accent then 2.5 else 1.5)
+	if accent then
+		Style.Glow(frame, accent, 10, 0.72, 0) -- over the card's background, under its content (ZIndex 1+)
+	else
 		stroke.Transparency = 0.45
 	end
-	if accent then
-		local band = Instance.new("Frame")
-		band.Name = "AccentBand"
-		band.Size = UDim2.new(0, 5, 1, -12)
-		band.Position = UDim2.fromOffset(4, 6)
-		band.BackgroundColor3 = accent
-		band.BorderSizePixel = 0
-		Style.Round(band)
-		band.Parent = frame
+end
+
+-- A tab (e.g. the Inventory tabs): chunky, the open one is a raised gold-rimmed jewel, the others calm glass.
+-- `back` is the tab's frame (with a UIGradient and UIStroke from TabLookSetup); call again when selection changes.
+function Style.TabLook(back: GuiObject, selected: boolean, color: Color3?)
+	local colors = UITheme.Colors
+	local gradient = back:FindFirstChildOfClass("UIGradient")
+	local stroke = back:FindFirstChildOfClass("UIStroke")
+	local base = color or colors.BannerTop
+	if gradient then
+		gradient.Color = if selected
+			then ColorSequence.new(Style.Shade(base, 0.2), Style.Shade(base, -0.25))
+			else ColorSequence.new(colors.TabTop, colors.TabBottom)
+	end
+	if stroke then
+		stroke.Color = if selected then colors.Trim else colors.ButtonStroke
+		stroke.Thickness = if selected then 3 else 1.5
+		stroke.Transparency = if selected then 0 else 0.3
 	end
 end
 

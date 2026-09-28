@@ -15,7 +15,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
-local Icon = require(script.Parent.UI.Icon)
+local PromptPill = require(script.Parent.UI.PromptPill)
 local WorldUI = require(ReplicatedStorage.Shared.Config.WorldUI)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -54,7 +54,6 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 	if shown[prompt] then
 		return
 	end
-	local theme = UITheme
 	local scale = if HudLayout.IsPhone() then PromptConfig.PhoneScale else 1
 	local width, height = PromptConfig.Size.X * scale, PromptConfig.Size.Y * scale
 
@@ -70,72 +69,14 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 	gui.Parent = playerGui
 
 	gui.ClipsDescendants = false
-	local world = theme.WorldPanel
-
-	local button = Instance.new("TextButton")
-	button.Text = ""
-	button.AutoButtonColor = false
-	button.AnchorPoint = Vector2.new(0.5, 0.5)
-	button.Position = UDim2.fromScale(0.5, 0.5)
-	button.Size = UDim2.new(1, -12, 1, -6)
-	Style.WorldPanel(button)
-	button.Parent = gui
-
-	-- Key badge (a round jewel with a gold ring) with the hold fill
-	local badgeSize = height - 8
-	local badge = Instance.new("Frame")
-	badge.Name = "Key"
-	badge.AnchorPoint = Vector2.new(0, 0.5)
-	badge.Position = UDim2.new(0, -4, 0.5, 0)
-	badge.Size = UDim2.fromOffset(badgeSize, badgeSize)
-	badge.BackgroundColor3 = Color3.new(1, 1, 1)
-	badge.ZIndex = 6
-	Style.Gradient(badge, world.KeyBadgeTop, world.KeyBadgeBottom)
-	Style.Round(badge)
-	badge.Parent = button
-	local ring = Style.GoldBorder(badge, 3)
-	local fill = Instance.new("Frame")
-	fill.AnchorPoint = Vector2.new(0.5, 0.5)
-	fill.Position = UDim2.fromScale(0.5, 0.5)
-	fill.Size = UDim2.fromScale(0, 0)
-	fill.BackgroundColor3 = theme.Colors.Gold
-	fill.BackgroundTransparency = 0.35
-	fill.ZIndex = 7
-	Style.Round(fill)
-	fill.Parent = badge
-	local keyLabel = Style.Label(badge, keyText(prompt, inputType), "Title", 20, theme.Colors.Text)
-	keyLabel.Size = UDim2.fromScale(1, 1)
-	keyLabel.TextScaled = true
-	keyLabel.ZIndex = 8
-	Style.Outline(keyLabel, 1.5)
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft, pad.PaddingRight = UDim.new(0.2, 0), UDim.new(0.2, 0)
-	pad.PaddingTop, pad.PaddingBottom = UDim.new(0.24, 0), UDim.new(0.2, 0)
-	pad.Parent = keyLabel
-
-	local left = badgeSize + 2
-	local iconId = iconFor(prompt)
-	if iconId then
-		local icon = Icon.new(button, iconId)
-		icon.AnchorPoint = Vector2.new(0, 0.5)
-		icon.Position = UDim2.new(0, left, 0.5, 0)
-		icon.Size = UDim2.fromOffset(height - 12, height - 12)
-		icon.ZIndex = 3
-		left += height - 8
-	end
-	local object = Style.Label(button, prompt.ObjectText, "Bold", 13, theme.Colors.TextMuted)
-	object.Position = UDim2.fromOffset(left, 5)
-	object.Size = UDim2.new(1, -(left + 10), 0.34, 0)
-	object.TextXAlignment = Enum.TextXAlignment.Left
-	object.TextScaled = true
-	object.ZIndex = 3
-	local action = Style.Label(button, prompt.ActionText, "Title", 20, theme.Colors.Text)
-	action.Position = UDim2.new(0, left, 0.34, 3)
-	action.Size = UDim2.new(1, -(left + 10), 0.58, -6)
-	action.TextXAlignment = Enum.TextXAlignment.Left
-	action.TextScaled = true
-	action.ZIndex = 3
-	Style.Outline(action, 1.5)
+	local pill = PromptPill.new(gui, {
+		Key = keyText(prompt, inputType),
+		Object = prompt.ObjectText,
+		Action = prompt.ActionText,
+		Icon = iconFor(prompt),
+		Height = height,
+	})
+	local button, object, action = pill.Button, pill.Object, pill.Action
 
 	local connections: { RBXScriptConnection } = {}
 	table.insert(connections, prompt:GetPropertyChangedSignal("ActionText"):Connect(function()
@@ -149,22 +90,20 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 	local holdStart: number? = nil
 	table.insert(connections, prompt.PromptButtonHoldBegan:Connect(function()
 		holdStart = os.clock()
-		ring.Thickness = 4
+		pill:SetHold(0.01)
 	end))
 	table.insert(connections, prompt.PromptButtonHoldEnded:Connect(function()
 		holdStart = nil
-		ring.Thickness = 3
-		fill.Size = UDim2.fromScale(0, 0)
+		pill:SetHold(0)
 	end))
 	table.insert(connections, prompt.Triggered:Connect(function()
 		Style.Play("Click")
-		Style.SparkleBurst(button, Vector2.new(badgeSize / 2 - 4, (height - 6) / 2), world.TriggerSparkles, 26)
+		pill:Burst()
 	end))
 	table.insert(connections, RunService.RenderStepped:Connect(function()
 		local start = holdStart
 		if start and prompt.HoldDuration > 0 then
-			local t = math.clamp((os.clock() - start) / prompt.HoldDuration, 0, 1)
-			fill.Size = UDim2.fromScale(t, t)
+			pill:SetHold(math.clamp((os.clock() - start) / prompt.HoldDuration, 0, 1))
 		end
 	end))
 
@@ -186,7 +125,7 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 	local scaleObject = Instance.new("UIScale")
 	scaleObject.Scale = 0.6
 	scaleObject.Parent = button
-	TweenService:Create(scaleObject, TweenInfo.new(world.PopTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(scaleObject, TweenInfo.new(UITheme.WorldPanel.PopTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 
 	gui.Destroying:Connect(function()
 		for _, connection in connections do

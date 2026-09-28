@@ -1,5 +1,5 @@
 --!strict
--- Title banner: a jewel ribbon with a gold border, ribbon ends behind it, a small gold star on top and the title in
+-- Title banner: a jewel ribbon with a gold border, a gold gem on each end, a soft glow, a gold star on top and the title in
 -- the title font (optionally with a painted icon on the left, a bit bigger than the ribbon so it pops out). Windows
 -- hang it on their top edge (UI/Window); the binding ceremony uses one for the dragon's name. Colors and sizes in
 -- UITheme (Colors.Banner*, Sizes.Banner*, Motion.BannerStarSpin).
@@ -18,7 +18,7 @@ export type Props = {
 	Icon: string?, -- UITheme.Icons key
 	Top: Color3?, -- ribbon colors (default: the theme's amethyst banner)
 	Bottom: Color3?,
-	Tail: Color3?,
+	Tail: Color3?, -- unused (the dark ribbon ends were removed in the UI renewal part 2)
 	TextColor: Color3?,
 }
 
@@ -31,7 +31,7 @@ export type Banner = typeof(setmetatable({} :: {
 	Label: TextLabel,
 	Icon: GuiObject?,
 	Star: TextLabel,
-	Tails: { Frame },
+	Tails: { Frame }, -- the gold end gems
 	Height: number,
 	TextSize: number,
 	StarSize: number,
@@ -46,17 +46,16 @@ function Banner.new(parent: Instance, props: Props): Banner
 	holder.ZIndex = 6
 	holder.Parent = parent
 
-	-- ribbon ends: siblings drawn under the ribbon, sticking out left and right a little lower
+	-- a soft glow in the ribbon's color behind it, and a gold gem on each end (in place of the old dark ribbon ends)
+	local glow = Style.Glow(holder, props.Top or colors.BannerTop, 14, 0.4, 6)
+	glow.Name = "BannerGlow"
 	local tails = {}
 	for side = 0, 1 do
-		local tail = Instance.new("Frame")
-		tail.Name = if side == 0 then "TailLeft" else "TailRight"
-		tail.BackgroundColor3 = props.Tail or colors.BannerTail
-		tail.ZIndex = 6
-		Style.Corner(tail, 6)
-		Style.GoldBorder(tail, 2)
-		tail.Parent = holder
-		table.insert(tails, tail)
+		local gem = Style.Ornament(holder, 16, colors.CornerJewel)
+		gem.Name = if side == 0 then "GemLeft" else "GemRight"
+		gem.Position = UDim2.fromScale(side, 0.5)
+		gem.ZIndex = 9
+		table.insert(tails, gem)
 	end
 
 	local ribbon = Instance.new("Frame")
@@ -164,11 +163,10 @@ function Banner.Layout(self: Banner, height: number, textSize: number, starSize:
 	end
 	local width = math.floor(textWidth + iconWidth + padding * 2)
 	self.Holder.Size = UDim2.fromOffset(width, height)
-	local tailWidth, tailHeight = math.floor(height * 0.95), math.floor(height * 0.7)
-	for index, tail in self.Tails do
-		tail.Size = UDim2.fromOffset(tailWidth, tailHeight)
-		tail.AnchorPoint = Vector2.new(if index == 1 then 1 else 0, 0)
-		tail.Position = UDim2.new(index - 1, if index == 1 then height * 0.45 else -height * 0.45, 0, height * 0.42)
+	local gem = math.floor(height * 0.42)
+	for index, end_ in self.Tails do -- the gold end gems
+		end_.Size = UDim2.fromOffset(gem, gem)
+		end_.Position = UDim2.fromScale(index - 1, 0.5)
 	end
 	self.Star.Size = UDim2.fromOffset(starSize, starSize)
 end
