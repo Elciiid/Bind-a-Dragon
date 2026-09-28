@@ -40,6 +40,7 @@ local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 local WorldLabels = require(ReplicatedStorage.Shared.Config.UITheme).WorldLabels
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -53,6 +54,7 @@ local rng = Random.new()
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 local returnFromRoost = ReplicatedStorage.Remotes.ReturnFromRoost :: RemoteEvent
+local equipBest = ReplicatedStorage.Remotes.EquipBest :: RemoteEvent
 
 local plotOwners: { [Model]: Player } = {}
 local plotOf: { [Player]: Model } = {}
@@ -60,11 +62,13 @@ local shown: { [Player]: { [string]: Shown } } = {} -- dragonId -> model on the 
 local unpaid: { [Player]: number } = {} -- fractional gold carried between payouts
 local lastPlace: { [Player]: number } = {}
 local lastReturn: { [Player]: number } = {}
+local lastEquip: { [Player]: number } = {}
 local lastActive: { [Player]: number } = {} -- os.clock() of the player's last movement
 local lastPosition: { [Player]: Vector3 } = {}
 local capNotified: { [Player]: boolean } = {} -- "rebirth cap reached" shown this session
 local PLACE_INTERVAL = 0.25 -- seconds between PlaceInRoost requests per player (anti-spam)
 local RETURN_INTERVAL = 0.25 -- seconds between ReturnFromRoost requests per player (anti-spam)
+local EQUIP_INTERVAL = 1 -- seconds between EquipBest requests per player (anti-spam)
 
 local RoostService = {}
 
@@ -496,6 +500,58 @@ local function onReturnFromRoost(player: Player, dragonId: unknown)
 	notify:FireClient(player, `{if species then species.Name else "Dragon"} returned to your inventory.`, "success")
 end
 
+-- EquipBest(): fills the roost with the player's highest-earning dragons (ranked by gold/sec, which is each
+-- dragon's share of DragonStats.GetRoostIncome), up to the slot count. Equipped dragons lose their "taken out" mark.
+local function onEquipBest(player: Player)
+	local now = os.clock()
+	if now - (lastEquip[player] or 0) < EQUIP_INTERVAL then
+		return
+	end
+	lastEquip[player] = now
+
+	local data = DataService:GetData(player)
+	if data == nil then
+		return
+	end
+	local ranked = {}
+	for id, dragon in data.Dragons do
+		table.insert(ranked, { Id = id, Income = DragonStats.GetGoldPerSecond(dragon) })
+	end
+	table.sort(ranked, function(a, b)
+		if a.Income ~= b.Income then
+			return a.Income > b.Income
+		end
+		return a.Id < b.Id -- stable order for equal earners
+	end)
+	local slots = DragonStats.GetRoostSlots(data)
+	local best = {}
+	for index = 1, math.min(slots, #ranked) do
+		table.insert(best, ranked[index].Id)
+	end
+
+	local same = #best == #data.RoostDragonIds
+	if same then
+		for _, id in best do
+			if not table.find(data.RoostDragonIds, id) then
+				same = false
+				break
+			end
+		end
+	end
+	if same then
+		notify:FireClient(player, Text.Dragons.AlreadyBest, "info")
+		return
+	end
+	data.RoostDragonIds = best
+	for index = #data.RoostUnplacedDragonIds, 1, -1 do
+		if table.find(best, data.RoostUnplacedDragonIds[index]) then
+			table.remove(data.RoostUnplacedDragonIds, index)
+		end
+	end
+	refreshPlot(player, data)
+	notify:FireClient(player, Text.Format(Text.Dragons.Equipped, { n = #best }), "success")
+end
+
 local function clearPlot(plot: Model)
 	setSign(plot, nil)
 	plot:SetAttribute("RoostSlots", nil)
@@ -545,6 +601,7 @@ function RoostService:Start()
 
 	placeInRoost.OnServerEvent:Connect(onPlaceInRoost)
 	returnFromRoost.OnServerEvent:Connect(onReturnFromRoost)
+	equipBest.OnServerEvent:Connect(onEquipBest)
 
 	DataService:OnDataLoaded(function(player, data)
 		payOffline(player, data)
@@ -558,6 +615,7 @@ function RoostService:Start()
 		unpaid[player] = nil
 		lastPlace[player] = nil
 		lastReturn[player] = nil
+		lastEquip[player] = nil
 		lastActive[player] = nil
 		lastPosition[player] = nil
 		capNotified[player] = nil

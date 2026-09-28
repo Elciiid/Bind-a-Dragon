@@ -201,9 +201,10 @@ local function layoutPopups()
 			popup.Panel.Size = UDim2.new(0.94, 0, 1, -(reserve + 8))
 			popup.Panel.Position = UDim2.new(0.5, 0, 0.5, math.floor(reserve / 2) - 2)
 		else
+			-- the full height below the top bar (each window's MaxSize still caps it)
 			local pc = popup.PcSize
-			popup.Panel.Size = UDim2.new(pc.X.Scale, pc.X.Offset, pc.Y.Scale, pc.Y.Offset - reserve)
-			popup.Panel.Position = UDim2.new(0.5, 0, 0.5, math.floor(reserve / 2))
+			popup.Panel.Size = UDim2.new(pc.X.Scale, pc.X.Offset, 1, -(reserve + sizes.Margin))
+			popup.Panel.Position = UDim2.new(0.5, 0, 0.5, math.floor((reserve - sizes.Margin) / 2))
 		end
 	end
 end

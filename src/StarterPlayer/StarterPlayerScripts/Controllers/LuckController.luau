@@ -40,6 +40,8 @@ local pillButton: TextButton
 local active = false -- at an altar at night
 local expanded = false -- phone: pill tapped open
 local phone = false
+local rowsFrame: Frame
+local luckRows: { { Frame: Frame, Name: TextLabel, Value: TextLabel } } = {}
 local armButton: Button.Button
 
 local function getAltarPart(altar: Instance): BasePart?
@@ -142,6 +144,8 @@ local function update()
 	end
 
 	armButton.Instance.Visible = not boundTonight
+	details.Visible = boundTonight
+	rowsFrame.Visible = not boundTonight
 	if boundTonight then
 		title.Text = "Bound tonight"
 		details.Text = "Come back next night to bind again."
@@ -162,17 +166,18 @@ local function update()
 	title.Text = if atMax
 		then Text.Format(Text.LuckPanel.Max, { luck = Format.Multiplier(luck.Total) })
 		else Format.Multiplier(luck.Total)
-	local lines = {
-		`Area  {Format.Multiplier(luck.Area)}`,
-		`{luck.MoonName}  {Format.Multiplier(luck.Moon)}`,
-		`{state.Constellation.Name}  {Format.Multiplier(luck.Constellation)}`,
-		if luck.Favored > 1 then `Favored area  {Format.Multiplier(luck.Favored)}` else favoredHint(state.Constellation),
-		`Stardust ({offeringCount}/{#LuckConfig.Offerings})  {Format.Multiplier(luck.Stardust)}`,
-		`Group ({luck.GroupSize} here)  {Format.Multiplier(luck.Group)}`,
+	-- one row per factor: the name left, the multiplier big on the right (factors at x1 are dimmed)
+	local lines: { { string } } = {
+		{ "Area", Format.Multiplier(luck.Area) },
+		{ luck.MoonName, Format.Multiplier(luck.Moon) },
+		{ state.Constellation.Name, Format.Multiplier(luck.Constellation) },
+		if luck.Favored > 1 then { "Favored area", Format.Multiplier(luck.Favored) } else { favoredHint(state.Constellation), "" },
+		{ `Stardust {offeringCount}/{#LuckConfig.Offerings}`, Format.Multiplier(luck.Stardust) },
+		{ `Group ({luck.GroupSize})`, Format.Multiplier(luck.Group) },
 	}
 	local armed = Boosts.ById[data.ArmedLuckPotion]
 	if luck.Potion > 1 and armed then
-		table.insert(lines, `{armed.Name}  {Format.Multiplier(luck.Potion)} (max {Format.Multiplier(LuckConfig.PotionCap)})`)
+		table.insert(lines, { armed.Name, Format.Multiplier(luck.Potion) })
 	end
 	local owned = ownedCharges(data)
 	if #owned == 0 then
@@ -185,7 +190,17 @@ local function update()
 			then `Armed: {armed.Name} x{data.Potions[armed.Id]}`
 			else `Arm a luck potion ({#owned})`
 	end
-	details.Text = table.concat(lines, "\n")
+	for index, row in luckRows do
+		local line = lines[index]
+		row.Frame.Visible = line ~= nil
+		if line then
+			row.Name.Text = line[1]
+			row.Value.Text = line[2]
+			local calm = line[2] == "x1" or line[2] == ""
+			row.Name.TextColor3 = if calm then Theme.Colors.TextMuted else Theme.Colors.Text
+			row.Value.TextColor3 = if calm then Theme.Colors.TextMuted else Theme.Colors.Gold
+		end
+	end
 	setActive(true)
 end
 
@@ -213,16 +228,42 @@ function LuckController:Init()
 	title.TextScaled = true
 	title.TextStrokeTransparency = 0
 
-	details = Style.Label(inner, "", "Bold", 16, Theme.Colors.Text)
+	details = Style.Label(inner, "", "Bold", 16, Theme.Colors.Text) -- "bound tonight" message
 	details.Position = UDim2.new(0, 0, 0, 34)
 	details.Size = UDim2.new(1, 0, 1, -72)
-	details.TextXAlignment = Enum.TextXAlignment.Left
 	details.TextYAlignment = Enum.TextYAlignment.Top
 
-	armButton = Button.new(inner, { Text = "Arm a luck potion", Kind = "Primary", TextSize = 14, Icon = "Potion_MoonfireTonic", OnClick = cycleCharge })
+	rowsFrame = Instance.new("Frame")
+	rowsFrame.Name = "Factors"
+	rowsFrame.BackgroundTransparency = 1
+	rowsFrame.Parent = inner
+	local rowsList = Instance.new("UIListLayout")
+	rowsList.SortOrder = Enum.SortOrder.LayoutOrder
+	rowsList.Parent = rowsFrame
+	for index = 1, 7 do
+		local row = Instance.new("Frame")
+		row.LayoutOrder = index
+		row.BackgroundTransparency = 1
+		row.Size = UDim2.new(1, 0, 1 / 7, 0)
+		row.Parent = rowsFrame
+		local name = Style.Label(row, "", "Bold", 15, Theme.Colors.Text)
+		name.Size = UDim2.new(0.72, 0, 1, 0)
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.TextWrapped = false
+		local value = Style.Label(row, "", "Title", 17, Theme.Colors.Gold)
+		value.AnchorPoint = Vector2.new(1, 0)
+		value.Position = UDim2.fromScale(1, 0)
+		value.Size = UDim2.new(0.28, 0, 1, 0)
+		value.TextXAlignment = Enum.TextXAlignment.Right
+		Style.Outline(value, 1.5)
+		table.insert(luckRows, { Frame = row, Name = name, Value = value })
+	end
+
+	armButton = Button.new(inner, { Text = "Arm a luck potion", Kind = "Confirm", TextSize = 15, Icon = "Potion_MoonfireTonic", OnClick = cycleCharge })
 	armButton.Instance.AnchorPoint = Vector2.new(0, 1)
 	armButton.Instance.Position = UDim2.new(0, 0, 1, 0)
-	armButton.Instance.Size = UDim2.new(1, 0, 0, 32)
+	armButton.Instance.Size = UDim2.new(1, 0, 0, 36)
 
 	-- Phone pill: gradient pill with the Stardust icon; the whole pill is the tap target.
 	pill = Instance.new("Frame")
@@ -265,8 +306,9 @@ function LuckController:Init()
 			inner.Position, inner.Size = UDim2.fromOffset(12, 18), UDim2.new(1, -24, 1, -28)
 			title.Size = UDim2.new(1, 0, 0, 22)
 			details.Position, details.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -54)
+			rowsFrame.Position, rowsFrame.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -56)
 			details.TextSize = 13
-			armButton.Instance.Size = UDim2.new(1, 0, 0, 26)
+			armButton.Instance.Size = UDim2.new(1, 0, 0, 30)
 		else
 			panel.AnchorPoint = Vector2.new(1, 0.5)
 			panel.Position = UDim2.new(1, -sizes.Margin, 0.5, 0)
@@ -275,8 +317,9 @@ function LuckController:Init()
 			inner.Position, inner.Size = UDim2.fromOffset(14, 26), UDim2.new(1, -28, 1, -40)
 			title.Size = UDim2.new(1, 0, 0, 34)
 			details.Position, details.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -80)
+			rowsFrame.Position, rowsFrame.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -86)
 			details.TextSize = 16
-			armButton.Instance.Size = UDim2.new(1, 0, 0, 32)
+			armButton.Instance.Size = UDim2.new(1, 0, 0, 36)
 		end
 		setActive(active)
 	end)

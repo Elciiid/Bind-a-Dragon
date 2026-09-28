@@ -1,5 +1,5 @@
 --!strict
--- A currency pill in the HUD icon style: a soft translucent twilight bar with a thin gold edge, the currency icon big
+-- A currency pill in the HUD icon style: an indigo -> violet bar with a gold border and a soft gloss, the currency icon big
 -- and standalone over its left end (with a drop shadow), and the value in the title font in the currency's color
 -- with a dark outline. Size is set by the caller (HudLayout: bottom-left on PC, one small row top-left on phones).
 
@@ -20,11 +20,20 @@ function CurrencyPill.new(parent: Instance, icon: string, color: Color3): Curren
 	local theme = Style.Theme
 	local frame = Instance.new("Frame")
 	frame.Name = icon
-	frame.BackgroundColor3 = theme.Colors.PanelBottom
-	frame.BackgroundTransparency = 0.3
+	frame.BackgroundColor3 = Color3.new(1, 1, 1)
+	frame.BackgroundTransparency = 0.12
+	Style.Gradient(frame, theme.Colors.PanelV2Top, theme.Colors.PanelV2Bottom)
 	Style.Round(frame)
-	local edge = Style.Stroke(frame, theme.Colors.TrimDark, 1.5)
-	edge.Transparency = 0.2
+	Style.GoldBorder(frame, 2)
+	local gloss = Instance.new("Frame") -- a soft light along the top
+	gloss.Name = "Gloss"
+	gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+	gloss.BackgroundTransparency = 0.85
+	gloss.BorderSizePixel = 0
+	gloss.Position = UDim2.new(0, 6, 0, 2)
+	gloss.Size = UDim2.new(1, -12, 0.4, 0)
+	Style.Round(gloss)
+	gloss.Parent = frame
 
 	local shadow = Icon.new(frame, icon, color, icon)
 	shadow.Name = "Shadow"

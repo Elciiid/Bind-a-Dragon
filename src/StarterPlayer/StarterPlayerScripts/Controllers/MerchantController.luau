@@ -24,7 +24,7 @@ function MerchantController:Start()
 			for _, merchant in CollectionService:GetTagged(MERCHANT_TAG) do
 				local prompt = merchant:FindFirstChild("BuyStardustPrompt", true)
 				if prompt and prompt:IsA("ProximityPrompt") then
-					prompt.ActionText = `Buy {Economy.Merchant.BundleSize} Stardust: {Format.Number(price)} gold`
+					prompt.ActionText = `{Economy.Merchant.BundleSize} Stardust · {Format.Number(price)}` -- short: the prompt is small
 				end
 			end
 		end

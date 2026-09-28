@@ -93,7 +93,7 @@ return {
 		Neutral = Color3.fromRGB(66, 134, 238), -- sky blue: neutral
 		Disabled = Color3.fromRGB(116, 116, 132), -- clearly grey
 		Close = Color3.fromRGB(236, 78, 118),
-		Badge = Color3.fromRGB(172, 70, 99),
+		Badge = Color3.fromRGB(236, 60, 90), -- red count badges (bright, readable on every icon)
 		ButtonStroke = Color3.fromRGB(176, 118, 36), -- outline on buttons and tiles (antique gold)
 		MenuTop = Color3.fromRGB(75, 70, 119), -- menu tiles: one twilight surface for every tile
 		MenuBottom = Color3.fromRGB(31, 29, 70),
@@ -258,6 +258,7 @@ return {
 		PhoneSkyPillExtraLine = 9,
 		TravelSlot = 96, -- PC: every travel button gets a slot this wide, so the labels never clip and spacing is even
 		PhoneTravelSlot = 62,
+		PhoneCardScale = 0.55, -- phones: Inventory dragon and potion cards are drawn this much smaller (a full row fits)
 		PhoneSkyIcon = 40,
 
 		-- UI renewal HUD (pixels). Icons are ~1.5x the old tile icons; labels in the title font.
@@ -319,6 +320,12 @@ return {
 		RewardSpin = 18, -- seconds per turn of the rays behind a reward pop-up
 		RewardBurst = 26, -- sparkles in a reward burst (Low effects: a third)
 		DuskPulse = 1.2, -- seconds per pulse of the sky pill's glow at dusk
+		-- Inventory "Upgrade" button: tap = +1 level; held longer than UpgradeHoldDelay it keeps buying every
+		-- UpgradeRepeat seconds: 1 level a time, 5 after UpgradeRamp seconds, 25 after UpgradeRampFast.
+		UpgradeHoldDelay = 0.4,
+		UpgradeRepeat = 0.15, -- keep above DragonService's 0.1 s request limit
+		UpgradeRamp = 1.5,
+		UpgradeRampFast = 3.5,
 		BannerStarSpin = 6, -- seconds per slow wobble of the banner star
 		CloseHoverTurn = 90, -- degrees the close X turns on hover
 	},

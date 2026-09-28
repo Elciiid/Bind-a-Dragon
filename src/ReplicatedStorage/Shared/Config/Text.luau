@@ -9,7 +9,7 @@ local Text = {
 	RuneShrine = {
 		Title = "Rune Shrine",
 		PromptAction = "Inscribe a Rune",
-		Button = "Inscribe ({cost} Wyrm Rune)",
+		Button = "Inscribe · {cost}",
 		Hint = "pick a dragon to inscribe a rune",
 		Owned = "{count} Wyrm Runes",
 		Chances = "What can awaken",
@@ -22,7 +22,7 @@ local Text = {
 	DragonstoneForge = {
 		Title = "Dragonstone Forge",
 		PromptAction = "Temper",
-		Button = "Temper ({cost} Dragonstone)",
+		Button = "Temper · {cost}",
 		Hint = "pick a dragon to temper",
 		Owned = "{count} Dragonstones",
 		Chances = "Grades it can reach",
@@ -113,6 +113,35 @@ local Text = {
 		Constellation = "Rare night!",
 		ConstellationTag = "{luck} bind luck tonight",
 		ConstellationPlain = "Bind at a Star Altar",
+	},
+
+	-- Dragons tab of the Inventory (InventoryController) and the Equip best button (RoostService). {n} = a count.
+	Dragons = {
+		EquipBest = "Equip best",
+		Equipped = "Equipped your {n} best dragons!",
+		AlreadyBest = "Your best dragons are already in the roost!",
+		Header = "{count} dragons · Roost {placed}/{slots}",
+		Empty = "Bind a dragon at a Star Altar at night!",
+		Upgrade = "Upgrade", -- the button shows the cost next to it; hold to keep upgrading
+		MaxLevel = "Max level",
+		InRoost = "In roost",
+		Resting = "Resting",
+		Tooltip = "Power {power} · {trait} · {grade}",
+		NoTrait = "No trait",
+		NoGrade = "No grade",
+	},
+
+	-- Shop cards (ShopController): one short line per item (the full rules from Config/Products are in the tooltip).
+	Shop = {
+		Short = {
+			ElevatorPass = "Climbs start above your record",
+			ElevatorSkip = "One climb above your record",
+			AfkIncome2x = "x2 gold while you're away",
+			AutoBind = "Binds for you every night",
+		} :: { [string]: string },
+		SkipsOwned = "You have {n}",
+		Owned = "Owned",
+		ComingSoon = "Coming soon",
 	},
 
 	-- Luck panel at a Star Altar (LuckController): the banner title; the total luck shows under it.

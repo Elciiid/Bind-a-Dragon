@@ -16,6 +16,7 @@ local Style = require(script.Parent.UI.Style)
 local Icon = require(script.Parent.UI.Icon)
 local Button = require(script.Parent.UI.Button)
 local Window = require(script.Parent.UI.Window)
+local DragonPicture = require(script.Parent.UI.DragonPicture)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -138,6 +139,10 @@ local function redraw()
 	if ownedIcon.Image ~= UITheme.Icons[iconKey] then
 		ownedIcon.Image = UITheme.Icons[iconKey]
 		window:SetIcon(iconKey)
+		local buttonIcon = rollButton.Instance:FindFirstChild("Icon", true)
+		if buttonIcon and buttonIcon:IsA("ImageLabel") then
+			buttonIcon.Image = UITheme.Icons[iconKey]
+		end
 	end
 	chancesTitle.Text = words.Chances
 
@@ -163,20 +168,25 @@ local function redraw()
 		-- Row: a card (gold outline when chosen) with the rarity icon, name + level, and the current trait/grade.
 		local row = Instance.new("Frame")
 		row.LayoutOrder = index
-		row.Size = UDim2.new(1, -8, 0, 46)
-		Style.CardLook(row, if dragon.Id == selectedId then UITheme.Colors.Title else nil)
+		row.Size = UDim2.new(1, -8, 0, 52)
 		local rarity = if species then species.Rarity else ""
-		local badge = Icon.new(row, `Rarity_{rarity}`, rarityColor(rarity))
-		badge.AnchorPoint = Vector2.new(0, 0.5)
-		badge.Position = UDim2.new(0, 12, 0.5, 0)
-		badge.Size = UDim2.fromOffset(28, 28)
-		local name = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}`, "Heavy", 16, UITheme.Colors.Text)
-		name.Position = UDim2.fromOffset(48, 3)
+		Style.CardLook(row, if dragon.Id == selectedId then UITheme.Colors.Title else nil)
+		local picture = Instance.new("Frame")
+		picture.BackgroundTransparency = 1
+		picture.AnchorPoint = Vector2.new(0, 0.5)
+		picture.Position = UDim2.new(0, 4, 0.5, 0)
+		picture.Size = UDim2.fromOffset(44, 44)
+		picture.ZIndex = 3
+		picture.Parent = row
+		DragonPicture.new(picture, dragon.SpeciesId, dragon.Level)
+		local name = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}`, "Title", 16, Style.Shade(rarityColor(rarity), 0.35))
+		Style.Outline(name, 1.5)
+		name.Position = UDim2.fromOffset(52, 6)
 		name.Size = UDim2.new(1, -54, 0, 20)
 		name.TextXAlignment = Enum.TextXAlignment.Left
 		name.TextTruncate = Enum.TextTruncate.AtEnd
 		local text = Style.Label(row, current, "Bold", 14, color)
-		text.Position = UDim2.fromOffset(48, 23)
+		text.Position = UDim2.fromOffset(52, 28)
 		text.Size = UDim2.new(1, -54, 0, 18)
 		text.TextXAlignment = Enum.TextXAlignment.Left
 		text.TextTruncate = Enum.TextTruncate.AtEnd
@@ -322,7 +332,8 @@ function RollStationController:Init()
 
 	rollButton = Button.new(side, {
 		Text = Text.RuneShrine.PromptAction, -- replaced per station on open
-		Kind = "Primary",
+		Kind = "Confirm",
+		Icon = "WyrmRune",
 		TextSize = 20,
 		OnClick = function()
 			if selectedId == nil or openKind == nil then

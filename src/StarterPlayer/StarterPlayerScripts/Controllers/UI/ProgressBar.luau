@@ -1,5 +1,5 @@
 --!strict
--- Progress bar: dark rounded track, colored fill with a light-to-dark gradient, centered text.
+-- Progress bar: dark rounded track with a gold rim, a glossy colored fill, the text centered in the title font.
 
 local TweenService = game:GetService("TweenService")
 
@@ -18,9 +18,10 @@ function ProgressBar.new(parent: Instance, color: Color3?): ProgressBar
 	local theme = Style.Theme
 	local track = Instance.new("Frame")
 	track.Name = "ProgressBar"
-	track.BackgroundColor3 = theme.Colors.PanelInnerLine
+	track.BackgroundColor3 = theme.Colors.TextStroke
+	track.BackgroundTransparency = 0.15
 	Style.Round(track)
-	Style.Stroke(track, theme.Colors.TextStroke, 1.5)
+	Style.GoldBorder(track, 2)
 
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
@@ -30,10 +31,27 @@ function ProgressBar.new(parent: Instance, color: Color3?): ProgressBar
 	Style.Gradient(fill, Style.Shade(base, 0.2), Style.Shade(base, -0.15))
 	Style.Round(fill)
 	fill.Parent = track
+	local gloss = Instance.new("Frame") -- a light line along the top of the fill
+	gloss.Name = "Gloss"
+	gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+	gloss.BackgroundTransparency = 0.7
+	gloss.BorderSizePixel = 0
+	gloss.Position = UDim2.new(0, 4, 0.12, 0)
+	gloss.Size = UDim2.new(1, -8, 0.28, 0)
+	Style.Round(gloss)
+	gloss.Parent = fill
 
-	local label = Style.Label(track, "", "Heavy", 13)
+	local label = Style.Label(track, "", "Title", 14)
 	label.Size = UDim2.fromScale(1, 1)
+	label.TextScaled = true
 	label.ZIndex = 2
+	Style.Outline(label, 1.5)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop, pad.PaddingBottom = UDim.new(0.12, 0), UDim.new(0.08, 0)
+	pad.Parent = label
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 16
+	limit.Parent = label
 
 	track.Parent = parent
 	return setmetatable({ Instance = track, Fill = fill, Label = label }, ProgressBar)

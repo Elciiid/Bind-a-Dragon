@@ -60,10 +60,11 @@ local function updateResetTimers()
 end
 
 local function sectionTitle(order: number): TextLabel
-	local label = Style.Label(list, "", "Title", 18, UITheme.Colors.Title)
+	local label = Style.Label(list, "", "Title", 20, UITheme.Colors.Title)
 	label.LayoutOrder = order
-	label.Size = UDim2.new(1, -8, 0, 26)
+	label.Size = UDim2.new(1, -8, 0, 28)
 	label.TextXAlignment = Enum.TextXAlignment.Left
+	Style.Outline(label, 2)
 	return label
 end
 
@@ -77,7 +78,7 @@ local function addStreak(data: PlayerDataTypes.PlayerData)
 	local strip = Instance.new("Frame")
 	strip.LayoutOrder = -1
 	strip.BackgroundTransparency = 1
-	strip.Size = UDim2.new(1, -8, 0, 62)
+	strip.Size = UDim2.new(1, -8, 0, 78)
 	strip.Parent = list
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -87,21 +88,21 @@ local function addStreak(data: PlayerDataTypes.PlayerData)
 	for day = 1, days do
 		local claimed = day <= data.LoginStreak
 		local today = day == data.LoginStreak
+		-- today glows gold, claimed days are jade, days to come are calm
 		local card = Instance.new("Frame")
 		card.LayoutOrder = day
 		card.Size = UDim2.new(1 / days, -5, 1, 0)
-		Style.CardLook(card)
-		local stroke = card:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = if today then theme.Colors.Title elseif claimed then theme.Colors.Positive else theme.Colors.PanelInnerLine
-			stroke.Thickness = if today then 3 else 2
-		end
+		Style.CardLook(card, if today then theme.Colors.Gold elseif claimed then theme.Colors.Positive else nil)
 		card.Parent = strip
-		local label = Style.Label(card, if claimed then `✓ Day {day}` else `Day {day}`, "Heavy", 12, if claimed then theme.Colors.Positive else theme.Colors.TextMuted)
+		local label = Style.Label(card, if claimed then `✓ Day {day}` else `Day {day}`, "Title", 14, if today then theme.Colors.Gold elseif claimed then theme.Colors.Positive else theme.Colors.TextMuted)
+		label.Position = UDim2.fromOffset(0, 3)
 		label.Size = UDim2.new(1, 0, 0, 18)
-		local rewards = RewardRow.new(card, QuestConfig.StreakRewards[day], 18) -- small: day 3 and 6 show two items
+		label.ZIndex = 3
+		Style.Outline(label, 1.5)
+		local rewards = RewardRow.new(card, QuestConfig.StreakRewards[day], 20) -- day 3 and 6 show two items
 		rewards.AnchorPoint = Vector2.new(0.5, 0)
-		rewards.Position = UDim2.new(0.5, 0, 0, 22)
+		rewards.Position = UDim2.new(0.5, 0, 0, 28)
+		rewards.ZIndex = 3
 	end
 end
 
@@ -110,27 +111,31 @@ local function addQuest(order: number, state: PlayerDataTypes.QuestState, reward
 	local quest = questById[state.Id]
 	local card = Instance.new("Frame")
 	card.LayoutOrder = order
-	card.Size = UDim2.new(1, -8, 0, 66)
+	card.Size = UDim2.new(1, -8, 0, 76)
 	Style.CardLook(card, if state.Done then theme.Colors.Positive else theme.Colors.Primary)
 	card.Parent = list
 
 	local text = if quest then quest.Text:gsub("{n}", Format.Number(state.Target)) else state.Id
-	local title = Style.Label(card, if state.Done then `✓ {text}` else text, "Heavy", 17, if state.Done then theme.Colors.Positive else theme.Colors.Text)
-	title.Position = UDim2.fromOffset(16, 6)
-	title.Size = UDim2.new(0.6, -16, 0, 22)
+	local title = Style.Label(card, if state.Done then `✓ {text}` else text, "Title", 18, if state.Done then theme.Colors.Positive else theme.Colors.Text)
+	title.Position = UDim2.fromOffset(16, 7)
+	title.Size = UDim2.new(0.6, -16, 0, 24)
+	title.ZIndex = 3
+	Style.Outline(title, 1.5)
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextTruncate = Enum.TextTruncate.AtEnd
 	title.TextWrapped = false
 
 	if reward then
-		local rewards = RewardRow.new(card, reward, 24)
+		local rewards = RewardRow.new(card, reward, 30)
 		rewards.AnchorPoint = Vector2.new(1, 0)
-		rewards.Position = UDim2.new(1, -10, 0, 5)
+		rewards.Position = UDim2.new(1, -10, 0, 4)
+		rewards.ZIndex = 3
 	end
 
 	local bar = ProgressBar.new(card, if state.Done then theme.Colors.Positive else theme.Colors.Primary)
-	bar.Instance.Position = UDim2.fromOffset(16, 36)
-	bar.Instance.Size = UDim2.new(1, -28, 0, 20)
+	bar.Instance.Position = UDim2.fromOffset(16, 40)
+	bar.Instance.Size = UDim2.new(1, -28, 0, 24)
+	bar.Instance.ZIndex = 3
 	bar:Set(state.Progress / math.max(state.Target, 1), `{Format.Number(state.Progress)} / {Format.Number(state.Target)}`)
 end
 

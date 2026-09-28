@@ -21,7 +21,7 @@ local useBoost = ReplicatedStorage.Remotes.UseBoost :: RemoteEvent
 
 local BoostController = {}
 
-type Row = { Count: TextLabel, Timer: TextLabel, Button: Button.Button }
+type Row = { Count: TextLabel, Timer: TextLabel, Button: Button.Button, Scale: UIScale }
 
 local window: InventoryWindow.Tab
 local rows: { [string]: Row } = {}
@@ -61,12 +61,12 @@ local function refresh()
 		local row = rows[potion.Id]
 		row.Count.Text = `x{count}`
 		if potion.Kind == "LuckCharge" then
-			row.Timer.Text = if armed then "Armed for your next bind" else "Arm it, then bind at night"
+			row.Timer.Text = if armed then "Armed!" else "For your next bind"
 			row.Button:SetText(if armed then "Disarm" else "Arm")
-			row.Button:SetKind(if armed then "Cancel" else "Primary")
+			row.Button:SetKind(if armed then "Cancel" else "Confirm")
 			row.Button:SetEnabled(armed or count > 0)
 		else
-			row.Timer.Text = if left > 0 then `Active: {formatTime(left)} left` else `{potion.Minutes} min per potion`
+			row.Timer.Text = if left > 0 then `Active {formatTime(left)}` else `{potion.Minutes} min`
 			row.Button:SetText("Use")
 			row.Button:SetEnabled(count > 0)
 		end
@@ -102,51 +102,84 @@ local function refresh()
 	moreChip.Visible = hidden > 0
 end
 
+-- A potion card (UI renewal part 2): tinted in the potion's color, the big potion picture with the count on a
+-- badge, the name, one short line (the effect), a status chip (time left / armed) and one big button.
+local POTION_CARD = Vector2.new(186, 222)
+
 local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
 	local theme = UITheme
+	local cell = Instance.new("Frame")
+	cell.Name = potion.Id
+	cell.LayoutOrder = order
+	cell.BackgroundTransparency = 1
+	cell.Parent = list
 	local card = Instance.new("Frame")
-	card.Name = potion.Id
-	card.LayoutOrder = order
-	card.Size = UDim2.new(1, -8, 0, 64)
+	card.Name = "Card"
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale(0.5, 0.5)
+	card.Size = UDim2.fromOffset(POTION_CARD.X, POTION_CARD.Y)
 	Style.CardLook(card, potion.Color)
-	card.Parent = list
+	card.Parent = cell
+	local scale = Instance.new("UIScale")
+	scale.Parent = card
 
 	local icon = Icon.new(card, `Potion_{potion.Id}`, potion.Color, potion.Name)
-	icon.Position = UDim2.fromOffset(14, 6)
-	icon.Size = UDim2.fromOffset(52, 52)
+	icon.AnchorPoint = Vector2.new(0.5, 0)
+	icon.Position = UDim2.new(0.5, 0, 0, 6)
+	icon.Size = UDim2.fromOffset(84, 84)
+	icon.ZIndex = 3
+	local count = Style.Label(card, "x0", "Title", 17, theme.Colors.Text)
+	count.AnchorPoint = Vector2.new(1, 0)
+	count.Position = UDim2.new(1, -8, 0, 8)
+	count.Size = UDim2.fromOffset(0, 26)
+	count.AutomaticSize = Enum.AutomaticSize.X
+	count.TextWrapped = false
+	count.BackgroundTransparency = 0.1
+	count.BackgroundColor3 = Style.Shade(potion.Color, -0.55)
+	count.ZIndex = 4
+	Style.Round(count)
+	Style.Pad(count, 8, 0)
+	Style.GoldBorder(count, 1.5)
+	Style.Outline(count, 1.5)
 
-	local name = Style.Label(card, potion.Name, "Heavy", 18, potion.Color)
-	name.Position = UDim2.fromOffset(74, 5)
-	name.Size = UDim2.new(0.55, -74, 0, 20)
-	name.TextXAlignment = Enum.TextXAlignment.Left
-	local count = Style.Label(card, "x0", "Heavy", 18)
-	count.Position = UDim2.new(0.55, 0, 0, 5)
-	count.Size = UDim2.new(0.12, 0, 0, 20)
-	local description = Style.Label(card, potion.Description, "Body", theme.TextSizes.Small, theme.Colors.TextMuted)
-	description.Position = UDim2.fromOffset(74, 26)
-	description.Size = UDim2.new(0.67, -74, 0, 16)
-	description.TextXAlignment = Enum.TextXAlignment.Left
+	local name = Style.Label(card, potion.Name, "Title", 19, Style.Shade(potion.Color, 0.3))
+	name.Position = UDim2.fromOffset(6, 92)
+	name.Size = UDim2.new(1, -12, 0, 24)
+	name.TextScaled = true
+	name.ZIndex = 3
+	Style.Outline(name, 2)
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 19
+	limit.Parent = name
+	local description = Style.Label(card, potion.Description, "Bold", 13, theme.Colors.Text)
+	description.Position = UDim2.fromOffset(8, 116)
+	description.Size = UDim2.new(1, -16, 0, 18)
 	description.TextTruncate = Enum.TextTruncate.AtEnd
-	local timer = Style.Label(card, "", "Bold", theme.TextSizes.Small, theme.Colors.Info)
-	timer.Position = UDim2.fromOffset(74, 43)
-	timer.Size = UDim2.new(0.67, -74, 0, 16)
-	timer.TextXAlignment = Enum.TextXAlignment.Left
+	description.TextWrapped = false
+	description.ZIndex = 3
+	local timer = Style.Label(card, "", "Title", 14, theme.Colors.Info)
+	timer.Position = UDim2.fromOffset(8, 136)
+	timer.Size = UDim2.new(1, -16, 0, 20)
+	timer.ZIndex = 3
+	Style.Outline(timer, 1.2)
 
 	local button = Button.new(card, {
 		Text = "Use",
 		Kind = "Confirm",
+		TextSize = 20,
 		OnClick = function()
 			useBoost:FireServer(potion.Id) -- the server checks the count and the 60-minute limit
 		end,
 	})
-	button.Instance.AnchorPoint = Vector2.new(1, 0.5)
-	button.Instance.Position = UDim2.new(1, -10, 0.5, 0)
-	button.Instance.Size = UDim2.new(0.28, 0, 0, 40)
+	button.Instance.AnchorPoint = Vector2.new(0.5, 1)
+	button.Instance.Position = UDim2.new(0.5, 0, 1, -10)
+	button.Instance.Size = UDim2.new(1, -20, 0, 46)
+	button.Instance.ZIndex = 3
 	Tooltip.Attach(card, function()
-		return potion.Description
+		return `{potion.Name}: {potion.Description}. Timers pause while you're offline · up to {Boosts.MaxStoredMinutes} min per potion · Premium +{math.floor(Boosts.PremiumDurationBonus * 100)}% time`
 	end)
 
-	rows[potion.Id] = { Count = count, Timer = timer, Button = button }
+	rows[potion.Id] = { Count = count, Timer = timer, Button = button, Scale = scale }
 end
 
 -- A potion timer: the potion icon itself (drop shadow, no background) with the time under it; tap = Potions tab.
@@ -203,20 +236,8 @@ function BoostController:Init()
 	window = InventoryWindow.AddTab("Potions")
 	local content = window.Content
 
-	local note = Style.Label(
-		content,
-		`Timers pause while you're offline · up to {Boosts.MaxStoredMinutes} min per potion · Premium +{math.floor(Boosts.PremiumDurationBonus * 100)}% time`,
-		"Body",
-		UITheme.TextSizes.Small,
-		UITheme.Colors.TextMuted
-	)
-	note.Size = UDim2.new(1, 0, 0, 16)
-	note.TextXAlignment = Enum.TextXAlignment.Left
-	note.TextTruncate = Enum.TextTruncate.AtEnd
-
 	local list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.fromOffset(0, 22)
-	list.Size = UDim2.new(1, 0, 1, -22)
+	list.Size = UDim2.fromScale(1, 1)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
@@ -224,11 +245,12 @@ function BoostController:Init()
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
 	list.Parent = content
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 6)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = list
-	Style.Pad(list, 2, 3)
+	local grid = Instance.new("UIGridLayout")
+	grid.CellPadding = UDim2.fromOffset(10, 10)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	grid.Parent = list
+	Style.Pad(list, 6, 6)
 
 	-- Potion timers: bottom-right, in a row growing to the left (phones: above the jump button).
 	local timersGui = HudLayout.MakeScreenGui("BoostTimers", "Cards")
@@ -250,7 +272,7 @@ function BoostController:Init()
 	moreChip.Name = "More"
 	moreChip.LayoutOrder = #Boosts.Potions + 1
 	moreChip.AutoButtonColor = false
-	moreChip.BackgroundColor3 = UITheme.Colors.PanelBottom
+	moreChip.BackgroundColor3 = UITheme.Colors.PanelV2Top
 	moreChip.BackgroundTransparency = 0.25
 	moreChip.Font = UITheme.Fonts.Title
 	moreChip.TextColor3 = UITheme.Colors.Gold
@@ -271,6 +293,11 @@ function BoostController:Init()
 			refresh()
 		end
 		local sizes = UITheme.Sizes
+		local cardScale = if phone then sizes.PhoneCardScale else 1
+		grid.CellSize = UDim2.fromOffset(math.floor(POTION_CARD.X * cardScale), math.floor(POTION_CARD.Y * cardScale))
+		for _, row in rows do
+			row.Scale.Scale = cardScale
+		end
 		local size = if phone then sizes.PhonePotionTimer else sizes.PotionTimer
 		if phone then
 			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 1, -sizes.PhoneTimersBottom)
@@ -288,7 +315,12 @@ function BoostController:Init()
 		makeRow(list, potion, index)
 		makeTimerPill(hud, potion, index)
 	end
-	-- size the icons made after the first layout call
+	-- size the icons and cards made after the first layout call
+	local cardScale = if isPhone then UITheme.Sizes.PhoneCardScale else 1
+	grid.CellSize = UDim2.fromOffset(math.floor(POTION_CARD.X * cardScale), math.floor(POTION_CARD.Y * cardScale))
+	for _, row in rows do
+		row.Scale.Scale = cardScale
+	end
 	local size = if isPhone then UITheme.Sizes.PhonePotionTimer else UITheme.Sizes.PotionTimer
 	for _, pill in timerPills do
 		pill.Frame.Size = UDim2.fromOffset(size, math.floor(size * 1.4))

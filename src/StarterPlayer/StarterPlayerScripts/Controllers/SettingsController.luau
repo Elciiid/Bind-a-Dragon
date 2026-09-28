@@ -60,10 +60,11 @@ local function row(parent: Instance, order: number, title: string, hint: string)
 	frame.Size = UDim2.new(1, -8, 0, 64)
 	Style.CardLook(frame)
 	frame.Parent = parent
-	local label = Style.Label(frame, title, "Heavy", 18)
+	local label = Style.Label(frame, title, "Title", 20)
 	label.Position = UDim2.fromOffset(14, 6)
 	label.Size = UDim2.new(0.5, -14, 0, 24)
 	label.TextXAlignment = Enum.TextXAlignment.Left
+	Style.Outline(label, 1.5)
 	local sub = Style.Label(frame, hint, "Body", UITheme.TextSizes.Small, UITheme.Colors.TextMuted)
 	sub.Position = UDim2.fromOffset(14, 32)
 	sub.Size = UDim2.new(0.5, -14, 0, 24)
@@ -194,7 +195,7 @@ function SettingsController:Init()
 		Title = "Settings",
 		Icon = "Settings",
 		Size = UDim2.new(0.9, 0, 0.7, 0),
-		MaxSize = Vector2.new(520, 400),
+		MaxSize = Vector2.new(520, 380),
 	})
 	local list = Instance.new("ScrollingFrame")
 	list.Size = UDim2.fromScale(1, 1)

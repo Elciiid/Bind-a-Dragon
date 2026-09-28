@@ -227,7 +227,7 @@ function HudIcon.new(parent: Instance, props: Props): HudIcon
 	labelStroke.LineJoinMode = Enum.LineJoinMode.Round
 	labelStroke.Parent = label
 
-	local badge = Style.Label(holder, "", "Heavy", 13)
+	local badge = Style.Label(holder, "", "Title", 13)
 	badge.Name = "Badge"
 	badge.AnchorPoint = Vector2.new(0.5, 0.5)
 	badge.Position = UDim2.fromScale(0.88, 0.1)
@@ -336,7 +336,15 @@ function HudIcon.SetLabel(self: HudIcon, text: string)
 end
 
 function HudIcon.SetBadge(self: HudIcon, count: number)
-	self.Badge.Text = if count > 99 then "99+" else tostring(count)
+	local text = if count > 99 then "99+" else tostring(count)
+	if self.Badge.Text ~= text and count > 0 then -- a little pop when the count changes
+		local pop = self.Badge:FindFirstChild("Pop") :: UIScale? or Instance.new("UIScale")
+		pop.Name = "Pop"
+		pop.Parent = self.Badge
+		pop.Scale = 1.4
+		game:GetService("TweenService"):Create(pop, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+	self.Badge.Text = text
 	self.Badge.Visible = count > 0
 end
 
