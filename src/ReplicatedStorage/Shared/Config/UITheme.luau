@@ -104,6 +104,23 @@ return {
 		ProgressDim = Color3.fromRGB(150, 146, 190), -- progress ring: dots still to fill
 		Negative = Color3.fromRGB(235, 145, 163),
 		Info = Color3.fromRGB(160, 198, 239),
+
+		-- UI renewal window frame (Style.PanelLook / UI/Window): navy glass, gold ornamental border, jewel title banner.
+		GlassTop = Color3.fromRGB(30, 38, 96),
+		GlassBottom = Color3.fromRGB(12, 14, 46),
+		GlassSheen = Color3.fromRGB(190, 210, 255), -- soft light across the top of the glass
+		TrimLight = Color3.fromRGB(255, 240, 170), -- top of the gold border (it shades to Trim, then TrimDark)
+		CornerJewel = Color3.fromRGB(110, 220, 255), -- the gem set in each gold corner ornament
+		BannerTop = Color3.fromRGB(138, 82, 214), -- window title banner (royal amethyst)
+		BannerBottom = Color3.fromRGB(78, 38, 150),
+		BannerTail = Color3.fromRGB(58, 28, 112), -- the ribbon ends behind the banner
+		BannerStar = Color3.fromRGB(255, 222, 110), -- the small star on top of the banner
+		CloseTop = Color3.fromRGB(240, 96, 116), -- the big round close button (ruby)
+		CloseBottom = Color3.fromRGB(160, 34, 70),
+		CardTop = Color3.fromRGB(48, 56, 132), -- cards inside windows (a lighter glass)
+		CardBottom = Color3.fromRGB(28, 30, 84),
+		TabTop = Color3.fromRGB(44, 50, 118), -- Inventory tabs (not selected)
+		TabBottom = Color3.fromRGB(22, 24, 70),
 	},
 
 	Rarity = Rarity,
@@ -156,13 +173,16 @@ return {
 		Body = 16,
 		Small = 13,
 		Button = 18,
-		Toast = 14,
+		Toast = 15,
+		Banner = 30, -- window title in the banner (PC)
+		PhoneBanner = 21,
 	},
 
-	Corner = 12, -- panels
+	Corner = 16, -- panels
+	GlassTransparency = 0.05, -- windows/panels: how see-through the navy glass is (0 = solid)
 	SmallCorner = 8, -- cards, buttons
 	Strokes = {
-		Trim = 3, -- gold outer trim on panels
+		Trim = 4, -- gold outer trim on panels (= Sizes.Border)
 		InnerLine = 2, -- dark line inside the trim
 		Button = 2.25, -- antique-gold outline on buttons and tiles (Colors.ButtonStroke)
 		HoverGrow = 0.75, -- hover: the outline turns Trim gold and grows this much
@@ -186,7 +206,7 @@ return {
 		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
 		TravelButton = Vector2.new(116, 38), -- PC: Travel button, top, left of the day/night card
 		PhoneTravelButton = Vector2.new(96, 34), -- phone: right edge, between the boost timers and the jump button
-		PhoneCardTop = 92, -- phone: top of cards under the travel row + day/night pill
+		PhoneCardTop = 100, -- phone: top of cards under the travel row + day/night pill (their banner hangs above it)
 		PhonePillWidth = 170, -- phone: luck pill / boost timers column, top-right
 		PhonePillHeight = 28,
 		Badge = 22,
@@ -196,6 +216,19 @@ return {
 		Toast = 44, -- toast card height
 		TileStripe = Vector2.new(3, 20), -- menu tiles: the colored stripe on the left edge
 		TileStripeInset = 6, -- its distance from the tile's left edge
+
+		-- UI renewal window frame (pixels)
+		Border = 4, -- gold border around windows and panels
+		InnerBorderInset = 8, -- the thin gold line inside it
+		CornerOrnament = 20, -- gold diamond (with a jewel) on each corner
+		Banner = 50, -- title banner height (PC); it sits on the window's top edge, half above it
+		PhoneBanner = 36,
+		BannerPadding = 26, -- space left/right of the title inside the banner
+		BannerStar = 36, -- the star on top of the banner
+		PhoneBannerStar = 24,
+		CloseButton = 52, -- big round close button on the top-right corner (PC)
+		PhoneCloseButton = 40,
+		WindowPadding = 16, -- content inset from the border
 
 		-- UI renewal HUD (pixels). Icons are ~1.5x the old tile icons; labels in the title font.
 		HudIcon = 80, -- PC: left column icons (Inventory, Quests, Shop, Rebirth)
@@ -231,8 +264,8 @@ return {
 		PopIn = 0.18, -- window open (scale 0.85 -> 1, Back easing)
 		PopOut = 0.12,
 		StartScale = 0.85,
-		Hover = 1.04, -- button scale on hover
-		Press = 0.96, -- button scale while pressed
+		Hover = 1.06, -- button scale on hover
+		Press = 0.93, -- button scale while pressed
 		PressTime = 0.1,
 		ToastIn = 0.25,
 		ToastSeconds = 4,
@@ -248,6 +281,9 @@ return {
 		ReadyBounce = 5, -- pixels the icon hops while "ready" (e.g. Rebirth affordable)
 		ReadySpeed = 3, -- hops per ~2 seconds
 		ProgressDots = 16, -- dots in the progress ring around a calm icon
+		OpenSparkles = 10, -- windows: sparkles fly out of the title banner on open
+		BannerStarSpin = 6, -- seconds per slow wobble of the banner star
+		CloseHoverTurn = 90, -- degrees the close X turns on hover
 	},
 
 	-- Free Creator Store UI sounds (verified to load and play in a playtest). "" = silent.

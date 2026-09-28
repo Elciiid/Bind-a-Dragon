@@ -46,6 +46,7 @@ end
 function TravelController:Init()
 	local gui = HudLayout.MakeScreenGui("TravelHud", "Hud")
 	gui.ScreenInsets = Enum.ScreenInsets.None -- the row sits at the very top, in the middle of Roblox's top bar
+	HudLayout.HideWithPopups(gui) -- phones: out of the way while a window is open
 	local row = Instance.new("Frame")
 	row.Name = "TravelRow"
 	row.AnchorPoint = Vector2.new(0.5, 0)

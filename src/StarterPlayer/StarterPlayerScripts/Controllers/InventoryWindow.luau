@@ -61,12 +61,13 @@ local function paintTabs()
 			local gradient = back:FindFirstChildOfClass("UIGradient")
 			if gradient then
 				gradient.Color = if selected
-					then ColorSequence.new(Style.Shade(colors.Primary, 0.2), Style.Shade(colors.Primary, -0.15))
-					else ColorSequence.new(colors.MenuTop, colors.MenuBottom)
+					then ColorSequence.new(colors.BannerTop, colors.BannerBottom)
+					else ColorSequence.new(colors.TabTop, colors.TabBottom)
 			end
 			local stroke = back:FindFirstChildOfClass("UIStroke")
 			if stroke then
 				stroke.Color = if selected then colors.Trim else colors.ButtonStroke
+				stroke.Thickness = if selected then 3 else UITheme.Strokes.Button
 			end
 		end
 		tab.Content.Visible = selected
@@ -198,7 +199,7 @@ function InventoryWindow.AddTab(id: string): Tab
 	back.Size = UDim2.new(0.24, -6, 1, 0)
 	back.BackgroundColor3 = Color3.new(1, 1, 1)
 	back.Parent = tabBar
-	Style.Gradient(back, colors.MenuTop, colors.MenuBottom)
+	Style.Gradient(back, colors.TabTop, colors.TabBottom)
 	Style.Corner(back, UITheme.SmallCorner + 4)
 	Style.Stroke(back, colors.ButtonStroke, UITheme.Strokes.Button)
 	local button = Instance.new("TextButton")

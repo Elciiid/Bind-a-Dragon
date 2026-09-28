@@ -1,6 +1,6 @@
 --!strict
 -- Chunky rounded text button. Kinds (UITheme.Colors): Confirm (jade), Cancel (rose), Primary (stargold), Neutral.
--- Optional icon on the left. Press/hover scale and click sound. SetEnabled(false) greys it out and ignores clicks.
+-- Optional icon on the left, a glossy light on the top half. Press/hover scale and click sound. SetEnabled(false) greys it out and ignores clicks.
 
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)
@@ -48,10 +48,21 @@ function Button.new(parent: Instance, props: Props): Button
 	local gradient = Style.Gradient(instance, Color3.new(1, 1, 1), Color3.new(1, 1, 1))
 	gradient.Color = gradientFor(colorsFor(kind))
 
+	local gloss = Instance.new("Frame")
+	gloss.Name = "Gloss"
+	gloss.BackgroundColor3 = Color3.new(1, 1, 1)
+	gloss.BackgroundTransparency = 0.84
+	gloss.Position = UDim2.new(0, 4, 0, 3)
+	gloss.Size = UDim2.new(1, -8, 0.42, 0)
+	gloss.ZIndex = 1
+	Style.Corner(gloss, theme.SmallCorner)
+	gloss.Parent = instance
+
 	local row = Instance.new("Frame")
 	row.Name = "Row"
 	row.Size = UDim2.fromScale(1, 1)
 	row.BackgroundTransparency = 1
+	row.ZIndex = 2
 	row.Parent = instance
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal

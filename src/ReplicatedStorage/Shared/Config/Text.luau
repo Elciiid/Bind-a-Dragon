@@ -11,6 +11,9 @@ local Text = {
 		PromptAction = "Inscribe a Rune",
 		Button = "Inscribe ({cost} Wyrm Rune)",
 		Hint = "pick a dragon to inscribe a rune",
+		Owned = "{count} Wyrm Runes",
+		Chances = "What can awaken",
+		NoDragons = "You have no dragons yet.",
 		Result = "The rune awakens: {trait}!",
 		Announcement = "{player} awakened the {trait} trait!",
 		WrongPlace = "Go to the Rune Shrine to inscribe runes.",
@@ -21,11 +24,15 @@ local Text = {
 		PromptAction = "Temper",
 		Button = "Temper ({cost} Dragonstone)",
 		Hint = "pick a dragon to temper",
+		Owned = "{count} Dragonstones",
+		Chances = "Grades it can reach",
+		NoDragons = "You have no dragons yet.",
 		Result = "Tempered to grade {grade}!",
 		Announcement = "{player} tempered a dragon to grade {grade}!",
 		WrongPlace = "Go to the Dragonstone Forge to temper.",
 		OutOfCurrency = "You're out of Dragonstones. Earn more in the Dragon Spire.",
 	},
+	SpirePanelTitle = "Dragon Spire", -- the banner on the Spire card
 	SpireStuckTip = "Level up, inscribe runes and temper grades, or use a Wyrmblood Tonic to go higher.",
 	PortalLocked = "Rebirth {rebirths}", -- under the lock on a portal the player can't use yet
 
@@ -80,6 +87,29 @@ local Text = {
 		WyrmRunes = { Name = "Wyrm Runes", Info = "Inscribe a rune on a dragon at the Rune Shrine to awaken a trait. Earned in the Dragon Spire, quests and the Index." },
 		Dragonstones = { Name = "Dragonstones", Info = "Temper a dragon at the Dragonstone Forge to raise its grade. Earned in the Dragon Spire, quests and the Index." },
 		Stardust = { Name = "Stardust", Info = "Offer it at a Star Altar for more luck on your next bind. Buy it from the Star Merchant or find it in the Spire." },
+	},
+
+	-- Luck panel at a Star Altar (LuckController): the banner title; the total luck shows under it.
+	LuckPanel = {
+		Title = "Bind Luck",
+		Max = "{luck} max",
+	},
+
+	-- Rebirth confirm window (RebirthController). {n} = the rebirth number.
+	Rebirth = {
+		Heading = "Rebirth {n}",
+		Cost = "{cost} gold",
+		Have = "You have {gold}",
+		Income = "Income",
+		LevelCap = "Level cap",
+		Unlocks = "New area",
+		Keeps = "Only your gold resets. You keep your dragons, Stardust, items and upgrades.",
+		Confirm = "Rebirth!",
+		NotEnough = "Need more gold",
+		Cancel = "Not yet",
+		CapHeading = "Rebirth cap reached",
+		CapInfo = "More rebirths arrive in the next update. Your gold is saved up to one rebirth's cost until then.",
+		CapButton = "Cap reached",
 	},
 }
 

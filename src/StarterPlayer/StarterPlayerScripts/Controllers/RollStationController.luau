@@ -1,8 +1,10 @@
 --!strict
 -- Rune Shrine (traits, costs Wyrm Runes) and Dragonstone Forge (grades, costs Dragonstones).
 -- Stations are instances tagged "RuneShrine" / "DragonstoneForge" (BasePart, or Model with a PrimaryPart).
--- Walking up and pressing E opens a window: pick one of your dragons, see its current trait/grade, inscribe a rune /
--- temper it, and see the odds. Wording is in Config/Text. The server checks the player is at the station and has the currency. Styled with the UI kit.
+-- Walking up and pressing E opens a window in two columns: your dragons on the left (rarity icon, level, current
+-- trait/grade), and on the right the rune/stone count, the chosen dragon, a big Inscribe / Temper button and a grid of
+-- what can come out with the chances (colored by tier). Wording is in Config/Text. The server checks the player is at
+-- the station and has the currency. Styled with the UI kit.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -37,10 +39,14 @@ local RollStationController = {}
 local window: Window.Window
 local owned: TextLabel
 local ownedIcon: ImageLabel
+local hint: TextLabel
 local list: ScrollingFrame
+local chosenCard: Frame
+local chosenName: TextLabel
 local detail: TextLabel
 local rollButton: Button.Button
-local odds: TextLabel
+local chancesTitle: TextLabel
+local odds: ScrollingFrame
 
 local openKind: Kind? = nil
 local openStation: BasePart? = nil
@@ -73,23 +79,47 @@ local function describe(dragon: PlayerDataTypes.Dragon, kind: Kind): (string, Co
 	return `Grade {grade.Id} (x{grade.Multiplier} gold and power)`, rarityColor(grade.Tier)
 end
 
-local function oddsText(kind: Kind, rollLuck: number): string
+local function chanceText(chance: number): string
+	return if chance >= 1
+		then string.format("%.0f%%", chance)
+		elseif chance >= 0.1 then string.format("%.1f%%", chance)
+		else string.format("%.2f%%", chance)
+end
+
+-- The chances grid: one chip per trait/grade (name + chance), colored by its tier.
+local function drawOdds(kind: Kind, rollLuck: number)
+	for _, child in odds:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
 	local entries: { any } = if kind == "Trait" then TraitConfig.Traits else TraitConfig.Grades
 	local weights = Luck.GetTierWeights(entries, rollLuck)
 	local total = 0
 	for _, weight in weights do
 		total += weight
 	end
-	local lines = { if rollLuck > 1 then `Odds (Runebright {Format.Multiplier(rollLuck)} luck):` else "Odds:" }
 	for index, entry in entries do
-		local chance = weights[index] / total * 100
-		local chanceText = if chance >= 1
-			then string.format("%.0f%%", chance)
-			elseif chance >= 0.1 then string.format("%.1f%%", chance)
-			else string.format("%.2f%%", chance)
-		table.insert(lines, `{entry.Name or ("Grade " .. entry.Id)}  {chanceText}`)
+		local color = rarityColor(entry.Tier)
+		local chip = Instance.new("Frame")
+		chip.LayoutOrder = index
+		chip.BackgroundColor3 = UITheme.Colors.CardBottom
+		chip.BackgroundTransparency = 0.2
+		Style.Corner(chip, 6)
+		local stroke = Style.Stroke(chip, color, 1.5)
+		stroke.Transparency = 0.3
+		local name = Style.Label(chip, entry.Name or ("Grade " .. entry.Id), "Bold", 13, color)
+		name.Position = UDim2.fromOffset(6, 0)
+		name.Size = UDim2.new(0.66, -6, 1, 0)
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		local chance = Style.Label(chip, chanceText(weights[index] / total * 100), "Heavy", 13, UITheme.Colors.Text)
+		chance.AnchorPoint = Vector2.new(1, 0)
+		chance.Position = UDim2.new(1, -6, 0, 0)
+		chance.Size = UDim2.new(0.34, 0, 1, 0)
+		chance.TextXAlignment = Enum.TextXAlignment.Right
+		chip.Parent = odds
 	end
-	return table.concat(lines, "   ")
 end
 
 local function redraw()
@@ -99,15 +129,17 @@ local function redraw()
 		return
 	end
 	local currency = if kind == "Trait" then data.WyrmRunes else data.Dragonstones
-	local currencyName = if kind == "Trait" then "Wyrm Runes" else "Dragonstones"
 	local cost = if kind == "Trait" then TraitConfig.TraitRollCost else TraitConfig.GradeRollCost
 	local words = if kind == "Trait" then Text.RuneShrine else Text.DragonstoneForge
 	window:SetTitle(words.Title)
-	owned.Text = `{currency} {currencyName} · {words.Hint}`
+	owned.Text = Text.Format(words.Owned, { count = Format.Number(currency) })
+	hint.Text = words.Hint
 	local iconKey = if kind == "Trait" then "WyrmRune" else "Dragonstone"
 	if ownedIcon.Image ~= UITheme.Icons[iconKey] then
 		ownedIcon.Image = UITheme.Icons[iconKey]
+		window:SetIcon(iconKey)
 	end
+	chancesTitle.Text = words.Chances
 
 	for _, child in list:GetChildren() do
 		if child:IsA("Frame") then
@@ -128,14 +160,24 @@ local function redraw()
 	for index, dragon in sorted do
 		local species = Dragons[dragon.SpeciesId]
 		local current, color = describe(dragon, kind)
-		-- Row: a card (gold outline when selected) with a transparent button over it.
+		-- Row: a card (gold outline when chosen) with the rarity icon, name + level, and the current trait/grade.
 		local row = Instance.new("Frame")
 		row.LayoutOrder = index
-		row.Size = UDim2.new(1, -8, 0, 36)
+		row.Size = UDim2.new(1, -8, 0, 46)
 		Style.CardLook(row, if dragon.Id == selectedId then UITheme.Colors.Title else nil)
-		local text = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}  ·  {current}`, "Bold", 15, color)
-		text.Position = UDim2.fromOffset(16, 0)
-		text.Size = UDim2.new(1, -20, 1, 0)
+		local rarity = if species then species.Rarity else ""
+		local badge = Icon.new(row, `Rarity_{rarity}`, rarityColor(rarity))
+		badge.AnchorPoint = Vector2.new(0, 0.5)
+		badge.Position = UDim2.new(0, 12, 0.5, 0)
+		badge.Size = UDim2.fromOffset(28, 28)
+		local name = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}`, "Heavy", 16, UITheme.Colors.Text)
+		name.Position = UDim2.fromOffset(48, 3)
+		name.Size = UDim2.new(1, -54, 0, 20)
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		local text = Style.Label(row, current, "Bold", 14, color)
+		text.Position = UDim2.fromOffset(48, 23)
+		text.Size = UDim2.new(1, -54, 0, 18)
 		text.TextXAlignment = Enum.TextXAlignment.Left
 		text.TextTruncate = Enum.TextTruncate.AtEnd
 		local hit = Instance.new("TextButton")
@@ -156,16 +198,19 @@ local function redraw()
 	if selected then
 		local species = Dragons[selected.SpeciesId]
 		local current, color = describe(selected, kind)
-		detail.Text = `{if species then species.Name else "?"}: {current}`
+		chosenName.Text = `{if species then species.Name else "?"}  Lv {selected.Level}`
+		chosenName.TextColor3 = if species then rarityColor(species.Rarity) else UITheme.Colors.Text
+		detail.Text = current
 		detail.TextColor3 = color
 	else
-		detail.Text = "You have no dragons yet."
-		detail.TextColor3 = GREY
+		chosenName.Text = words.NoDragons
+		chosenName.TextColor3 = GREY
+		detail.Text = ""
 	end
 	local canRoll = selected ~= nil and currency >= cost
 	rollButton:SetText(Text.Format(words.Button, { cost = cost }))
 	rollButton:SetEnabled(canRoll)
-	odds.Text = oddsText(kind, DragonStats.GetBoostMultiplier(data, "RollLuck"))
+	drawOdds(kind, DragonStats.GetBoostMultiplier(data, "RollLuck"))
 end
 
 local function close()
@@ -208,9 +253,10 @@ end
 function RollStationController:Init()
 	window = Window.new({
 		Name = "RollStation",
-		Title = "Rune Shrine", -- set per station on open; the currency row shows the rune/stone icon
+		Title = "Rune Shrine", -- set per station on open, with its rune/stone icon
+		Icon = "WyrmRune",
 		Size = UDim2.new(0.92, 0, 0.8, 0),
-		MaxSize = Vector2.new(580, 540),
+		MaxSize = Vector2.new(720, 520),
 	})
 	window:OnClose(function()
 		openKind = nil
@@ -218,20 +264,10 @@ function RollStationController:Init()
 	end)
 	local content = window.Content
 
-	local ownedRow = Instance.new("Frame")
-	ownedRow.BackgroundTransparency = 1
-	ownedRow.Size = UDim2.new(1, 0, 0, 24)
-	ownedRow.Parent = content
-	ownedIcon = Icon.new(ownedRow, "WyrmRune") :: ImageLabel
-	ownedIcon.Size = UDim2.fromOffset(24, 24)
-	owned = Style.Label(ownedRow, "", "Heavy", 16, UITheme.Colors.Gold)
-	owned.Position = UDim2.fromOffset(30, 0)
-	owned.Size = UDim2.new(1, -30, 1, 0)
-	owned.TextXAlignment = Enum.TextXAlignment.Left
-
+	-- Left column: your dragons
 	list = Instance.new("ScrollingFrame")
-	list.Position = UDim2.new(0, 0, 0, 30)
-	list.Size = UDim2.new(1, 0, 0.55, -30)
+	list.Name = "Dragons"
+	list.Size = UDim2.new(0.5, -6, 1, 0)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = 6
@@ -241,19 +277,53 @@ function RollStationController:Init()
 	list.Parent = content
 	Style.Pad(list, 2, 3)
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 4)
+	layout.Padding = UDim.new(0, 5)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
 
-	detail = Style.Label(content, "", "Heavy", 17)
-	detail.Position = UDim2.new(0, 2, 0.55, 6)
-	detail.Size = UDim2.new(1, -4, 0, 22)
+	-- Right column: runes/stones owned, the chosen dragon, the button, the chances
+	local side = Instance.new("Frame")
+	side.Name = "Side"
+	side.AnchorPoint = Vector2.new(1, 0)
+	side.Position = UDim2.fromScale(1, 0)
+	side.Size = UDim2.new(0.5, -6, 1, 0)
+	side.BackgroundTransparency = 1
+	side.Parent = content
+
+	ownedIcon = Icon.new(side, "WyrmRune") :: ImageLabel
+	ownedIcon.Size = UDim2.fromOffset(34, 34)
+	owned = Style.Label(side, "", "Title", 22, UITheme.Colors.Gold)
+	owned.Position = UDim2.fromOffset(42, 0)
+	owned.Size = UDim2.new(1, -42, 0, 34)
+	owned.TextXAlignment = Enum.TextXAlignment.Left
+	owned.TextStrokeTransparency = 0
+	hint = Style.Label(side, "", "Bold", 14, UITheme.Colors.TextMuted)
+	hint.Position = UDim2.fromOffset(0, 36)
+	hint.Size = UDim2.new(1, 0, 0, 18)
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+
+	chosenCard = Instance.new("Frame")
+	chosenCard.Name = "Chosen"
+	chosenCard.Position = UDim2.fromOffset(0, 60)
+	chosenCard.Size = UDim2.new(1, 0, 0, 64)
+	Style.CardLook(chosenCard, UITheme.Colors.Title)
+	chosenCard.Parent = side
+	chosenName = Style.Label(chosenCard, "", "Title", 22)
+	chosenName.Position = UDim2.fromOffset(16, 4)
+	chosenName.Size = UDim2.new(1, -24, 0, 30)
+	chosenName.TextXAlignment = Enum.TextXAlignment.Left
+	chosenName.TextStrokeTransparency = 0
+	chosenName.TextTruncate = Enum.TextTruncate.AtEnd
+	detail = Style.Label(chosenCard, "", "Heavy", 15)
+	detail.Position = UDim2.fromOffset(16, 34)
+	detail.Size = UDim2.new(1, -24, 0, 22)
 	detail.TextXAlignment = Enum.TextXAlignment.Left
 	detail.TextTruncate = Enum.TextTruncate.AtEnd
 
-	rollButton = Button.new(content, {
+	rollButton = Button.new(side, {
 		Text = Text.RuneShrine.PromptAction, -- replaced per station on open
 		Kind = "Primary",
+		TextSize = 20,
 		OnClick = function()
 			if selectedId == nil or openKind == nil then
 				return
@@ -265,25 +335,43 @@ function RollStationController:Init()
 			end
 		end,
 	})
-	rollButton.Instance.Position = UDim2.new(0, 0, 0.55, 34)
-	rollButton.Instance.Size = UDim2.new(1, 0, 0, 44)
+	rollButton.Instance.Position = UDim2.fromOffset(0, 132)
+	rollButton.Instance.Size = UDim2.new(1, 0, 0, 50)
 
-	-- The odds scroll, so they stay readable when the window is short (phones).
-	local oddsScroll = Instance.new("ScrollingFrame")
-	oddsScroll.Position = UDim2.new(0, 0, 0.55, 86)
-	oddsScroll.Size = UDim2.new(1, 0, 0.45, -86)
-	oddsScroll.BackgroundTransparency = 1
-	oddsScroll.BorderSizePixel = 0
-	oddsScroll.ScrollBarThickness = 4
-	oddsScroll.ScrollBarImageColor3 = UITheme.Colors.Trim
-	oddsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	oddsScroll.CanvasSize = UDim2.new()
-	oddsScroll.Parent = content
-	odds = Style.Label(oddsScroll, "", "Body", 14, UITheme.Colors.TextMuted)
-	odds.Size = UDim2.new(1, -8, 0, 0)
-	odds.AutomaticSize = Enum.AutomaticSize.Y
-	odds.TextXAlignment = Enum.TextXAlignment.Left
-	odds.TextYAlignment = Enum.TextYAlignment.Top
+	chancesTitle = Style.Label(side, "", "Title", 16, UITheme.Colors.Title)
+	chancesTitle.Position = UDim2.fromOffset(0, 190)
+	chancesTitle.Size = UDim2.new(1, 0, 0, 20)
+	chancesTitle.TextXAlignment = Enum.TextXAlignment.Left
+	-- The chances scroll, so they stay readable when the window is short (phones).
+	odds = Instance.new("ScrollingFrame")
+	odds.Name = "Chances"
+	odds.Position = UDim2.fromOffset(0, 214)
+	odds.Size = UDim2.new(1, 0, 1, -214)
+	odds.BackgroundTransparency = 1
+	odds.BorderSizePixel = 0
+	odds.ScrollBarThickness = 4
+	odds.ScrollBarImageColor3 = UITheme.Colors.Trim
+	odds.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	odds.CanvasSize = UDim2.new()
+	odds.Parent = side
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0.5, -4, 0, 24)
+	grid.CellPadding = UDim2.fromOffset(4, 4)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = odds
+	Style.Pad(odds, 1, 1)
+
+	HudLayout.OnLayoutChanged(function(phone)
+		-- phones: tighter rows so the button and a few chances fit on the short screen
+		chosenCard.Position = UDim2.fromOffset(0, if phone then 56 else 60)
+		chosenCard.Size = UDim2.new(1, 0, 0, if phone then 56 else 64)
+		rollButton.Instance.Position = UDim2.fromOffset(0, if phone then 118 else 132)
+		rollButton.Instance.Size = UDim2.new(1, 0, 0, if phone then 40 else 50)
+		chancesTitle.Position = UDim2.fromOffset(0, if phone then 162 else 190)
+		odds.Position = UDim2.fromOffset(0, if phone then 184 else 214)
+		odds.Size = UDim2.new(1, 0, 1, if phone then -184 else -214)
+		grid.CellSize = UDim2.new(0.5, -4, 0, if phone then 20 else 24)
+	end)
 
 	for _, key in { "Dragons", "WyrmRunes", "Dragonstones" } do
 		DataController:OnChanged(key, function()

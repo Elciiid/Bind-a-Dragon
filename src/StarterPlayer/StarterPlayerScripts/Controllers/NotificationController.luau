@@ -61,7 +61,8 @@ function NotificationController:Init()
 	layout.Parent = container
 	Toast.SetContainer(container)
 	HudLayout.OnLayoutChanged(function(isPhone)
-		container.Position = UDim2.new(0.5, 0, 0, if isPhone then UITheme.Sizes.PhoneCardTop + 120 else 70)
+		-- under the travel row and the day/night pill (PC), under the phone cards (phone)
+		container.Position = UDim2.new(0.5, 0, 0, if isPhone then UITheme.Sizes.PhoneCardTop + 120 else 96)
 	end)
 end
 

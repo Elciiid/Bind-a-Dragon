@@ -1,5 +1,5 @@
 --!strict
--- Toasts: small night-sky cards that slide in, stay UITheme.Motion.ToastSeconds, and fade out.
+-- Toasts: small navy-glass cards with a gold border that slide in, stay UITheme.Motion.ToastSeconds, and fade out.
 -- Kinds: "success" (green stripe, confirm sound), "error" (red stripe, error sound), "info", "reward" (gold),
 -- "announce" (gold, server-wide). An optional icon key shows on the left.
 
@@ -55,9 +55,10 @@ function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
 	back.BorderSizePixel = 0
 	back.ZIndex = 0
 	back.Parent = card
-	Style.Gradient(back, theme.Colors.PanelTop, theme.Colors.PanelBottom)
+	back.BackgroundTransparency = theme.GlassTransparency
+	Style.Gradient(back, theme.Colors.GlassTop, theme.Colors.GlassBottom)
 	Style.Corner(back, theme.SmallCorner)
-	Style.Stroke(holder, accent, 2) -- stroke on the holder so it isn't clipped by the canvas
+	Style.GoldBorder(holder, 2.5) -- stroke on the holder so it isn't clipped by the canvas
 	Style.Corner(holder, theme.SmallCorner)
 
 	local stripe = Instance.new("Frame")

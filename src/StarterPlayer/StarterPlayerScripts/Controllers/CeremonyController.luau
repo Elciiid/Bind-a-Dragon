@@ -1,7 +1,8 @@
 --!strict
 -- The binding ceremony, on the binder's client after the server's result (BindingController decides when it plays).
 -- Full: the camera eases toward the altar, tonight's stars streak down into the main crystal, a burst in the rarity
--- color (particles, a ring, a flash of light), and the new dragon rises over the altar with its name and rarity.
+-- color (particles, a ring, a flash of light), and the new dragon rises over the altar while a title banner in the
+-- rarity color pops up on screen with its name (UI/Banner, the window style) and a rarity/element tag, in sparkles.
 -- Big (Legendary/Mythic/Starborn): a bigger burst, a second ring, a sky flash and a longer hold.
 -- Quick ("Quick binds" setting, never for big ones): only the burst and the reveal, about a second.
 -- Any key, click or tap skips it. Visual only: the dragon is already the player's. Settings: Config/Ceremony.
@@ -17,6 +18,8 @@ local AltarGlowController = require(script.Parent.AltarGlowController)
 local SkyController = require(script.Parent.SkyController)
 local EffectsQuality = require(script.Parent.EffectsQuality)
 local Style = require(script.Parent.UI.Style)
+local Banner = require(script.Parent.UI.Banner)
+local TweenService = game:GetService("TweenService")
 local Ceremony = require(ReplicatedStorage.Shared.Config.Ceremony)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
@@ -364,18 +367,41 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			local high = center + Vector3.new(0, Ceremony.Reveal.RiseHeight, 0)
 			model:PivotTo(CFrame.new(low0))
 			model.Parent = folder
-			local label = Instance.new("BillboardGui")
-			label.Size = UDim2.fromOffset(260, 60)
-			label.StudsOffsetWorldSpace = Vector3.new(0, size.Y / 2 + 3, 0)
-			label.LightInfluence = 0
-			label.Adornee = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-			label.Parent = model
-			local title = Style.Label(label, if request.Starborn then `★ {species.Name} ★` else species.Name, "Title", 30, color)
-			title.Size = UDim2.new(1, 0, 0, 34)
-			title.TextStrokeTransparency = 0
-			local sub = Style.Label(label, `{if request.Starborn then "STARBORN · " else ""}{species.Rarity} · {species.Element}`, "Heavy", 16, UITheme.Colors.Text)
-			sub.Position = UDim2.fromOffset(0, 36)
-			sub.Size = UDim2.new(1, 0, 0, 20)
+			-- Name banner on screen (lower middle), in the rarity color
+			local reveal = Instance.new("Frame")
+			reveal.Name = "Reveal"
+			reveal.AnchorPoint = Vector2.new(0.5, 0.5)
+			reveal.Position = UDim2.fromScale(0.5, 0.74)
+			reveal.Size = UDim2.fromOffset(10, 10)
+			reveal.BackgroundTransparency = 1
+			reveal.Parent = overlay
+			local pop = Instance.new("UIScale")
+			pop.Scale = 0.2
+			pop.Parent = reveal
+			local phone = math.min(overlay.AbsoluteSize.X, overlay.AbsoluteSize.Y) <= UITheme.PhoneMaxShortSide
+			local banner = Banner.new(reveal, {
+				Text = if request.Starborn then `★ {species.Name} ★` else species.Name,
+				Top = Style.Shade(color, 0.12),
+				Bottom = Style.Shade(color, -0.4),
+				Tail = Style.Shade(color, -0.6),
+			})
+			banner:Layout(if phone then 42 else 64, if phone then 26 else 40, if phone then 22 else 32)
+			banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
+			banner.Holder.Position = UDim2.fromScale(0.5, 0.5)
+			local tag = Style.Label(reveal, `{if request.Starborn then "STARBORN · " else ""}{species.Rarity} · {species.Element}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
+			tag.AnchorPoint = Vector2.new(0.5, 0)
+			tag.Position = UDim2.new(0.5, 0, 0.5, (if phone then 42 else 64) / 2 + 8)
+			tag.BackgroundTransparency = 0.15
+			tag.BackgroundColor3 = UITheme.Colors.GlassBottom
+			tag.TextStrokeTransparency = 1
+			tag.AutomaticSize = Enum.AutomaticSize.X
+			tag.Size = UDim2.fromOffset(0, if phone then 22 else 28)
+			tag.TextWrapped = false
+			Style.Round(tag)
+			Style.Pad(tag, 14, 0)
+			Style.GoldBorder(tag, 2)
+			TweenService:Create(pop, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			Style.SparkleBurst(reveal, Vector2.new(5, 5), if big then 22 else 12, if phone then 80 else 130)
 			local revealStart = os.clock()
 			local riseSeconds = if quick then 0.4 else Ceremony.Reveal.RiseSeconds
 			table.insert(connections, RunService.RenderStepped:Connect(function()

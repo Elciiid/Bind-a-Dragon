@@ -38,6 +38,7 @@ local phone = false
 local entries: { [string]: MenuEntry } = {}
 local pills: { CurrencyPill.CurrencyPill } = {}
 local popups: { Popup } = {}
+local hiddenWithPopups: { ScreenGui } = {} -- phones: HUD guis hidden while a window is open (HideWithPopups)
 local listeners: { (boolean) -> () } = {}
 
 -- Kept for controllers not yet on the kit.
@@ -81,6 +82,21 @@ local function anyPopupOpen(): boolean
 		end
 	end
 	return false
+end
+
+-- Phones: while a window is open, the menu, currencies and the guis given to HideWithPopups (travel row, day/night
+-- pill) hide, so nothing peeks around the window's banner.
+local function updatePopupHiding()
+	local hide = phone and anyPopupOpen()
+	if menu then
+		menu.Visible = not hide
+	end
+	if currency then
+		currency.Visible = not hide
+	end
+	for _, screen in hiddenWithPopups do
+		screen.Enabled = not hide
+	end
 end
 
 -- Bottom of Roblox's top bar (pixels from the top of the screen).
@@ -129,7 +145,7 @@ local function layoutMenu()
 		menu.AnchorPoint = Vector2.new(0, 0.5)
 		menu.Position = UDim2.new(0, sizes.Margin, 0.5, -10)
 	end
-	menu.Visible = not (phone and anyPopupOpen())
+	updatePopupHiding()
 end
 
 local function layoutCurrency()
@@ -160,7 +176,7 @@ end
 
 local function layoutPopups()
 	for _, popup in popups do
-		popup.Panel.Size = if phone then UDim2.fromScale(0.96, 0.96) else popup.PcSize
+		popup.Panel.Size = if phone then UDim2.fromScale(0.94, 0.88) else popup.PcSize -- room for the banner on top
 	end
 end
 
@@ -389,6 +405,12 @@ function HudLayout.TrackPanel(panel: GuiObject, close: () -> ())
 	end)
 end
 
+-- Phones: hide this HUD gui while a window is open (e.g. the travel row and the day/night pill).
+function HudLayout.HideWithPopups(screen: ScreenGui)
+	table.insert(hiddenWithPopups, screen)
+	updatePopupHiding()
+end
+
 -- A centered popup panel: drawn above the HUD, nearly full screen on phones (pcSize on PC), and the phone menu
 -- hides while it is open. UI/Window registers itself; older panels call this directly.
 function HudLayout.RegisterPopup(panel: GuiObject, pcSize: UDim2)
@@ -396,7 +418,7 @@ function HudLayout.RegisterPopup(panel: GuiObject, pcSize: UDim2)
 	table.insert(popups, { Panel = panel, PcSize = pcSize })
 	panel:GetPropertyChangedSignal("Visible"):Connect(function()
 		if menu then
-			menu.Visible = not (phone and anyPopupOpen())
+			updatePopupHiding()
 		end
 	end)
 	relayout()

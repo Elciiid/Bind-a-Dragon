@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
+local Banner = require(script.Parent.UI.Banner)
 local Button = require(script.Parent.UI.Button)
 local Format = require(ReplicatedStorage.Shared.Format)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
@@ -97,7 +98,7 @@ local hiddenByWindow = false -- another window hid the card; it comes back when 
 local function showReady()
 	local data = DataController:Get()
 	record = if data then data.SpireRecord else record
-	title.Text = `Dragon Spire  ·  record {record}/{SpireConfig.MaxFloors}`
+	title.Text = `Record floor {record}/{SpireConfig.MaxFloors}` -- the banner says Dragon Spire
 	matchup.Text = "Your strongest dragon fights one enemy per floor."
 	matchup.TextColor3 = Color3.fromRGB(190, 190, 205)
 	logLabel.Text = ""
@@ -180,13 +181,16 @@ function SpireController:Init()
 	panel.Name = "SpireCard"
 	panel.AnchorPoint = Vector2.new(0.5, 1)
 	panel.Position = UDim2.new(0.5, 0, 1, -16)
-	panel.Size = UDim2.new(0.6, 0, 0, 200)
+	panel.Size = UDim2.new(0.6, 0, 0, 214)
 	panel.Visible = false
 	Style.PanelLook(panel, 6)
 	panel.Parent = gui
 	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(560, 200)
+	limit.MaxSize = Vector2.new(560, 214)
 	limit.Parent = panel
+	local banner = Banner.new(panel, { Text = Text.SpirePanelTitle, Icon = Theme.ShopIcons.ElevatorPass })
+	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	banner.Holder.Position = UDim2.fromScale(0.5, 0)
 
 	title = label(panel, "Title", Theme.Colors.Title, 8, 24)
 	title.TextStrokeTransparency = 0
@@ -263,11 +267,12 @@ function SpireController:Init()
 		if isPhone then
 			panel.AnchorPoint = Vector2.new(0.5, 0)
 			panel.Position = UDim2.new(0.5, 0, 0, sizes.PhoneCardTop)
-			panel.Size = UDim2.fromOffset(380, 112)
-			title.Position, title.Size = UDim2.fromOffset(10, 6), UDim2.new(1, -20, 0, 18)
-			matchup.Position, matchup.Size = UDim2.fromOffset(10, 26), UDim2.new(1, -20, 0, 15)
-			bar.Position, bar.Size = UDim2.fromOffset(10, 45), UDim2.new(1, -20, 0, 6)
-			logLabel.Position, logLabel.Size = UDim2.fromOffset(10, 55), UDim2.new(1, -20, 0, 18)
+			panel.Size = UDim2.fromOffset(380, 122)
+			banner:Layout(24, 15, 16)
+			title.Position, title.Size = UDim2.fromOffset(10, 16), UDim2.new(1, -20, 0, 18)
+			matchup.Position, matchup.Size = UDim2.fromOffset(10, 36), UDim2.new(1, -20, 0, 15)
+			bar.Position, bar.Size = UDim2.fromOffset(10, 55), UDim2.new(1, -20, 0, 6)
+			logLabel.Position, logLabel.Size = UDim2.fromOffset(10, 65), UDim2.new(1, -20, 0, 18)
 			logLabel.TextSize = 12
 			for _, b in { stopButton, againButton, elevatorButton, closeButton } do
 				b.Size = UDim2.new(b.Size.X.Scale, b.Size.X.Offset, 0, 26)
@@ -276,11 +281,12 @@ function SpireController:Init()
 		else
 			panel.AnchorPoint = Vector2.new(0.5, 1)
 			panel.Position = UDim2.new(0.5, 0, 1, -16)
-			panel.Size = UDim2.new(0.6, 0, 0, 200)
-			title.Position, title.Size = UDim2.fromOffset(12, 8), UDim2.new(1, -24, 0, 24)
-			matchup.Position, matchup.Size = UDim2.fromOffset(12, 36), UDim2.new(1, -24, 0, 20)
-			bar.Position, bar.Size = UDim2.fromOffset(12, 62), UDim2.new(1, -24, 0, 10)
-			logLabel.Position, logLabel.Size = UDim2.fromOffset(12, 78), UDim2.new(1, -24, 0, 76)
+			panel.Size = UDim2.new(0.6, 0, 0, 214)
+			banner:Layout(36, 21, 24)
+			title.Position, title.Size = UDim2.fromOffset(16, 22), UDim2.new(1, -32, 0, 24)
+			matchup.Position, matchup.Size = UDim2.fromOffset(16, 50), UDim2.new(1, -32, 0, 20)
+			bar.Position, bar.Size = UDim2.fromOffset(16, 76), UDim2.new(1, -32, 0, 10)
+			logLabel.Position, logLabel.Size = UDim2.fromOffset(16, 92), UDim2.new(1, -32, 0, 76)
 			logLabel.TextSize = 14
 			for _, b in { stopButton, againButton, elevatorButton, closeButton } do
 				b.Size = UDim2.new(b.Size.X.Scale, b.Size.X.Offset, 0, 32)

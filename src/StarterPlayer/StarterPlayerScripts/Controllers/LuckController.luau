@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
+local Banner = require(script.Parent.UI.Banner)
 local Icon = require(script.Parent.UI.Icon)
 local Button = require(script.Parent.UI.Button)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
@@ -19,6 +20,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 
@@ -157,7 +159,9 @@ local function update()
 	)
 
 	local atMax = luck.Total >= (if luck.Potion > 1 then LuckConfig.PotionCap else LuckConfig.Cap)
-	title.Text = `Bind luck {Format.Multiplier(luck.Total)}` .. (if atMax then " (max)" else "")
+	title.Text = if atMax
+		then Text.Format(Text.LuckPanel.Max, { luck = Format.Multiplier(luck.Total) })
+		else Format.Multiplier(luck.Total)
 	local lines = {
 		`Area  {Format.Multiplier(luck.Area)}`,
 		`{luck.MoonName}  {Format.Multiplier(luck.Moon)}`,
@@ -195,18 +199,18 @@ function LuckController:Init()
 	panel.Visible = false
 	Style.PanelLook(panel, 5)
 	panel.Parent = gui
+	local banner = Banner.new(panel, { Text = Text.LuckPanel.Title, Icon = "Stardust" })
+	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	banner.Holder.Position = UDim2.fromScale(0.5, 0)
 	local inner = Instance.new("Frame")
 	inner.Name = "Inner"
 	inner.BackgroundTransparency = 1
-	inner.Position = UDim2.fromOffset(12, 10)
-	inner.Size = UDim2.new(1, -24, 1, -20)
 	inner.ZIndex = 2
 	inner.Parent = panel
 
-	title = Style.Label(inner, "", "Title", 22, Theme.Colors.Title)
-	title.Size = UDim2.new(1, 0, 0, 28)
+	title = Style.Label(inner, "", "Title", 30, Theme.Colors.Title) -- the total luck, big
+	title.Size = UDim2.new(1, 0, 0, 34)
 	title.TextScaled = true
-	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextStrokeTransparency = 0
 
 	details = Style.Label(inner, "", "Bold", 16, Theme.Colors.Text)
@@ -255,18 +259,22 @@ function LuckController:Init()
 		-- Phone: shorter panel under the pill, so it ends well above the jump button.
 		if isPhone then
 			panel.AnchorPoint = Vector2.new(1, 0)
-			panel.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
-			panel.Size = UDim2.fromOffset(250, 180)
-			title.Size = UDim2.new(1, 0, 0, 20)
+			panel.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap + 14)
+			panel.Size = UDim2.fromOffset(250, 190)
+			banner:Layout(28, 17, 18)
+			inner.Position, inner.Size = UDim2.fromOffset(12, 18), UDim2.new(1, -24, 1, -28)
+			title.Size = UDim2.new(1, 0, 0, 22)
 			details.Position, details.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -54)
 			details.TextSize = 13
 			armButton.Instance.Size = UDim2.new(1, 0, 0, 26)
 		else
 			panel.AnchorPoint = Vector2.new(1, 0.5)
 			panel.Position = UDim2.new(1, -sizes.Margin, 0.5, 0)
-			panel.Size = UDim2.fromOffset(250, 240)
-			title.Size = UDim2.new(1, 0, 0, 28)
-			details.Position, details.Size = UDim2.fromOffset(0, 34), UDim2.new(1, 0, 1, -72)
+			panel.Size = UDim2.fromOffset(260, 270)
+			banner:Layout(38, 22, 26)
+			inner.Position, inner.Size = UDim2.fromOffset(14, 26), UDim2.new(1, -28, 1, -40)
+			title.Size = UDim2.new(1, 0, 0, 34)
+			details.Position, details.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -80)
 			details.TextSize = 16
 			armButton.Instance.Size = UDim2.new(1, 0, 0, 32)
 		end

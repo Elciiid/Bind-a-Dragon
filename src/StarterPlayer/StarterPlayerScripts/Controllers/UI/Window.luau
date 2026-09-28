@@ -1,6 +1,7 @@
 --!strict
--- Window: the standard popup panel. Night-sky panel with gold trim and sparkles, a title bar with a constellation
--- motif and the title in the title font, a red X close button top-right, and a pop-in/out animation with sounds.
+-- Window: the standard popup panel (UI renewal frame). Navy glass with a gold ornamental border (Style.PanelLook), a
+-- jewel title banner with a small star hanging on the top edge (UI/Banner), a big round ruby close button on the
+-- top-right corner, and a pop-in/out animation with sounds and a sparkle burst out of the banner on open.
 -- Windows register with HudLayout, so they draw above the HUD and fill the screen on phones. Only one window is open
 -- at a time: opening one closes any other window or station panel (HudLayout.ClaimFocus).
 --
@@ -10,7 +11,7 @@
 local TweenService = game:GetService("TweenService")
 
 local Style = require(script.Parent.Style)
-local Icon = require(script.Parent.Icon)
+local Banner = require(script.Parent.Banner)
 local HudLayout = require(script.Parent.Parent.HudLayout)
 
 export type Props = {
@@ -27,7 +28,8 @@ Window.__index = Window
 export type Window = typeof(setmetatable({} :: {
 	Gui: ScreenGui,
 	Frame: Frame,
-	TitleBar: Frame,
+	TitleBar: Frame, -- the banner's holder
+	Banner: Banner.Banner,
 	TitleLabel: TextLabel,
 	Content: Frame,
 	Scale: UIScale,
@@ -57,62 +59,53 @@ function Window.new(props: Props): Window
 	local scale = Instance.new("UIScale")
 	scale.Parent = frame
 
-	-- Title bar
-	local titleBar = Instance.new("Frame")
-	titleBar.Name = "TitleBar"
-	titleBar.Position = UDim2.fromOffset(6, 6)
-	titleBar.Size = UDim2.new(1, -12, 0, theme.Sizes.TitleBar)
-	titleBar.BackgroundColor3 = theme.Colors.TitleBar
-	titleBar.BackgroundTransparency = 0.25
-	titleBar.ZIndex = 2
-	Style.Corner(titleBar, theme.Corner - 4)
-	titleBar.Parent = frame
-	Style.Constellation(titleBar)
+	-- Title banner, hanging on the top edge
+	local banner = Banner.new(frame, { Text = props.Title, Icon = props.Icon })
+	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	banner.Holder.Position = UDim2.fromScale(0.5, 0)
 
-	local titleRow = Instance.new("Frame")
-	titleRow.Name = "TitleRow"
-	titleRow.BackgroundTransparency = 1
-	titleRow.Position = UDim2.fromOffset(12, 0)
-	titleRow.Size = UDim2.new(1, -70, 1, 0)
-	titleRow.ZIndex = 3
-	titleRow.Parent = titleBar
-	local rowLayout = Instance.new("UIListLayout")
-	rowLayout.FillDirection = Enum.FillDirection.Horizontal
-	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	rowLayout.Padding = UDim.new(0, 8)
-	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	rowLayout.Parent = titleRow
-	if props.Icon then
-		local icon = Icon.new(titleRow, props.Icon)
-		icon.LayoutOrder = 1
-		icon.Size = UDim2.fromScale(0.85, 0.85)
-		icon.ZIndex = 3
-		local ratio = Instance.new("UIAspectRatioConstraint")
-		ratio.Parent = icon
-	end
-	local title = Style.Label(titleRow, props.Title, "Title", theme.TextSizes.Title, theme.Colors.Title)
-	title.LayoutOrder = 2
-	title.AutomaticSize = Enum.AutomaticSize.X
-	title.Size = UDim2.fromScale(0, 1)
-	title.TextWrapped = false
-	title.TextStrokeTransparency = 0
-	title.ZIndex = 3
-
-	-- Red X close
+	-- Big round close button on the top-right corner
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
-	close.AnchorPoint = Vector2.new(1, 0.5)
-	close.Position = UDim2.new(1, -6, 0.5, 0)
-	close.Size = UDim2.fromOffset(theme.Sizes.Close, theme.Sizes.Close)
-	close.Text = "X"
+	close.AnchorPoint = Vector2.new(0.5, 0.5)
+	close.Position = UDim2.new(1, -12, 0, 12)
+	close.Text = ""
 	close.AutoButtonColor = false
-	close.ZIndex = 5
-	Style.Text(close, "Title", 22)
-	close.TextStrokeTransparency = 0
-	close.Parent = titleBar
-	local closeBack = Style.Backdrop(close, Style.Shade(theme.Colors.Close, 0.15), Style.Shade(theme.Colors.Close, -0.2), theme.SmallCorner)
-	Style.Stroke(closeBack, theme.Colors.ButtonStroke, theme.Strokes.Button)
+	close.BackgroundColor3 = Color3.new(1, 1, 1)
+	close.ZIndex = 10
+	Style.Gradient(close, theme.Colors.CloseTop, theme.Colors.CloseBottom)
+	Style.Round(close)
+	Style.GoldBorder(close, 3)
+	close.Parent = frame
+	local closeGloss = Instance.new("Frame")
+	closeGloss.Name = "Gloss"
+	closeGloss.AnchorPoint = Vector2.new(0.5, 0)
+	closeGloss.Position = UDim2.fromScale(0.5, 0.08)
+	closeGloss.Size = UDim2.fromScale(0.62, 0.36)
+	closeGloss.BackgroundColor3 = Color3.new(1, 1, 1)
+	closeGloss.BackgroundTransparency = 0.78
+	closeGloss.ZIndex = 10
+	Style.Round(closeGloss)
+	closeGloss.Parent = close
+	local cross = Style.Label(close, "X", "Title", 26)
+	cross.Name = "Cross"
+	cross.AnchorPoint = Vector2.new(0.5, 0.5)
+	cross.Position = UDim2.fromScale(0.5, 0.54)
+	cross.Size = UDim2.fromScale(1, 1)
+	cross.ZIndex = 11
+	cross.TextStrokeTransparency = 1
+	local crossOutline = Instance.new("UIStroke")
+	crossOutline.Color = theme.Colors.IconLabelStroke
+	crossOutline.Thickness = 2
+	crossOutline.Parent = cross
 	Style.AttachPress(close, "Close")
+	local turn = TweenInfo.new(theme.Motion.IconHoverTime, Enum.EasingStyle.Back)
+	close.MouseEnter:Connect(function()
+		TweenService:Create(cross, turn, { Rotation = theme.Motion.CloseHoverTurn }):Play()
+	end)
+	close.MouseLeave:Connect(function()
+		TweenService:Create(cross, turn, { Rotation = 0 }):Play()
+	end)
 
 	-- Content area
 	local content = Instance.new("Frame")
@@ -124,8 +117,9 @@ function Window.new(props: Props): Window
 	local self = setmetatable({
 		Gui = gui,
 		Frame = frame,
-		TitleBar = titleBar,
-		TitleLabel = title,
+		TitleBar = banner.Holder,
+		Banner = banner,
+		TitleLabel = banner.Label,
 		Content = content,
 		Scale = scale,
 		IsOpen = false,
@@ -140,12 +134,20 @@ function Window.new(props: Props): Window
 
 	HudLayout.RegisterPopup(frame, props.Size)
 	HudLayout.OnLayoutChanged(function(isPhone)
-		local barHeight = if isPhone then theme.Sizes.PhoneTitleBar else theme.Sizes.TitleBar
-		titleBar.Size = UDim2.new(1, -12, 0, barHeight)
-		title.TextSize = if isPhone then theme.TextSizes.PhoneTitle else theme.TextSizes.Title
-		closeBack.Size = UDim2.fromOffset(barHeight - 8, barHeight - 8)
-		content.Position = UDim2.fromOffset(12, barHeight + 12)
-		content.Size = UDim2.new(1, -24, 1, -(barHeight + 22))
+		local sizes = theme.Sizes
+		local bannerHeight = if isPhone then sizes.PhoneBanner else sizes.Banner
+		banner:Layout(
+			bannerHeight,
+			if isPhone then theme.TextSizes.PhoneBanner else theme.TextSizes.Banner,
+			if isPhone then sizes.PhoneBannerStar else sizes.BannerStar
+		)
+		local closeSize = if isPhone then sizes.PhoneCloseButton else sizes.CloseButton
+		close.Size = UDim2.fromOffset(closeSize, closeSize)
+		cross.TextSize = math.floor(closeSize * 0.5)
+		local pad = if isPhone then sizes.WindowPadding - 4 else sizes.WindowPadding
+		local top = math.floor(bannerHeight / 2) + (if isPhone then 6 else 12)
+		content.Position = UDim2.fromOffset(pad, top)
+		content.Size = UDim2.new(1, -pad * 2, 1, -(top + pad))
 	end)
 	return self
 end
@@ -159,7 +161,12 @@ function Window.OnClose(self: Window, fn: () -> ())
 end
 
 function Window.SetTitle(self: Window, text: string)
-	self.TitleLabel.Text = text
+	self.Banner:SetText(text)
+end
+
+-- Changes the banner icon (a UITheme.Icons key; the window must have been made with an Icon).
+function Window.SetIcon(self: Window, key: string)
+	self.Banner:SetIcon(key)
 end
 
 function Window.Open(self: Window)
@@ -176,6 +183,8 @@ function Window.Open(self: Window)
 	self.Frame.Visible = true
 	TweenService:Create(self.Scale, TweenInfo.new(motion.PopIn, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	Style.Play("Open")
+	local width = self.Frame.AbsoluteSize.X / math.max(self.Scale.Scale, 0.01)
+	Style.SparkleBurst(self.Frame, Vector2.new(width / 2, 0), motion.OpenSparkles, 60)
 	for _, fn in self.OpenCallbacks do
 		task.spawn(fn)
 	end

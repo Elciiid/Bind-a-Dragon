@@ -5,12 +5,12 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
-local Button = require(script.Parent.UI.Button)
 local Window = require(script.Parent.UI.Window)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
@@ -140,22 +140,47 @@ local function slider(parent: Frame, get: () -> number, set: (number) -> ())
 	draw()
 end
 
+-- A switch: a jewel pill (jade when on, dusk blue when off) with a gold knob that slides across.
 local function toggle(parent: Frame, get: () -> boolean, set: (boolean) -> ())
-	local button = Button.new(parent, {
-		Text = "Off",
-		Kind = "Neutral",
-		TextSize = 16,
-		OnClick = function()
-			set(not get())
-		end,
-	})
-	button.Instance.AnchorPoint = Vector2.new(1, 0.5)
-	button.Instance.Position = UDim2.new(1, -12, 0.5, 0)
-	button.Instance.Size = UDim2.fromOffset(92, 38)
+	local colors = UITheme.Colors
+	local switch = Instance.new("TextButton")
+	switch.Name = "Switch"
+	switch.Text = ""
+	switch.AutoButtonColor = false
+	switch.AnchorPoint = Vector2.new(1, 0.5)
+	switch.Position = UDim2.new(1, -12, 0.5, 0)
+	switch.Size = UDim2.fromOffset(92, 40)
+	switch.BackgroundColor3 = Color3.new(1, 1, 1)
+	Style.Round(switch)
+	Style.GoldBorder(switch, 2.5)
+	local gradient = Style.Gradient(switch, colors.Neutral, colors.Neutral)
+	switch.Parent = parent
+	local word = Style.Label(switch, "", "Title", 16)
+	word.Size = UDim2.new(0.6, 0, 1, 0)
+	word.ZIndex = 2
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Size = UDim2.fromOffset(30, 30)
+	knob.BackgroundColor3 = Color3.new(1, 1, 1)
+	knob.ZIndex = 3
+	Style.Gradient(knob, colors.TrimLight, colors.TrimDark)
+	Style.Round(knob)
+	Style.Stroke(knob, colors.TextStroke, 1.5)
+	knob.Parent = switch
+	Style.AttachPress(switch)
+	switch.Activated:Connect(function()
+		set(not get())
+	end)
 	local function draw()
 		local on = get()
-		button:SetText(if on then "On" else "Off")
-		button:SetKind(if on then "Confirm" else "Neutral")
+		local base = if on then colors.Confirm else colors.Neutral
+		gradient.Color = ColorSequence.new(Style.Shade(base, 0.16), Style.Shade(base, -0.2))
+		word.Text = if on then "ON" else "OFF"
+		word.Position = if on then UDim2.fromScale(0.04, 0) else UDim2.fromScale(0.38, 0)
+		TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Back), {
+			Position = if on then UDim2.new(1, -20, 0.5, 0) else UDim2.new(0, 20, 0.5, 0),
+		}):Play()
 	end
 	table.insert(refreshers, draw)
 	draw()
@@ -167,6 +192,7 @@ function SettingsController:Init()
 	local window = Window.new({
 		Name = "Settings",
 		Title = "Settings",
+		Icon = "Settings",
 		Size = UDim2.new(0.9, 0, 0.7, 0),
 		MaxSize = Vector2.new(520, 400),
 	})
