@@ -439,6 +439,62 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	end
 end
 
+-- The in-world look (prompts, boards, banners over things): the window style made small. Navy glass, a gold border,
+-- a small gold diamond on each end and (optionally) a little gold star on top. `accent` tints the inner line.
+function Style.WorldPanel(frame: GuiObject, accent: Color3?, star: boolean?)
+	local world = UITheme.WorldPanel
+	frame.BackgroundColor3 = Color3.new(1, 1, 1)
+	frame.BackgroundTransparency = world.Transparency
+	Style.Gradient(frame, UITheme.Colors.GlassTop, UITheme.Colors.GlassBottom)
+	Style.Corner(frame, world.Corner)
+	Style.GoldBorder(frame, world.Border)
+	if accent then
+		local inner = Instance.new("Frame")
+		inner.Name = "AccentLine"
+		inner.Position = UDim2.fromOffset(4, 4)
+		inner.Size = UDim2.new(1, -8, 1, -8)
+		inner.BackgroundTransparency = 1
+		inner.ZIndex = 0
+		Style.Corner(inner, world.Corner - 3)
+		local line = Style.Stroke(inner, accent, 1.5)
+		line.Transparency = 0.35
+		inner.Parent = frame
+	end
+	for _, x in { 0, 1 } do
+		local gem = Style.Ornament(frame, world.EndOrnament)
+		gem.Name = "EndOrnament"
+		gem.Position = UDim2.fromScale(x, 0.5)
+	end
+	if star then
+		local mark = Instance.new("TextLabel")
+		mark.Name = "Star"
+		mark.AnchorPoint = Vector2.new(0.5, 0.6)
+		mark.Position = UDim2.fromScale(0.5, 0)
+		mark.Size = UDim2.fromOffset(world.Star, world.Star)
+		mark.BackgroundTransparency = 1
+		mark.Text = "★"
+		mark.Font = Enum.Font.GothamBlack
+		mark.TextScaled = true
+		mark.TextColor3 = UITheme.Colors.BannerStar
+		mark.ZIndex = 6
+		local outline = Instance.new("UIStroke")
+		outline.Color = UITheme.Colors.TrimDark
+		outline.Thickness = 1.5
+		outline.Parent = mark
+		mark.Parent = frame
+	end
+end
+
+-- Title-font text with a thick dark outline (world labels, big numbers): reads on any background.
+function Style.Outline(label: TextLabel | TextButton, thickness: number?)
+	label.TextStrokeTransparency = 1
+	local outline = label:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke")
+	outline.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	outline.Color = UITheme.Colors.IconLabelStroke
+	outline.Thickness = thickness or 2
+	outline.Parent = label
+end
+
 -- A card inside a panel: a lighter glass box with a soft gold outline, or an accent outline and a color band on the
 -- left (element/rarity).
 function Style.CardLook(frame: GuiObject, accent: Color3?)

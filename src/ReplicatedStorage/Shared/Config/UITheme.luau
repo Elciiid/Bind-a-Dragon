@@ -317,6 +317,19 @@ return {
 	-- Phones show at most this many boost timer pills; the rest collapse into a "+N" chip that opens Boosts.
 	PhoneMaxTimers = 3,
 
+	-- In-world panels (Style.WorldPanel: prompts, boards, owner banners, portal labels): the window look made small.
+	WorldPanel = {
+		Transparency = 0.08, -- navy glass
+		Corner = 12,
+		Border = 2.5, -- gold border
+		EndOrnament = 10, -- gold diamond on each end (pixels)
+		Star = 18, -- the little star on top of boards
+		KeyBadgeTop = Color3.fromRGB(138, 82, 214), -- prompt key badge (amethyst jewel)
+		KeyBadgeBottom = Color3.fromRGB(78, 38, 150),
+		PopTime = 0.22, -- prompts pop in (Back easing)
+		TriggerSparkles = 8, -- sparkles out of the key badge when a prompt is used
+	},
+
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
 	WorldLabels = {
@@ -324,8 +337,8 @@ return {
 		BadgeMaxDistance = 80, -- studs: the ★ rebirth badge over players (a status symbol, seen from further)
 		RoostSign = Vector2.new(180, 34),
 		Nameplate = Vector2.new(130, 28),
-		PortalName = Vector2.new(170, 30),
-		PortalLock = Vector2.new(120, 30),
+		PortalName = Vector2.new(190, 36),
+		PortalLock = Vector2.new(140, 36),
 		UpgradeStand = Vector2.new(140, 32),
 		RebirthBadge = Vector2.new(64, 20),
 		AreaSign = Vector2.new(240, 40),

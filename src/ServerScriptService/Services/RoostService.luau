@@ -314,11 +314,15 @@ local function makeNameplate(model: Model, text: string, color: Color3)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
+	label.Font = Enum.Font.LuckiestGuy -- UITheme.Fonts.Title
 	label.TextScaled = true
 	label.TextColor3 = color
-	label.TextStrokeTransparency = 0.3
+	label.TextStrokeTransparency = 1
 	label.Text = text
+	local outline = Instance.new("UIStroke")
+	outline.Color = Color3.fromRGB(24, 16, 48) -- UITheme.Colors.IconLabelStroke
+	outline.Thickness = 1.5
+	outline.Parent = label
 	label.Parent = gui
 	gui.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 end

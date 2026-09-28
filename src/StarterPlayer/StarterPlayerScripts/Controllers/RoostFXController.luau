@@ -78,29 +78,31 @@ local function updateBanner(plot: Model)
 		gui.MaxDistance = UITheme.WorldLabels.MaxDistance
 		gui.AlwaysOnTop = false
 		gui.LightInfluence = 0
+		gui.ClipsDescendants = false
 		gui.Parent = sign
-		local panel = Instance.new("Frame")
-		panel.Size = UDim2.fromScale(1, 1)
-		panel.BackgroundColor3 = Color3.new(1, 1, 1)
-		Style.Gradient(panel, UITheme.Colors.PanelTop, UITheme.Colors.PanelBottom)
-		Style.Corner(panel, UITheme.SmallCorner)
-		Style.Stroke(panel, UITheme.Colors.Trim, 2)
+		local panel = Instance.new("Frame") -- the in-world window look (navy glass, gold border, star on top)
+		panel.AnchorPoint = Vector2.new(0.5, 1)
+		panel.Position = UDim2.fromScale(0.5, 1)
+		panel.Size = UDim2.new(1, -12, 1, -8)
+		Style.WorldPanel(panel, nil, true)
 		panel.Parent = gui
 		local avatar = Instance.new("ImageLabel")
 		avatar.Name = "Avatar"
 		avatar.AnchorPoint = Vector2.new(0, 0.5)
-		avatar.Position = UDim2.new(0, 4, 0.5, 0)
-		avatar.Size = UDim2.fromOffset(size.Y - 8, size.Y - 8)
-		avatar.BackgroundColor3 = UITheme.Colors.TitleBar
+		avatar.Position = UDim2.new(0, -6, 0.5, 0)
+		avatar.Size = UDim2.fromOffset(size.Y, size.Y)
+		avatar.BackgroundColor3 = UITheme.Colors.BannerBottom
+		avatar.ZIndex = 6
 		Style.Round(avatar)
-		Style.Stroke(avatar, UITheme.Colors.Gold, 1.5)
+		Style.GoldBorder(avatar, 2.5)
 		avatar.Parent = panel
-		local label = Style.Label(panel, "", "Heavy", 16, UITheme.Colors.Gold)
+		local label = Style.Label(panel, "", "Title", 18, UITheme.Colors.Gold)
 		label.Name = "Name"
-		label.Position = UDim2.fromOffset(size.Y + 2, 4)
-		label.Size = UDim2.new(1, -(size.Y + 8), 1, -8)
+		label.Position = UDim2.fromOffset(size.Y - 2, 5)
+		label.Size = UDim2.new(1, -(size.Y + 6), 1, -10)
 		label.TextScaled = true
 		label.TextXAlignment = Enum.TextXAlignment.Left
+		Style.Outline(label, 1.5)
 		banners[plot] = gui
 		banner = gui
 	end
@@ -194,7 +196,9 @@ local function goldPop(model: Model, amount: number)
 	layout.Parent = row
 	local icon = Icon.new(row, "Gold", UITheme.Colors.Gold)
 	icon.Size = UDim2.fromOffset(22, 22)
-	local label = Style.Label(row, `+{Format.Number(amount)}`, "Heavy", 20, UITheme.Colors.Gold)
+	local label = Style.Label(row, `+{Format.Number(amount)}`, "Title", 22, UITheme.Colors.Gold)
+	Style.Outline(label, 2)
+	local labelOutline = label:FindFirstChildOfClass("UIStroke") :: UIStroke
 	label.AutomaticSize = Enum.AutomaticSize.X
 	label.Size = UDim2.fromOffset(0, 26)
 	label.TextWrapped = false
@@ -212,7 +216,7 @@ local function goldPop(model: Model, amount: number)
 		gui.StudsOffsetWorldSpace = base + Vector3.new(0, RoostConfig.GoldPopRise * t, 0)
 		local fade = math.max(0, (t - 0.6) / 0.4)
 		label.TextTransparency = fade
-		label.TextStrokeTransparency = fade
+		labelOutline.Transparency = fade
 		if icon:IsA("ImageLabel") then
 			icon.ImageTransparency = fade
 		end

@@ -50,11 +50,15 @@ local function updateBadge(player: Player)
 		label.Name = "Label"
 		label.Size = UDim2.fromScale(1, 1)
 		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.GothamBold
+		label.Font = Enum.Font.LuckiestGuy -- UITheme.Fonts.Title
 		label.TextScaled = true
 		label.TextColor3 = BADGE_COLOR
-		label.TextStrokeTransparency = 0.3
+		label.TextStrokeTransparency = 1
 		label.Parent = newBadge
+		local outline = Instance.new("UIStroke")
+		outline.Color = Color3.fromRGB(24, 16, 48) -- UITheme.Colors.IconLabelStroke
+		outline.Thickness = 1.5
+		outline.Parent = label
 		newBadge.Parent = head
 		badge = newBadge
 	end

@@ -133,11 +133,19 @@ end
 -- A small drawn padlock (no image asset needed) with "Rebirth X" next to it.
 local function makeLock(surface: BasePart, rebirths: number): BillboardGui
 	local gui = makeLabel(surface, "PortalLock", WorldLabels.PortalLock, 0, PortalConfig.LockShowDistance)
+	gui.ClipsDescendants = false
+	local back = Instance.new("Frame")
+	back.Name = "Panel"
+	back.Size = UDim2.fromScale(1, 1)
+	Style.WorldPanel(back)
+	back.ZIndex = 0
+	back.Parent = gui
 	local lock = Instance.new("Frame")
 	lock.Name = "Padlock"
 	lock.BackgroundTransparency = 1
 	lock.Size = UDim2.fromOffset(22, 26)
-	lock.Position = UDim2.new(0, 4, 0.5, -13)
+	lock.Position = UDim2.new(0, 10, 0.5, -13)
+	lock.ZIndex = 2
 	lock.Parent = gui
 	local shackle = Instance.new("Frame")
 	shackle.BackgroundTransparency = 1
@@ -155,9 +163,11 @@ local function makeLock(surface: BasePart, rebirths: number): BillboardGui
 	body.Position = UDim2.fromOffset(0, 11)
 	Style.Corner(body, 4)
 	body.Parent = lock
-	local label = Style.Label(gui, Text.Format(Text.PortalLocked, { rebirths = rebirths }), "Heavy", 16, UITheme.Colors.Text)
-	label.Position = UDim2.fromOffset(30, 0)
-	label.Size = UDim2.new(1, -30, 1, 0)
+	local label = Style.Label(gui, Text.Format(Text.PortalLocked, { rebirths = rebirths }), "Title", 17, UITheme.Colors.Text)
+	label.Position = UDim2.fromOffset(38, 0)
+	label.Size = UDim2.new(1, -44, 1, 0)
+	label.ZIndex = 2
+	Style.Outline(label, 1.5)
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	return gui
 end
@@ -219,9 +229,26 @@ local function setup(instance: Instance)
 		table.insert(guis, makeSwirlFace(instance, Enum.NormalId.Back, color, swirls))
 	end
 
-	-- area name above the opening
-	local nameGui = makeLabel(instance, "PortalName", WorldLabels.PortalName, instance.Size.Y / 2 + 2, WorldLabels.MaxDistance)
-	Style.Label(nameGui, if area then area.Name else areaId, "Title", 20, UITheme.Colors.Title).Size = UDim2.fromScale(1, 1)
+	-- area name above the arch (the arch art would hide it just above the opening)
+	local nameHeight = instance.Size.Y / 2 + 2
+	local art = instance.Parent and instance.Parent:FindFirstChild("Art")
+	if art and art:IsA("Model") then
+		local box, size = art:GetBoundingBox()
+		nameHeight = math.max(nameHeight, box.Position.Y + size.Y / 2 - instance.Position.Y + 2.5)
+	end
+	local nameGui = makeLabel(instance, "PortalName", WorldLabels.PortalName, nameHeight, WorldLabels.MaxDistance)
+	nameGui.ClipsDescendants = false
+	local ribbon = Instance.new("Frame")
+	ribbon.Name = "Panel"
+	ribbon.Size = UDim2.fromScale(1, 1)
+	Style.WorldPanel(ribbon, color, true)
+	ribbon.Parent = nameGui
+	local nameLabel = Style.Label(ribbon, if area then area.Name else areaId, "Title", 20, color:Lerp(Color3.new(1, 1, 1), 0.35))
+	nameLabel.Size = UDim2.new(1, -16, 1, -4)
+	nameLabel.Position = UDim2.fromOffset(8, 2)
+	nameLabel.TextScaled = true
+	nameLabel.ZIndex = 2
+	Style.Outline(nameLabel, 1.5)
 
 	local portal: Portal = {
 		Surface = instance,

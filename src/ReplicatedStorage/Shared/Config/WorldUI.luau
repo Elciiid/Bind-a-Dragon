@@ -6,7 +6,7 @@
 return {
 	-- Themed prompts: every ProximityPrompt in the world uses this look (Style = Custom).
 	Prompts = {
-		Size = Vector2.new(230, 58), -- pixels
+		Size = Vector2.new(250, 64), -- pixels (the look is UITheme.WorldPanel)
 		PhoneScale = 0.9,
 		-- Icon per prompt Name (UITheme.Icons keys); prompts not listed show no icon.
 		Icons = {
@@ -31,7 +31,7 @@ return {
 	},
 
 	Roost = {
-		BannerSize = Vector2.new(210, 46), -- pixels (avatar + "Name's Roost"), within UITheme.WorldLabels.MaxDistance
+		BannerSize = Vector2.new(230, 54), -- pixels (incl. room for the star on top) (avatar + "Name's Roost"), within UITheme.WorldLabels.MaxDistance
 		-- "+gold" pops rising from your own roost dragons now and then.
 		GoldPopEvery = NumberRange.new(5, 9), -- seconds
 		GoldPopSeconds = 1.8,
@@ -78,7 +78,7 @@ return {
 		BurstParticles = 40, -- on every upgrade bought
 		BoardSize = Vector2.new(190, 50), -- pixels
 		BoardHeight = 14.5, -- studs above the stand's floor (just over the floating egg / coin)
-		BoardSideOffset = 3.5, -- studs outward from the gate's center line (clear of the owner banner)
+		BoardSideOffset = 6, -- studs outward from the gate's center line (clear of the owner banner)
 	},
 
 	-- Sanctuaries look grander as their owner upgrades the roost (SanctuaryTierController; the art is built in Studio by

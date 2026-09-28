@@ -6,11 +6,13 @@
 --   * gems ("Pip1"...) light up: one per roost slot, one per GemLevels income levels (the next one glows part-way);
 --     a maxed upgrade turns its glow gold and sparkles more
 --   * sparkles and a glow light near the camera (no sparkles with Low effects), a burst on every upgrade bought
---   * a board over each stand with the owner's level (hidden while the plot has no owner)
+--   * a board over each stand with the owner's level (hidden while the plot has no owner, and while the stand's
+--     own buy prompt is showing, so the board never covers the E prompt)
 -- The owner's buy prompts stay in RoostUpgradeController. Numbers in Config/WorldUI.UpgradeStands, words in
 -- Config/Text.UpgradeStands.
 
 local CollectionService = game:GetService("CollectionService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -39,6 +41,8 @@ type Stand = {
 	Light: PointLight,
 	Emitter: ParticleEmitter,
 	Board: WorldBoard.WorldBoard,
+	BoardPart: BasePart, -- the part the board (and the owner's buy prompt) hang on
+	PromptOpen: boolean, -- the buy prompt on BoardPart is showing: the board steps aside
 	Scale: number,
 	Phase: number,
 	Level: number?, -- last shown level (for the burst)
@@ -90,7 +94,7 @@ local function refresh(stand: Stand)
 		else Settings.IncomeGemColor)
 	stand.Rate = if value == nil then 0 else Settings.SparkleRate * (0.3 + 0.7 * progress) * (if maxed then 2 else 1)
 
-	stand.Board:SetEnabled(value ~= nil)
+	stand.Board:SetEnabled(value ~= nil and not stand.PromptOpen)
 	if value ~= nil then
 		local words = Text.UpgradeStands
 		if stand.Kind == "Slots" then
@@ -201,6 +205,8 @@ local function register(plot: Model, model: Model)
 		Light = light,
 		Emitter = emitter,
 		Board = board,
+		BoardPart = boardPart,
+		PromptOpen = false,
 		Scale = model:GetScale(),
 		Phase = math.random() * 10,
 		Level = nil,
@@ -248,7 +254,23 @@ local function animate(stand: Stand, t: number)
 	workspace:BulkMoveTo(stand.Parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 end
 
+-- The owner's buy prompt hangs on the same part as the board: hide the board while the prompt shows.
+local function onPrompt(prompt: ProximityPrompt, open: boolean)
+	for _, stand in stands do
+		if prompt.Parent == stand.BoardPart then
+			stand.PromptOpen = open
+			stand.Board:SetEnabled(level(stand) ~= nil and not open)
+		end
+	end
+end
+
 function UpgradeStandController:Start()
+	ProximityPromptService.PromptShown:Connect(function(prompt)
+		onPrompt(prompt, true)
+	end)
+	ProximityPromptService.PromptHidden:Connect(function(prompt)
+		onPrompt(prompt, false)
+	end)
 	local sinceScan = SCAN_INTERVAL
 	RunService.Heartbeat:Connect(function(dt)
 		sinceScan += dt
