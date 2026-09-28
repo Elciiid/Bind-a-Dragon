@@ -1,5 +1,6 @@
 --!strict
--- Rebirth menu tile (HudLayout) and a confirm window (UI/Window) that spells out the cost, what is kept, and what the
+-- Rebirth HUD icon (HudLayout: gold glow + READY! when the player can afford it, else a progress ring toward the
+-- next rebirth) and a confirm window (UI/Window) that spells out the cost, what is kept, and what the
 -- rebirth unlocks, with green Rebirth / red Cancel. The window scales with the screen (phones). The server decides.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -34,7 +35,13 @@ local function refresh()
 		HudLayout.SetMenuText("Rebirth", `Rebirth ★{data.Rebirths}`, `★{data.Rebirths}`)
 	end
 
-	if DragonStats.IsAtRebirthCap(data) then
+	-- HUD: "ready" (gold glow, hop, sparkles, READY!) when affordable; otherwise calm with a progress ring
+	local atCap = DragonStats.IsAtRebirthCap(data)
+	local ready = not atCap and data.Gold >= cost
+	HudLayout.SetReady("Rebirth", ready)
+	HudLayout.SetProgress("Rebirth", if atCap or ready then nil else math.clamp(data.Gold / cost, 0, 1))
+
+	if atCap then
 		body.Text = table.concat({
 			`Rebirth cap reached (★{data.Rebirths}).`,
 			"",

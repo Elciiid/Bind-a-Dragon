@@ -40,6 +40,17 @@ local Icons: { [string]: string } = {
 	Rarity_Epic = "rbxassetid://88414933800867",
 	Rarity_Legendary = "rbxassetid://130927982390997",
 	Rarity_Mythic = "rbxassetid://121015932549603",
+
+	-- Roblox's own settings gear (ships with the client; white, matches the Roblox top bar buttons)
+	Settings = "rbxasset://textures/ui/Settings/MenuBarIcons/GameSettingsTab@2x.png",
+
+	-- UI renewal art slots: "" = not painted yet (HUD icons show their Glyph meanwhile, tabs their stand-in).
+	Menu_Inventory = "",
+	Travel_Home = "",
+	Travel_Portals = "",
+	Travel_Market = "",
+	Tab_Items = "",
+	Tab_Collection = "",
 }
 
 -- Per rarity / element: colors come from their game configs (one source); icons from above.
@@ -86,6 +97,11 @@ return {
 		Gold = Color3.fromRGB(255, 210, 70),
 		Stardust = Color3.fromRGB(170, 220, 255),
 		Positive = Color3.fromRGB(128, 217, 177),
+		IconLabel = Color3.fromRGB(255, 255, 255), -- HUD icon labels: white with a dark outline
+		IconLabelStroke = Color3.fromRGB(24, 16, 48),
+		IconShadow = Color3.fromRGB(10, 6, 30), -- soft drop shadow under HUD icons
+		Ready = Color3.fromRGB(96, 224, 150), -- "READY!" tag (e.g. Rebirth affordable)
+		ProgressDim = Color3.fromRGB(150, 146, 190), -- progress ring: dots still to fill
 		Negative = Color3.fromRGB(235, 145, 163),
 		Info = Color3.fromRGB(160, 198, 239),
 	},
@@ -94,16 +110,30 @@ return {
 	Element = Element,
 	Icons = Icons,
 
-	-- Menu buttons (id -> look). Order = reading order in the grid. Color = the tile's stripe and fallback icon tint.
+	-- HUD icons (UI/HudIcon): big standalone icons with a label under them. Left column: Menu (Order = top to bottom).
+	-- Icon = UITheme.Icons asset ("" = not painted yet: the Glyph (an emoji) or the Fallback icon shows instead).
+	-- Color = glow on hover and the fallback tint.
 	Menu = {
-		Shop = { Label = "Shop", Color = Color3.fromRGB(230, 186, 101), Order = 1, Icon = Icons.Menu_Shop },
+		Inventory = { Label = "Inventory", Color = Color3.fromRGB(112, 193, 224), Order = 1, Icon = Icons.Menu_Inventory, Fallback = Icons.Menu_Dragons },
 		Quests = { Label = "Quests", Color = Color3.fromRGB(112, 211, 173), Order = 2, Icon = Icons.Menu_Quests },
-		Index = { Label = "Index", Color = Color3.fromRGB(128, 190, 232), Order = 3, Icon = Icons.Menu_Index },
-		Boosts = { Label = "Boosts", Color = Color3.fromRGB(188, 145, 235), Order = 4, Icon = Icons.Menu_Boosts },
-		Dragons = { Label = "Dragons", Color = Color3.fromRGB(112, 193, 224), Order = 5, Icon = Icons.Menu_Dragons },
-		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(220, 133, 169), Order = 6, Icon = Icons.Menu_Rebirth },
-		Settings = { Label = "Settings", Color = Color3.fromRGB(160, 170, 205), Order = 7, Icon = "" }, -- no icon yet: styled tile
-	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string } },
+		Shop = { Label = "Shop", Color = Color3.fromRGB(230, 186, 101), Order = 3, Icon = Icons.Menu_Shop },
+		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(255, 205, 90), Order = 4, Icon = Icons.Menu_Rebirth },
+	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string, Fallback: string?, Glyph: string? } },
+
+	-- Travel buttons, top-center (TravelController; destinations in Config/Travel). Home sits in the middle, bigger.
+	Travel = {
+		Portals = { Label = "Portals", Color = Color3.fromRGB(170, 130, 255), Order = 1, Icon = Icons.Travel_Portals, Glyph = "🌀" },
+		Home = { Label = "Home", Color = Color3.fromRGB(128, 217, 177), Order = 2, Icon = Icons.Travel_Home, Glyph = "🏡" },
+		Market = { Label = "Market", Color = Color3.fromRGB(255, 205, 90), Order = 3, Icon = Icons.Travel_Market, Glyph = "🎪" },
+	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string, Glyph: string? } },
+
+	-- Inventory window tabs (InventoryWindow). Icon = UITheme.Icons key; Fallback while the tab's own art is missing.
+	InventoryTabs = {
+		Dragons = { Label = "Dragons", Order = 1, Icon = "Menu_Dragons" },
+		Potions = { Label = "Potions", Order = 2, Icon = "Menu_Boosts" },
+		Items = { Label = "Items", Order = 3, Icon = "Tab_Items", Fallback = "WyrmRune" },
+		Collection = { Label = "Collection", Order = 4, Icon = "Tab_Collection", Fallback = "Menu_Index" },
+	} :: { [string]: { Label: string, Order: number, Icon: string, Fallback: string? } },
 
 	-- Shop item icons (Config/Products keys). "" = styled placeholder tile.
 	ShopIcons = {
@@ -150,13 +180,13 @@ return {
 		MenuLabelSize = 13,
 		PhoneMenuLabelSize = 11,
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
-		PhoneCurrencyRow = 20, -- phone: small pills top-left under the Roblox top bar
+		PhoneCurrencyRow = 18, -- phone: small pills top-left under the Roblox top bar
 		PhoneCurrencyTextSize = 13,
 		SkyCard = Vector2.new(440, 52), -- PC: day/night card, top-center (max size; 90% of the width on narrow screens)
 		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
 		TravelButton = Vector2.new(116, 38), -- PC: Travel button, top, left of the day/night card
 		PhoneTravelButton = Vector2.new(96, 34), -- phone: right edge, between the boost timers and the jump button
-		PhoneCardTop = 58, -- phone: top of cards under the day/night card (PhoneMargin + PhoneSkyCard.Y + Gap)
+		PhoneCardTop = 92, -- phone: top of cards under the travel row + day/night pill
 		PhonePillWidth = 170, -- phone: luck pill / boost timers column, top-right
 		PhonePillHeight = 28,
 		Badge = 22,
@@ -166,6 +196,26 @@ return {
 		Toast = 44, -- toast card height
 		TileStripe = Vector2.new(3, 20), -- menu tiles: the colored stripe on the left edge
 		TileStripeInset = 6, -- its distance from the tile's left edge
+
+		-- UI renewal HUD (pixels). Icons are ~1.5x the old tile icons; labels in the title font.
+		HudIcon = 80, -- PC: left column icons (Inventory, Quests, Shop, Rebirth)
+		PhoneHudIcon = 34, -- phone: same column, sized to end above the thumbstick
+		HudLabel = 20,
+		PhoneHudLabel = 10,
+		HudGap = 6, -- between icons in the column
+		PhoneHudGap = 2,
+		TravelIcon = 58, -- PC: Portals / Market
+		TravelHomeIcon = 72, -- PC: Home (middle, bigger)
+		PhoneTravelIcon = 34,
+		PhoneTravelHomeIcon = 42,
+		TravelTop = 6, -- PC: top of the travel row; the day/night pill sits under it
+		PhoneTravelTop = 2,
+		SkyPill = Vector2.new(440, 30), -- PC: slim day/night pill (max size)
+		PhoneSkyPill = Vector2.new(330, 24),
+		PotionTimer = 50, -- PC: bottom-right active potion icons (time under each)
+		PhonePotionTimer = 34,
+		PhoneTimersBottom = 150, -- phone: the potion timers stay above the jump button
+		TopbarGap = 6, -- the settings gear's distance from Roblox's own top-bar buttons
 	},
 
 	-- Text buttons (UI/Button): vertical gradient from the kind color, lighter at the top.
@@ -188,6 +238,15 @@ return {
 		SparkleTwinkle = 1.6, -- seconds per sparkle fade in/out
 		BadgePulse = 5, -- pulse speed of attention outlines
 		SkyPhaseChange = 0.45, -- day/night card: pop + icon swing + outline flash when night falls or day breaks
+		-- HUD icons (UI/HudIcon): hover = bounce up + glow, press = squish, tap = a few sparkles fly out.
+		IconHover = 1.12,
+		IconHoverTime = 0.22,
+		IconSquish = Vector2.new(1.14, 0.84), -- width/height scale while pressed
+		IconSquishTime = 0.08,
+		IconSparkles = 6,
+		ReadyBounce = 5, -- pixels the icon hops while "ready" (e.g. Rebirth affordable)
+		ReadySpeed = 3, -- hops per ~2 seconds
+		ProgressDots = 16, -- dots in the progress ring around a calm icon
 	},
 
 	-- Free Creator Store UI sounds (verified to load and play in a playtest). "" = silent.

@@ -1,32 +1,23 @@
 --!strict
--- Travel button + "Waystones" menu: one button per Config/Travel destination; picking one asks the server to
--- teleport (TravelService checks everything). The button shows only while the player is in the Valley
--- (Config/Travel Area). PC: top, left of the day/night card; phone: right edge. Wording in Config/Text (Travel).
--- Based on Kyle's TravelController (Hakai branch).
+-- Travel buttons: three big HUD icons in a row at the top-center (Portals | Home | Market; Home in the middle, a bit
+-- bigger), in UITheme.Travel. Tapping one asks the server to teleport (TravelService checks everything; works from
+-- any area and brings the player back to the Valley), then the camera swings to face the destination.
+-- The day/night pill (DayNightController) sits under the row. Destinations in Config/Travel.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HudLayout = require(script.Parent.HudLayout)
-local Style = require(script.Parent.UI.Style)
-local Button = require(script.Parent.UI.Button)
-local Window = require(script.Parent.UI.Window)
-local CurrentArea = require(ReplicatedStorage.Shared.CurrentArea)
+local HudIcon = require(script.Parent.UI.HudIcon)
 local Travel = require(ReplicatedStorage.Shared.Config.Travel)
-local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
-local AREA_CHECK_INTERVAL = 0.5 -- seconds between "am I in the Valley?" checks
 local ARRIVAL_WAIT = 6 -- seconds to watch for the teleport after asking (the server may stream first)
 local ARRIVAL_JUMP = 20 -- studs: a move this big in one step is the teleport
 
 local travelTo = ReplicatedStorage.Remotes.TravelTo :: RemoteEvent
-local words = Text.Travel
 
 local TravelController = {}
-
-local window: Window.Window
-local travelButton: Button.Button
 
 -- After the teleport, swing the camera behind the character so the player faces what they came for.
 local function faceOnArrival()
@@ -52,82 +43,45 @@ local function faceOnArrival()
 	end
 end
 
-local function inValley(): boolean
-	local character = Players.LocalPlayer.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	return root ~= nil and root:IsA("BasePart") and CurrentArea.At(root.Position) == Travel.Area
-end
-
 function TravelController:Init()
 	local gui = HudLayout.MakeScreenGui("TravelHud", "Hud")
-	travelButton = Button.new(gui, {
-		Text = words.Button,
-		Kind = "Primary",
-		TextSize = 15,
-		OnClick = function()
-			window:Toggle()
-		end,
-	})
-	travelButton.Instance.Name = "TravelButton"
-	travelButton.Instance.Visible = false
+	local row = Instance.new("Frame")
+	row.Name = "TravelRow"
+	row.AnchorPoint = Vector2.new(0.5, 0)
+	row.AutomaticSize = Enum.AutomaticSize.X
+	row.BackgroundTransparency = 1
+	row.Parent = gui
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = row
 
-	local rows = #Travel.Destinations
-	window = Window.new({
-		Name = "Waystones",
-		Title = words.Title,
-		Size = UDim2.fromOffset(320, 110 + rows * 54),
-		MaxSize = Vector2.new(340, 110 + rows * 54),
-	})
-	local content = window.Content
-	local hint = Style.Label(content, words.Hint, "Bold", 15, UITheme.Colors.TextMuted)
-	hint.Size = UDim2.new(1, 0, 0, 24)
-	for index, destination in Travel.Destinations do
-		local button = Button.new(content, {
-			Text = words.Places[destination.Id] or destination.Id,
-			Kind = destination.Kind :: Button.Kind,
-			TextSize = 16,
-			OnClick = function()
-				travelTo:FireServer(destination.Id)
-				window:Close()
-				task.spawn(faceOnArrival)
-			end,
-		})
-		button.Instance.Name = destination.Id
-		button.Instance.Position = UDim2.fromOffset(0, 32 + (index - 1) * 54)
-		button.Instance.Size = UDim2.new(1, 0, 0, 46)
+	local icons: { [string]: HudIcon.HudIcon } = {}
+	for _, destination in Travel.Destinations do
+		local look = UITheme.Travel[destination.Id]
+		local icon = HudIcon.new(row, { Image = look.Icon, Glyph = look.Glyph, Label = look.Label, Color = look.Color })
+		icon.Instance.Name = destination.Id
+		icon.Instance.LayoutOrder = look.Order
+		icon.Instance.Activated:Connect(function()
+			travelTo:FireServer(destination.Id) -- the server checks the id, cooldown and landing spot
+			task.spawn(faceOnArrival)
+		end)
+		icons[destination.Id] = icon
 	end
 
-	HudLayout.OnLayoutChanged(function(isPhone)
+	HudLayout.OnLayoutChanged(function(phone)
 		local sizes = UITheme.Sizes
-		local instance = travelButton.Instance
-		if isPhone then
-			local size = sizes.PhoneTravelButton
-			instance.AnchorPoint = Vector2.new(1, 0.5)
-			instance.Position = UDim2.new(1, -sizes.PhoneMargin, 0.55, 0)
-			instance.Size = UDim2.fromOffset(size.X, size.Y)
-			travelButton.Label.TextSize = 13
-		else
-			local size = sizes.TravelButton
-			instance.AnchorPoint = Vector2.new(1, 0)
-			instance.Position = UDim2.new(0.5, -(sizes.SkyCard.X / 2 + sizes.Gap * 2), 0, 12 + (sizes.SkyCard.Y - size.Y) / 2)
-			instance.Size = UDim2.fromOffset(size.X, size.Y)
-			travelButton.Label.TextSize = 15
+		local small = if phone then sizes.PhoneTravelIcon else sizes.TravelIcon
+		local home = if phone then sizes.PhoneTravelHomeIcon else sizes.TravelHomeIcon
+		local label = if phone then sizes.PhoneHudLabel else sizes.HudLabel - 2
+		list.Padding = UDim.new(0, if phone then 10 else 18)
+		for id, icon in icons do
+			icon:Resize(if id == "Home" then home else small, label)
 		end
-	end)
-end
-
-function TravelController:Start()
-	task.spawn(function()
-		while true do
-			local show = inValley()
-			if travelButton.Instance.Visible ~= show then
-				travelButton.Instance.Visible = show
-				if not show and window.IsOpen then
-					window:Close()
-				end
-			end
-			task.wait(AREA_CHECK_INTERVAL)
-		end
+		row.Position = UDim2.new(0.5, 0, 0, if phone then sizes.PhoneTravelTop else sizes.TravelTop)
+		row.Size = UDim2.fromOffset(0, home + label + 2)
 	end)
 end
 

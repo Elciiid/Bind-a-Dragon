@@ -45,6 +45,11 @@ local Text = {
 		DuskWarning = "Night falls in {seconds}s: {constellation} rises. {where}",
 		DuskFavors = "It favors {area}!",
 		DuskNoFavor = "Head to a Star Altar!",
+		-- the slim pill under the travel buttons (one line); {extra} = PillFavors / PillEverywhere parts, or ""
+		PillDay = "Daylight · night in {time}",
+		PillNight = "{constellation} · {time}{extra}",
+		PillFavors = " · favors {area}",
+		PillEverywhere = " · {luck} luck everywhere",
 	},
 
 	-- Boards over the roost upgrade stands (UpgradeStandController). {slots}/{max} = roost slots, {bonus} = income %.
@@ -58,20 +63,23 @@ local Text = {
 		TierUp = "Your sanctuary grows: {tier}!",
 	},
 
-	-- Travel button + menu (TravelController, TravelService). {place} = a destination name below.
+	-- Travel buttons, top-center (TravelController, TravelService). {place} = a destination name below.
 	Travel = {
-		Button = "Travel",
-		Title = "Waystones",
-		Hint = "Choose a place in the Valley",
 		Places = {
-			Sanctuary = "My Sanctuary",
-			Altar = "Star Altar",
-			Market = "Market",
-			Spire = "Dragon Spire",
+			Home = "your Sanctuary",
+			Portals = "the Portals",
+			Market = "the Market",
 		} :: { [string]: string },
+		HomeFallback = "the Star Altar", -- Home before the player has a sanctuary
 		Arrived = "Traveled to {place}.",
 		Unavailable = "{place} isn't available right now.",
-		OnlyInValley = "Waystones only work in the Valley.",
+	},
+
+	-- Items tab of the Inventory (ItemsController).
+	Items = {
+		WyrmRunes = { Name = "Wyrm Runes", Info = "Inscribe a rune on a dragon at the Rune Shrine to awaken a trait. Earned in the Dragon Spire, quests and the Index." },
+		Dragonstones = { Name = "Dragonstones", Info = "Temper a dragon at the Dragonstone Forge to raise its grade. Earned in the Dragon Spire, quests and the Index." },
+		Stardust = { Name = "Stardust", Info = "Offer it at a Star Altar for more luck on your next bind. Buy it from the Star Merchant or find it in the Spire." },
 	},
 }
 

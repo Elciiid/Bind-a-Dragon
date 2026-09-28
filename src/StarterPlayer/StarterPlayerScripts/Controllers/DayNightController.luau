@@ -1,9 +1,9 @@
 --!strict
--- Drives the local sky from the shared cycle (Lighting.ClockTime) and shows the day/night card at the top of the
--- screen: sun/moon icon, the phase and time left, tonight's constellation and where it gives luck, and a progress
--- bar through the phase; the card pops when night falls or day breaks. Warns DuskWarningSeconds before night.
--- Wording in Config/Text (SkyHud), sizes in UITheme.Sizes (SkyCard / PhoneSkyCard). Lighting looks (incl. the night
--- tint) are AtmosphereController. Card design by Kyle (Hakai branch).
+-- Drives the local sky from the shared cycle (Lighting.ClockTime) and shows the day/night pill at the top-center,
+-- just under the travel buttons: sun/moon, one line (phase or tonight's constellation, time left, the favored area)
+-- and a thin progress line through the phase; it pops when night falls or day breaks. Warns DuskWarningSeconds before
+-- night. Wording in Config/Text (SkyHud Pill*), sizes in UITheme.Sizes (SkyPill / PhoneSkyPill, under TravelTop +
+-- TravelHomeIcon). Lighting looks (incl. the night tint) are AtmosphereController. Original card design by Kyle.
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +17,6 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local DayNight = require(ReplicatedStorage.Shared.Config.DayNight)
-local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
@@ -51,16 +50,6 @@ local function favoredArea(constellation: Constellation): string?
 	local favoredId = Luck.GetFavoredAreaId(constellation)
 	local favored = if favoredId then Areas[favoredId] else nil
 	return if favored then favored.Name else nil
-end
-
--- "x1.5 luck at every altar · favors Storm Canyon (x1.5)", whichever parts apply.
-local function whereText(constellation: Constellation): string
-	local area = favoredArea(constellation)
-	local everywhere = if constellation.Luck > 1
-		then Text.Format(words.LuckEverywhere, { luck = Format.Multiplier(constellation.Luck) })
-		else nil
-	local favors = if area then Text.Format(words.Favors, { area = area, luck = Format.Multiplier(LuckConfig.FavoredAreaLuck) }) else nil
-	return if everywhere and favors then `{everywhere} · {favors}` else everywhere or favors or words.NoBonus
 end
 
 local function playPhaseChange(isNight: boolean, color: Color3)
@@ -113,8 +102,8 @@ function DayNightController:Init()
 	local rail = Instance.new("Frame")
 	rail.Name = "ProgressRail"
 	rail.AnchorPoint = Vector2.new(0.5, 1)
-	rail.Position = UDim2.new(0.5, 0, 1, -5)
-	rail.Size = UDim2.new(1, -24, 0, 3)
+	rail.Position = UDim2.new(0.5, 0, 1, -2)
+	rail.Size = UDim2.new(1, -40, 0, 2)
 	rail.BorderSizePixel = 0
 	rail.BackgroundColor3 = colors.PanelInnerLine
 	rail.Parent = card
@@ -128,23 +117,24 @@ function DayNightController:Init()
 	fill.Parent = rail
 	Style.Round(fill)
 
+	detail.Visible = false -- one line only (the pill)
 	HudLayout.OnLayoutChanged(function(isPhone)
 		local sizes = UITheme.Sizes
-		local max = if isPhone then sizes.PhoneSkyCard else sizes.SkyCard
-		card.Position = UDim2.new(0.5, 0, 0, if isPhone then sizes.PhoneMargin else 12)
+		local max = if isPhone then sizes.PhoneSkyPill else sizes.SkyPill
+		local top = if isPhone
+			then sizes.PhoneTravelTop + sizes.PhoneTravelHomeIcon + sizes.PhoneHudLabel + 4
+			else sizes.TravelTop + sizes.TravelHomeIcon + sizes.HudLabel + 4
+		card.Position = UDim2.new(0.5, 0, 0, top)
 		card.Size = UDim2.new(0.9, 0, 0, max.Y)
 		sizeLimit.MaxSize = max
-		local iconSize = if isPhone then 26 else 31
-		local left = iconSize + 18
+		local iconSize = max.Y - 4
 		icon.Size = UDim2.fromOffset(iconSize, iconSize)
-		icon.Position = UDim2.new(0, 10, 0.5, -2)
-		icon.TextSize = if isPhone then 17 else 21
-		title.TextSize = if isPhone then 13 else 16
-		detail.TextSize = if isPhone then 10 else 11
-		title.Position = UDim2.fromOffset(left, if isPhone then 4 else 5)
-		title.Size = UDim2.new(1, -(left + 10), 0, if isPhone then 18 else 22)
-		detail.Position = UDim2.fromOffset(left, if isPhone then 22 else 27)
-		detail.Size = UDim2.new(1, -(left + 10), 0, 14)
+		icon.Position = UDim2.new(0, 3, 0.5, 0)
+		icon.TextSize = if isPhone then 13 else 17
+		title.TextSize = if isPhone then 12 else 15
+		title.Position = UDim2.fromOffset(iconSize + 10, 0)
+		title.Size = UDim2.new(1, -(iconSize + 18), 1, -3)
+		title.TextXAlignment = Enum.TextXAlignment.Center
 	end)
 end
 
@@ -162,12 +152,14 @@ function DayNightController:Start()
 		local accent = if state.IsNight and element then element.Color else UITheme.Colors.Gold
 		local time = formatTime(state.SecondsLeft)
 		if state.IsNight then
-			title.Text = Text.Format(words.NightTitle, { constellation = constellation.Name })
-			detail.Text = Text.Format(words.NightDetail, { where = whereText(constellation), time = time })
+			local area = favoredArea(constellation)
+			local extra = if area then Text.Format(words.PillFavors, { area = area })
+				elseif constellation.Luck > 1 then Text.Format(words.PillEverywhere, { luck = Format.Multiplier(constellation.Luck) })
+				else ""
+			title.Text = Text.Format(words.PillNight, { constellation = constellation.Name, time = time, extra = extra })
 			icon.Text = words.NightIcon
 		else
-			title.Text = Text.Format(words.DayTitle, { time = time })
-			detail.Text = words.DayDetail
+			title.Text = Text.Format(words.PillDay, { time = time })
 			icon.Text = words.DayIcon
 		end
 		icon.TextColor3 = accent

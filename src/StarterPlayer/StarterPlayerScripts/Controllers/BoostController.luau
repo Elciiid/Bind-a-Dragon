@@ -1,8 +1,9 @@
 --!strict
--- Boosts: the "Boosts" menu tile opens a window (UI/Window) listing every potion (icon, count, effect, time left)
--- with a Use / Arm / Disarm button, and timer pills (top right; under the luck pill on phones) show active boosts
--- and the armed luck charge. The Boosts tile shows a count and pulses while there are unused potions.
--- The server checks everything (BoostService). Timers pause while offline.
+-- Potions: the Potions tab of the Inventory window (InventoryWindow) lists every potion (icon, count, effect, time
+-- left) with a Use / Arm / Disarm button. Active boosts and the armed luck charge show bottom-right as the potion
+-- icons themselves with the time under each (phones: above the jump button, at most UITheme.PhoneMaxTimers, then a
+-- "+N"); tapping one opens the Potions tab. The tab (and the Inventory icon) shows a count and pulses while there
+-- are unused potions. The server checks everything (BoostService). Timers pause while offline.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -11,7 +12,7 @@ local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
 local Icon = require(script.Parent.UI.Icon)
 local Button = require(script.Parent.UI.Button)
-local Window = require(script.Parent.UI.Window)
+local InventoryWindow = require(script.Parent.InventoryWindow)
 local Tooltip = require(script.Parent.UI.Tooltip)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
@@ -22,11 +23,10 @@ local BoostController = {}
 
 type Row = { Count: TextLabel, Timer: TextLabel, Button: Button.Button }
 
-local window: Window.Window
+local window: InventoryWindow.Tab
 local rows: { [string]: Row } = {}
-local timerPills: { [string]: { Frame: Frame, Label: TextLabel } } = {}
+local timerPills: { [string]: { Frame: GuiButton, Label: TextLabel } } = {}
 local moreChip: TextButton -- phones: "+N" when more timers are running than UITheme.PhoneMaxTimers
-local moreChipFrame: Frame -- the chip's gradient backdrop (shown/hidden with it)
 local isPhone = false
 
 local function formatTime(seconds: number): string
@@ -43,8 +43,8 @@ local function updateBadge(data: any)
 			unused += count
 		end
 	end
-	HudLayout.SetBadge("Boosts", unused)
-	HudLayout.SetPulse("Boosts", unused > 0)
+	window:SetBadge(unused)
+	window:SetPulse(unused > 0)
 end
 
 local function refresh()
@@ -99,7 +99,7 @@ local function refresh()
 		end
 	end
 	moreChip.Text = `+{hidden}`
-	moreChipFrame.Visible = hidden > 0
+	moreChip.Visible = hidden > 0
 end
 
 local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
@@ -149,41 +149,58 @@ local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
 	rows[potion.Id] = { Count = count, Timer = timer, Button = button }
 end
 
--- A timer pill: potion icon + time left.
+-- A potion timer: the potion icon itself (drop shadow, no background) with the time under it; tap = Potions tab.
 local function makeTimerPill(parent: Instance, potion: Boosts.Potion, order: number)
-	local pill = Instance.new("Frame")
-	pill.Name = potion.Id
-	pill.LayoutOrder = order
-	pill.Size = UDim2.new(1, 0, 0, 26)
-	pill.Visible = false
-	pill.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Gradient(pill, UITheme.Colors.PanelTop, UITheme.Colors.PanelBottom)
-	Style.Round(pill)
-	Style.Stroke(pill, potion.Color, 2)
-	pill.Parent = parent
-	local icon = Icon.new(pill, `Potion_{potion.Id}`, potion.Color, potion.Name)
-	icon.AnchorPoint = Vector2.new(0, 0.5)
-	icon.Position = UDim2.new(0, -4, 0.5, 0)
-	icon.Size = UDim2.fromOffset(32, 32)
-	local label = Style.Label(pill, "", "Heavy", 15, potion.Color)
-	label.Position = UDim2.fromOffset(30, 0)
-	label.Size = UDim2.new(1, -36, 1, 0)
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	Tooltip.Attach(pill, function()
+	local colors = UITheme.Colors
+	local button = Instance.new("TextButton")
+	button.Name = potion.Id
+	button.LayoutOrder = order
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.BackgroundTransparency = 1
+	button.Visible = false
+	button.Parent = parent
+	local shadow = Icon.new(button, `Potion_{potion.Id}`, potion.Color, potion.Name)
+	shadow.Name = "Shadow"
+	if shadow:IsA("ImageLabel") then
+		shadow.ImageColor3 = colors.IconShadow
+		shadow.ImageTransparency = 0.5
+	end
+	local icon = Icon.new(button, `Potion_{potion.Id}`, potion.Color, potion.Name)
+	for _, art in { shadow, icon } do
+		art.AnchorPoint = Vector2.new(0.5, 0)
+		art.Size = UDim2.new(1, 0, 0.72, 0)
+		local ratio = Instance.new("UIAspectRatioConstraint")
+		ratio.Parent = art
+	end
+	icon.Position = UDim2.fromScale(0.5, 0)
+	shadow.Position = UDim2.new(0.5, 2, 0, 3)
+	local label = Instance.new("TextLabel")
+	label.Name = "Time"
+	label.BackgroundTransparency = 1
+	label.AnchorPoint = Vector2.new(0.5, 1)
+	label.Position = UDim2.fromScale(0.5, 1)
+	label.Size = UDim2.new(1, 16, 0.3, 0)
+	label.Font = UITheme.Fonts.Title
+	label.TextScaled = true
+	label.TextColor3 = colors.IconLabel
+	label.Parent = button
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = colors.IconLabelStroke
+	stroke.Thickness = 1.5
+	stroke.Parent = label
+	Style.AttachPress(button)
+	button.Activated:Connect(function()
+		window:Open()
+	end)
+	Tooltip.Attach(button, function()
 		return `{potion.Name}: {potion.Description}`
 	end)
-	timerPills[potion.Id] = { Frame = pill, Label = label }
+	timerPills[potion.Id] = { Frame = button, Label = label }
 end
 
 function BoostController:Init()
-	local open = HudLayout.AddMenuButton("Boosts")
-	window = Window.new({
-		Name = "Boosts",
-		Title = "Boosts",
-		Icon = "Menu_Boosts",
-		Size = UDim2.new(0.92, 0, 0.75, 0),
-		MaxSize = Vector2.new(560, 540),
-	})
+	window = InventoryWindow.AddTab("Potions")
 	local content = window.Content
 
 	local note = Style.Label(
@@ -213,30 +230,37 @@ function BoostController:Init()
 	layout.Parent = list
 	Style.Pad(list, 2, 3)
 
-	-- Timer pills: top right, below the sky bar on PC, under the luck pill on phones.
+	-- Potion timers: bottom-right, in a row growing to the left (phones: above the jump button).
 	local timersGui = HudLayout.MakeScreenGui("BoostTimers", "Cards")
 	local hud = Instance.new("Frame")
 	hud.Name = "Timers"
-	hud.AnchorPoint = Vector2.new(1, 0)
-	hud.AutomaticSize = Enum.AutomaticSize.Y
+	hud.AnchorPoint = Vector2.new(1, 1)
+	hud.AutomaticSize = Enum.AutomaticSize.X
 	hud.BackgroundTransparency = 1
 	hud.Parent = timersGui
 	local hudLayout = Instance.new("UIListLayout")
-	hudLayout.Padding = UDim.new(0, 5)
+	hudLayout.FillDirection = Enum.FillDirection.Horizontal
+	hudLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	hudLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	hudLayout.Padding = UDim.new(0, 10)
 	hudLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	hudLayout.Parent = hud
-	-- "+N" chip after the pills (phones only); tapping it opens the Boosts window.
+	-- "+N" after the icons (phones only); tapping it opens the Potions tab.
 	moreChip = Instance.new("TextButton")
 	moreChip.Name = "More"
-	moreChip.Size = UDim2.fromOffset(52, 24)
+	moreChip.LayoutOrder = #Boosts.Potions + 1
 	moreChip.AutoButtonColor = false
-	Style.Text(moreChip, "Heavy", 15, UITheme.Colors.Gold)
-	Style.AttachPress(moreChip)
+	moreChip.BackgroundColor3 = UITheme.Colors.PanelBottom
+	moreChip.BackgroundTransparency = 0.25
+	moreChip.Font = UITheme.Fonts.Title
+	moreChip.TextColor3 = UITheme.Colors.Gold
+	moreChip.TextScaled = true
+	moreChip.Visible = false
 	moreChip.Parent = hud
-	moreChipFrame = Style.Backdrop(moreChip, UITheme.Colors.PanelTop, UITheme.Colors.PanelBottom)
-	moreChipFrame.LayoutOrder = #Boosts.Potions + 1
-	moreChipFrame.Visible = false
-	Style.Stroke(moreChipFrame, UITheme.Colors.Trim, 2)
+	Style.Round(moreChip)
+	Style.Stroke(moreChip, UITheme.Colors.Trim, 2)
+	Style.Pad(moreChip, 4)
+	Style.AttachPress(moreChip)
 	moreChip.Activated:Connect(function()
 		window:Open()
 	end)
@@ -247,23 +271,29 @@ function BoostController:Init()
 			refresh()
 		end
 		local sizes = UITheme.Sizes
+		local size = if phone then sizes.PhonePotionTimer else sizes.PotionTimer
 		if phone then
-			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap)
-			hud.Size = UDim2.fromOffset(110, 0)
+			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 1, -sizes.PhoneTimersBottom)
 		else
-			hud.Position = UDim2.new(1, -sizes.Margin, 0, 70)
-			hud.Size = UDim2.fromOffset(130, 0)
+			hud.Position = UDim2.new(1, -sizes.Margin, 1, -sizes.Margin)
 		end
+		hud.Size = UDim2.fromOffset(0, math.floor(size * 1.4))
+		for _, pill in timerPills do
+			pill.Frame.Size = UDim2.fromOffset(size, math.floor(size * 1.4))
+		end
+		moreChip.Size = UDim2.fromOffset(math.floor(size * 0.8), math.floor(size * 0.6))
 	end)
 
 	for index, potion in Boosts.Potions do
 		makeRow(list, potion, index)
 		makeTimerPill(hud, potion, index)
 	end
+	-- size the icons made after the first layout call
+	local size = if isPhone then UITheme.Sizes.PhonePotionTimer else UITheme.Sizes.PotionTimer
+	for _, pill in timerPills do
+		pill.Frame.Size = UDim2.fromOffset(size, math.floor(size * 1.4))
+	end
 
-	open.Activated:Connect(function()
-		window:Toggle()
-	end)
 	window:OnOpen(refresh)
 	for _, key in { "Potions", "ActiveBoosts", "ArmedLuckPotion" } do
 		DataController:OnChanged(key, refresh)

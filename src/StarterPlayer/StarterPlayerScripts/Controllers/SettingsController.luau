@@ -162,7 +162,8 @@ local function toggle(parent: Frame, get: () -> boolean, set: (boolean) -> ())
 end
 
 function SettingsController:Init()
-	local open = HudLayout.AddMenuButton("Settings")
+	-- the gear sits right after Roblox's own top-bar buttons
+	local open = HudLayout.AddTopbarButton("Settings", UITheme.Icons.Settings, 1)
 	local window = Window.new({
 		Name = "Settings",
 		Title = "Settings",

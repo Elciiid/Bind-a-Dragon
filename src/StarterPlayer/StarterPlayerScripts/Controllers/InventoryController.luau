@@ -1,17 +1,16 @@
 --!strict
--- Dragon inventory: the "Dragons" menu tile opens a window (UI/Window) with a card per dragon: element-colored card,
+-- Dragon inventory: the Dragons tab of the Inventory window (InventoryWindow) with a card per dragon: element-colored card,
 -- rarity gem tag, stage, level, gold/sec, power, trait and grade, and buttons to level up (+1 / +10 / Max) and to
 -- place it in the roost or take it out again. The header shows roost slots and Wyrm Runes / Dragonstones. The server checks everything.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
-local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
 local Icon = require(script.Parent.UI.Icon)
 local Button = require(script.Parent.UI.Button)
 local RarityTag = require(script.Parent.UI.RarityTag)
-local Window = require(script.Parent.UI.Window)
+local InventoryWindow = require(script.Parent.InventoryWindow)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
@@ -28,7 +27,7 @@ local CARD_SIZE = Vector2.new(214, 172)
 
 local InventoryController = {}
 
-local window: Window.Window
+local window: InventoryWindow.Tab
 local list: ScrollingFrame
 local headerText: TextLabel
 local runeCount: TextLabel
@@ -308,14 +307,7 @@ local function redraw()
 end
 
 function InventoryController:Init()
-	local open = HudLayout.AddMenuButton("Dragons")
-	window = Window.new({
-		Name = "Inventory",
-		Title = "Dragons",
-		Icon = "Menu_Dragons",
-		Size = UDim2.new(0.92, 0, 0.78, 0),
-		MaxSize = Vector2.new(720, 540),
-	})
+	window = InventoryWindow.AddTab("Dragons")
 	local content = window.Content
 
 	-- Header: counts, then Wyrm Runes and Dragonstones with their icons.
@@ -366,8 +358,7 @@ function InventoryController:Init()
 	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	grid.Parent = list
 
-	open.Activated:Connect(function()
-		window:Toggle()
+	window:OnOpen(function()
 		dirty = true
 	end)
 

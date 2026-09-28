@@ -1,25 +1,28 @@
 --!strict
 -- HUD layout for PC and phones. Everything visual comes from Config/UITheme via the UI kit (Controllers/UI).
 --
--- Menu: a 2-column grid of icon tiles (UI/IconButton) on the left middle. PC: 74 px tiles, vertically centered.
--- Phone (screen short side <= UITheme.PhoneMaxShortSide): Roblox's thumbstick (bottom-left) and jump button
--- (bottom-right) own those corners, so the grid sits under the currency pills, between the top bar and the
--- thumbstick. Currencies (UI/CurrencyPill): bottom-left on PC, small pills top-left on phones.
--- The game is locked to landscape. Studio testing: set a LocalPlayer attribute "ForceLayout" = "Phone" or "PC".
+-- Menu: the left column of big standalone icons (UI/HudIcon: Inventory, Quests, Shop, Rebirth; looks in
+-- UITheme.Menu). PC: vertically centered on the left. Phone (screen short side <= UITheme.PhoneMaxShortSide): small
+-- icons under the currency row, ending above Roblox's thumbstick (bottom-left); the jump button owns bottom-right.
+-- Currencies (UI/CurrencyPill): bottom-left on PC; one row top-left under the top bar (and the gear) on phones.
+-- Top bar: AddTopbarButton puts a round button (the Settings gear) right after Roblox's own top-bar buttons, lined up
+-- with GuiService.TopbarInset. The game is locked to landscape. Studio: LocalPlayer attribute "ForceLayout" = "Phone"
+-- or "PC".
 --
--- Controllers don't place their own HUD buttons: they call AddMenuButton / AddCurrency, register popups (UI/Window
--- does this: drawn above the HUD, full size on phones, menu hidden while one is open on phones) and listen to
--- OnLayoutChanged. UI is created on first use, so it doesn't matter which controller's Init runs first.
+-- Controllers don't place their own HUD buttons: they call AddMenuButton / AddCurrency / AddTopbarButton, register
+-- popups (UI/Window does this: drawn above the HUD, full size on phones, menu hidden while one is open on phones)
+-- and listen to OnLayoutChanged. UI is created on first use, so it doesn't matter which controller's Init runs first.
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local Style = require(script.Parent.UI.Style)
-local IconButton = require(script.Parent.UI.IconButton)
+local HudIcon = require(script.Parent.UI.HudIcon)
 local CurrencyPill = require(script.Parent.UI.CurrencyPill)
 
-type MenuEntry = { Button: IconButton.IconButton, Text: string, PhoneText: string }
+type MenuEntry = { Icon: HudIcon.HudIcon, Text: string, PhoneText: string }
 type Popup = { Panel: GuiObject, PcSize: UDim2 }
 
 local HudLayout = {}
@@ -27,6 +30,8 @@ HudLayout.Theme = UITheme
 
 local player = Players.LocalPlayer
 local gui: ScreenGui? = nil
+local topbarGui: ScreenGui
+local topbarRow: Frame
 local menu: Frame
 local currency: Frame
 local phone = false
@@ -78,38 +83,51 @@ local function anyPopupOpen(): boolean
 	return false
 end
 
-local function currencyHeight(): number
-	local sizes = UITheme.Sizes
-	if phone then
-		return #pills * sizes.PhoneCurrencyRow + math.max(0, #pills - 1) * 4
+-- Bottom of Roblox's top bar (pixels from the top of the screen).
+function HudLayout.TopbarBottom(): number
+	local inset = GuiService.TopbarInset
+	return if inset.Height > 0 then inset.Max.Y else 44
+end
+
+-- Phone: the currency row's top (under the top bar).
+local function phoneCurrencyTop(): number
+	return HudLayout.TopbarBottom() + 2
+end
+
+local function layoutTopbar()
+	local inset = GuiService.TopbarInset
+	local height = if inset.Height > 0 then inset.Height else 44
+	local size = math.floor(height * 0.8)
+	topbarRow.Position = UDim2.fromOffset(inset.Min.X + UITheme.Sizes.TopbarGap, inset.Min.Y + (height - size) / 2)
+	topbarRow.Size = UDim2.fromOffset(0, size)
+	for _, child in topbarRow:GetChildren() do
+		if child:IsA("GuiButton") then
+			child.Size = UDim2.fromOffset(size, size)
+		end
 	end
-	return #pills * sizes.Currency.Y + math.max(0, #pills - 1) * sizes.Gap
 end
 
 local function layoutMenu()
 	local sizes = UITheme.Sizes
+	local iconSize = if phone then sizes.PhoneHudIcon else sizes.HudIcon
+	local labelSize = if phone then sizes.PhoneHudLabel else sizes.HudLabel
+	local gap = if phone then sizes.PhoneHudGap else sizes.HudGap
+	local list = menu:FindFirstChildOfClass("UIListLayout") :: UIListLayout
+	list.Padding = UDim.new(0, gap)
 	local count = 0
-	for _ in entries do
+	for _, entry in entries do
 		count += 1
+		entry.Icon:Resize(iconSize, labelSize)
+		entry.Icon:SetLabel(if phone then entry.PhoneText else entry.Text)
 	end
-	local columns = if phone then sizes.PhoneMenuColumns else sizes.MenuColumns
-	local rows = math.max(1, math.ceil(count / columns))
-	local cell = if phone then sizes.PhoneMenuButton else sizes.MenuButton
-	local grid = menu:FindFirstChildOfClass("UIGridLayout") :: UIGridLayout
-	grid.CellSize = UDim2.fromOffset(cell.X, cell.Y)
-	grid.CellPadding = UDim2.fromOffset(sizes.Gap, sizes.Gap)
-	grid.FillDirectionMaxCells = columns
-	menu.Size = UDim2.fromOffset(columns * cell.X + (columns - 1) * sizes.Gap, rows * cell.Y + (rows - 1) * sizes.Gap)
+	local width = math.max(iconSize, labelSize * 5)
+	menu.Size = UDim2.fromOffset(width, count * (iconSize + labelSize + 2) + math.max(0, count - 1) * gap)
 	if phone then
 		menu.AnchorPoint = Vector2.new(0, 0)
-		menu.Position = UDim2.fromOffset(sizes.PhoneMargin, sizes.PhoneMargin + currencyHeight() + sizes.Gap)
+		menu.Position = UDim2.fromOffset(sizes.PhoneMargin, phoneCurrencyTop() + sizes.PhoneCurrencyRow + sizes.Gap)
 	else
 		menu.AnchorPoint = Vector2.new(0, 0.5)
-		menu.Position = UDim2.new(0, sizes.Margin, 0.5, -20)
-	end
-	for _, entry in entries do
-		entry.Button:SetLabel(if phone then entry.PhoneText else entry.Text)
-		entry.Button.Label.TextSize = if phone then sizes.PhoneMenuLabelSize else sizes.MenuLabelSize
+		menu.Position = UDim2.new(0, sizes.Margin, 0.5, -10)
 	end
 	menu.Visible = not (phone and anyPopupOpen())
 end
@@ -117,19 +135,23 @@ end
 local function layoutCurrency()
 	local sizes = UITheme.Sizes
 	local list = currency:FindFirstChildOfClass("UIListLayout") :: UIListLayout
-	list.Padding = UDim.new(0, if phone then 4 else sizes.Gap)
 	if phone then
-		list.VerticalAlignment = Enum.VerticalAlignment.Top
+		-- one row under the top bar (and the gear)
+		list.FillDirection = Enum.FillDirection.Horizontal
+		list.Padding = UDim.new(0, 14)
+		list.VerticalAlignment = Enum.VerticalAlignment.Center
 		currency.AnchorPoint = Vector2.new(0, 0)
-		currency.Position = UDim2.fromOffset(sizes.PhoneMargin + 6, sizes.PhoneMargin)
+		currency.Position = UDim2.fromOffset(sizes.PhoneMargin + 8, phoneCurrencyTop())
 		currency.AutomaticSize = Enum.AutomaticSize.X
-		currency.Size = UDim2.fromOffset(0, currencyHeight())
+		currency.Size = UDim2.fromOffset(0, sizes.PhoneCurrencyRow)
 	else
+		list.FillDirection = Enum.FillDirection.Vertical
+		list.Padding = UDim.new(0, sizes.Gap)
 		list.VerticalAlignment = Enum.VerticalAlignment.Bottom
 		currency.AnchorPoint = Vector2.new(0, 1)
-		currency.Position = UDim2.new(0, sizes.Margin + 8, 1, -sizes.Margin)
+		currency.Position = UDim2.new(0, sizes.Margin + 10, 1, -sizes.Margin)
 		currency.AutomaticSize = Enum.AutomaticSize.None
-		currency.Size = UDim2.fromOffset(sizes.Currency.X, currencyHeight())
+		currency.Size = UDim2.fromOffset(sizes.Currency.X, #pills * sizes.Currency.Y + math.max(0, #pills - 1) * sizes.Gap)
 	end
 	for _, pill in pills do
 		pill:Layout(phone)
@@ -146,6 +168,7 @@ local function relayout()
 	if gui == nil then
 		return
 	end
+	layoutTopbar()
 	layoutCurrency()
 	layoutMenu()
 	layoutPopups()
@@ -162,15 +185,30 @@ local function ensure(): ScreenGui
 	playerGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor -- phones: landscape only
 
 	local screen = HudLayout.MakeScreenGui("Hud", "Hud")
+	screen.ScreenInsets = Enum.ScreenInsets.None -- pixel positions line up with GuiService.TopbarInset
 	gui = screen
+
+	topbarGui = HudLayout.MakeScreenGui("HudTopbar", "Hud")
+	topbarGui.ScreenInsets = Enum.ScreenInsets.None
+	topbarRow = Instance.new("Frame")
+	topbarRow.Name = "TopbarRow"
+	topbarRow.BackgroundTransparency = 1
+	topbarRow.AutomaticSize = Enum.AutomaticSize.X
+	topbarRow.Parent = topbarGui
+	local rowList = Instance.new("UIListLayout")
+	rowList.FillDirection = Enum.FillDirection.Horizontal
+	rowList.Padding = UDim.new(0, 8)
+	rowList.SortOrder = Enum.SortOrder.LayoutOrder
+	rowList.Parent = topbarRow
 
 	menu = Instance.new("Frame")
 	menu.Name = "Menu"
 	menu.BackgroundTransparency = 1
 	menu.Parent = screen
-	local grid = Instance.new("UIGridLayout")
-	grid.SortOrder = Enum.SortOrder.LayoutOrder
-	grid.Parent = menu
+	local column = Instance.new("UIListLayout")
+	column.SortOrder = Enum.SortOrder.LayoutOrder
+	column.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	column.Parent = menu
 
 	currency = Instance.new("Frame")
 	currency.Name = "Currency"
@@ -189,6 +227,7 @@ local function ensure(): ScreenGui
 		end
 	end
 	player:GetAttributeChangedSignal("ForceLayout"):Connect(check)
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(relayout)
 	local function watchCamera()
 		local camera = workspace.CurrentCamera
 		if camera then
@@ -209,26 +248,27 @@ function HudLayout.IsPhone(): boolean
 	return phone
 end
 
--- Calls fn(isPhone) now and whenever the layout switches between PC and phone.
+-- Calls fn(isPhone) now and whenever the layout switches between PC and phone (or the top bar moves).
 function HudLayout.OnLayoutChanged(fn: (boolean) -> ())
 	ensure()
 	table.insert(listeners, fn)
 	task.spawn(fn, phone)
 end
 
--- A menu tile with the look from UITheme.Menu[id] (icon, label, color, order). Returns its button.
+-- A left-column HUD icon with the look from UITheme.Menu[id] (icon, label, color, order). Returns its button.
 function HudLayout.AddMenuButton(id: string): TextButton
 	ensure()
 	local look = UITheme.Menu[id] or { Label = id, Color = UITheme.Colors.Neutral, Order = 99, Icon = "" }
-	local button = IconButton.new(menu, { Icon = look.Icon, Label = look.Label, Color = look.Color })
-	button.Instance.Name = id
-	button.Instance.LayoutOrder = look.Order
-	entries[id] = { Button = button, Text = look.Label, PhoneText = look.Label }
+	local image = if look.Icon ~= "" then look.Icon else (look.Fallback or "")
+	local icon = HudIcon.new(menu, { Image = image, Glyph = look.Glyph, Label = look.Label, Color = look.Color })
+	icon.Instance.Name = id
+	icon.Instance.LayoutOrder = look.Order
+	entries[id] = { Icon = icon, Text = look.Label, PhoneText = look.Label }
 	relayout()
-	return button.Instance
+	return icon.Instance
 end
 
--- Changes a menu tile's label (e.g. "Rebirth ★3"); phones can use a shorter one ("★3").
+-- Changes a menu icon's label (e.g. "Rebirth ★3"); phones can use a shorter one ("★3").
 function HudLayout.SetMenuText(id: string, text: string, phoneText: string?)
 	local entry = entries[id]
 	if entry == nil then
@@ -236,22 +276,62 @@ function HudLayout.SetMenuText(id: string, text: string, phoneText: string?)
 	end
 	entry.Text = text
 	entry.PhoneText = phoneText or text
-	entry.Button:SetLabel(if phone then entry.PhoneText else entry.Text)
+	entry.Icon:SetLabel(if phone then entry.PhoneText else entry.Text)
 end
 
--- A red count on the tile (hidden at 0).
+-- A red count on the icon (hidden at 0).
 function HudLayout.SetBadge(id: string, count: number)
 	local entry = entries[id]
 	if entry then
-		entry.Button:SetBadge(count)
+		entry.Icon:SetBadge(count)
 	end
 end
 
 function HudLayout.SetPulse(id: string, on: boolean)
 	local entry = entries[id]
 	if entry then
-		entry.Button:SetPulse(on)
+		entry.Icon:SetPulse(on)
 	end
+end
+
+-- "Ready" emphasis (gold glow, hop, sparkle ring, READY! tag), e.g. Rebirth affordable.
+function HudLayout.SetReady(id: string, on: boolean)
+	local entry = entries[id]
+	if entry then
+		entry.Icon:SetReady(on)
+	end
+end
+
+-- Progress ring (0..1) around a calm icon; nil hides it.
+function HudLayout.SetProgress(id: string, progress: number?)
+	local entry = entries[id]
+	if entry then
+		entry.Icon:SetProgress(progress)
+	end
+end
+
+-- A round button right after Roblox's own top-bar buttons (dark translucent circle like theirs, white image).
+function HudLayout.AddTopbarButton(id: string, image: string, order: number): TextButton
+	ensure()
+	local button = Instance.new("TextButton")
+	button.Name = id
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.LayoutOrder = order
+	button.BackgroundColor3 = Color3.fromRGB(18, 18, 21)
+	button.BackgroundTransparency = 0.3
+	button.Parent = topbarRow
+	Style.Round(button)
+	local icon = Instance.new("ImageLabel")
+	icon.BackgroundTransparency = 1
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.Size = UDim2.fromScale(0.62, 0.62)
+	icon.Image = image
+	icon.Parent = button
+	Style.AttachPress(button)
+	relayout()
+	return button
 end
 
 -- A currency pill (icon = UITheme.Icons key). Returns the pill; call pill:Set(text).

@@ -1,15 +1,14 @@
 --!strict
--- Dragon Index window (extends the Star Atlas): the "Index" menu tile opens a grid of every species by element and
+-- Dragon Index (extends the Star Atlas): the Collection tab of the Inventory window (InventoryWindow): a grid of every species by element and
 -- rarity (rarity gem, name when found, "???" when not, a gold ★ outline when the Starborn variant is found too),
 -- the Index income bonus, progress to the next milestone, and the Star Atlas (constellations bound).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
-local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
 local Icon = require(script.Parent.UI.Icon)
-local Window = require(script.Parent.UI.Window)
+local InventoryWindow = require(script.Parent.InventoryWindow)
 local Tooltip = require(script.Parent.UI.Tooltip)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -22,7 +21,7 @@ local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local IndexController = {}
 
-local window: Window.Window
+local window: InventoryWindow.Tab
 local summary: TextLabel
 local list: ScrollingFrame
 
@@ -172,14 +171,7 @@ local function redraw()
 end
 
 function IndexController:Init()
-	local open = HudLayout.AddMenuButton("Index")
-	window = Window.new({
-		Name = "Index",
-		Title = "Dragon Index",
-		Icon = "Menu_Index",
-		Size = UDim2.new(0.92, 0, 0.8, 0),
-		MaxSize = Vector2.new(720, 560),
-	})
+	window = InventoryWindow.AddTab("Collection")
 	local content = window.Content
 
 	summary = Style.Label(content, "", "Heavy", 16, UITheme.Colors.Gold)
@@ -206,9 +198,6 @@ function IndexController:Init()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
 
-	open.Activated:Connect(function()
-		window:Toggle()
-	end)
 	window:OnOpen(redraw)
 	for _, key in { "Index", "StarAtlas", "IndexMilestones" } do
 		DataController:OnChanged(key, function()

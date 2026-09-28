@@ -1049,10 +1049,10 @@ function B.BuildTiles()
 end
 
 ---------------------------------------------------------------------------------------------------------------
--- Travel points: invisible markers where the Travel menu lands a player (TravelService, Config/Travel), standing on
+-- Travel points: invisible markers where the travel buttons land a player (TravelService, Config/Travel), standing on
 -- the ground and facing what they came for. One per sanctuary (named after its plot, on the forecourt facing the
--- gate), plus Altar (plaza, facing the altar), Market (south of the obelisk, facing north) and Spire (court, facing
--- the door).
+-- gate; "Home"), plus Altar (plaza, facing the altar; Home before the player has a sanctuary), Portals (the front of
+-- the portal terrace, facing the gates) and Market (the valley mouth where new players spawn, facing the market).
 
 function B.BuildTravelPoints()
 	local f = folder(SM, "TravelPoints", true)
@@ -1066,8 +1066,8 @@ function B.BuildTravelPoints()
 		P(f, name, Vector3.new(2, 1, 2), CFrame.lookAt(at, Vector3.new(lookX, at.Y, lookZ)), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
 	end
 	point("Altar", 0, 34, 0, 0)
-	point("Market", 0, 130, 0, 100)
-	point("Spire", 0, -208, 0, -260)
+	point("Portals", 0, -138, 0, -200)
+	point("Market", 0, 164, 0, 100)
 	for _, plot in SM.Pens:GetChildren() do
 		local center = plot:GetAttribute("RoamCenter")
 		if plot:IsA("Model") and typeof(center) == "Vector3" then

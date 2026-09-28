@@ -1,8 +1,8 @@
 --!strict
--- Travel ("Waystones"): TravelTo(destinationId) teleports the player to a spot in the Valley (Config/Travel).
--- Server-checked: the id must be a configured destination, the player must be alive and in the Valley, with a
--- cooldown; the landing spot comes from Workspace.StarterMeadow.TravelPoints (the player's own sanctuary = the point
--- named after their plot). The destination is streamed in first, like AreaService.
+-- Travel: TravelTo(destinationId) teleports the player to a spot in the Valley (Config/Travel), from any area.
+-- Server-checked: the id must be a configured destination, the player must be alive, with a cooldown; the landing
+-- spot comes from Workspace.StarterMeadow.TravelPoints (Home = the point named after the player's plot, or the
+-- destination's Fallback while they have none). The destination is streamed in first, like AreaService.
 -- Based on Kyle's TravelService (Hakai branch).
 
 local Players = game:GetService("Players")
@@ -10,7 +10,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataService = require(script.Parent.DataService)
 local RoostService = require(script.Parent.RoostService)
-local CurrentArea = require(ReplicatedStorage.Shared.CurrentArea)
 local Travel = require(ReplicatedStorage.Shared.Config.Travel)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 
@@ -21,7 +20,7 @@ local lastTravel: { [Player]: number } = {}
 
 local TravelService = {}
 
-local function findDestination(id: string): { Id: string, Point: string?, Kind: string }?
+local function findDestination(id: string): { Id: string, Point: string?, Fallback: string? }?
 	for _, destination in Travel.Destinations do
 		if destination.Id == id then
 			return destination
@@ -30,19 +29,24 @@ local function findDestination(id: string): { Id: string, Point: string?, Kind: 
 	return nil
 end
 
-local function landingPoint(player: Player, pointName: string?): BasePart?
+-- The landing part, and whether it is the destination's fallback (Home without a sanctuary).
+local function landingPoint(player: Player, destination: { Point: string?, Fallback: string? }): (BasePart?, boolean)
 	local meadow = workspace:FindFirstChild("StarterMeadow")
 	local points = meadow and meadow:FindFirstChild("TravelPoints")
 	if points == nil then
-		return nil
+		return nil, false
 	end
-	local name = pointName
+	local name = destination.Point
 	if name == nil then
 		local plot = RoostService:GetPlot(player)
 		name = if plot then plot.Name else nil
 	end
 	local part = if name then points:FindFirstChild(name) else nil
-	return if part and part:IsA("BasePart") then part else nil
+	if part and part:IsA("BasePart") then
+		return part, false
+	end
+	local fallback = if destination.Fallback then points:FindFirstChild(destination.Fallback) else nil
+	return if fallback and fallback:IsA("BasePart") then fallback else nil, true
 end
 
 local function onTravel(player: Player, requested: unknown)
@@ -68,13 +72,8 @@ local function onTravel(player: Player, requested: unknown)
 	if character == nil or root == nil or not root:IsA("BasePart") or humanoid == nil or humanoid.Health <= 0 then
 		return
 	end
-	if CurrentArea.At(root.Position) ~= Travel.Area then
-		notify:FireClient(player, Text.Travel.OnlyInValley, "error")
-		return
-	end
-
-	local place = Text.Travel.Places[destination.Id] or destination.Id
-	local point = landingPoint(player, destination.Point)
+	local point, isFallback = landingPoint(player, destination)
+	local place = if isFallback then Text.Travel.HomeFallback else (Text.Travel.Places[destination.Id] or destination.Id)
 	if point == nil then
 		notify:FireClient(player, Text.Format(Text.Travel.Unavailable, { place = place }), "error")
 		return
