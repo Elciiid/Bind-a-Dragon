@@ -54,6 +54,8 @@ local Text = {
 		IncomeTitle = "Roost income",
 		IncomeLine = "+{bonus}% gold",
 		MaxedLine = "Fully upgraded!",
+		-- toast for the owner when their sanctuary reaches a new tier; {tier} = a name from WorldUI.SanctuaryTiers.Names
+		TierUp = "Your sanctuary grows: {tier}!",
 	},
 
 	-- Travel button + menu (TravelController, TravelService). {place} = a destination name below.

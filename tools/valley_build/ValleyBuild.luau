@@ -609,6 +609,17 @@ B.StandColors = {
 }
 B.StandScale = 1.6 -- the stand is modelled ~7.5 studs tall, then scaled
 
+local terrainOnly = RaycastParams.new()
+terrainOnly.FilterType = Enum.RaycastFilterType.Include
+terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
+
+-- Height of the terrain surface under (x, z), or fallback.
+local function surfaceY(x: number, z: number, fallback: number): number
+	local hit = workspace:Raycast(Vector3.new(x, fallback + 60, z), Vector3.new(0, -140, 0), terrainOnly)
+	return if hit then hit.Position.Y else fallback
+end
+B.SurfaceY = surfaceY
+
 -- Part with a sphere mesh (an ellipsoid of its size).
 local function ellipsoid(parent: Instance, name: string, size: Vector3, cf: CFrame, mat: Enum.Material, color: Color3, extra: { [string]: any }?): Part
 	local p = P(parent, name, size, cf, mat, color, extra)
@@ -621,7 +632,10 @@ end
 local function buildStand(parent: Instance, anchor: BasePart, kind: string, out: Vector3): Model
 	local S = B.StandColors
 	local m = model(parent, kind .. "Stand")
-	local base = Vector3.new(anchor.Position.X, anchor.Position.Y - anchor.Size.Y / 2, anchor.Position.Z)
+	-- on the real forecourt ground (it is not at the terrace height everywhere), sunk a hair so it never floats
+	local ground = surfaceY(anchor.Position.X, anchor.Position.Z, anchor.Position.Y - anchor.Size.Y / 2)
+	local base = Vector3.new(anchor.Position.X, ground - 0.05, anchor.Position.Z)
+	anchor.CFrame = anchor.CFrame.Rotation + Vector3.new(anchor.Position.X, ground + anchor.Size.Y / 2, anchor.Position.Z)
 	local face = CFrame.lookAt(base, base + out) -- -Z faces the road
 	local function y(h: number): Vector3
 		return base + Vector3.new(0, h, 0)
@@ -708,6 +722,252 @@ function B.BuildUpgradeStands()
 				if cap then
 					cap.Transparency, cap.CanCollide = 1, false
 				end
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Sanctuary tiers: extra art a sanctuary gains as its owner upgrades the roost (SanctuaryTierController shows the
+-- tiers reached; the tier comes from the owner's slots and income level, Config/WorldUI.SanctuaryTiers). Built per
+-- sanctuary, in world position, into ReplicatedStorage.Assets.SanctuaryTiers.<PlotName>.Tier1..Tier5 (not in the
+-- Workspace: each client clones only the tiers reached, so locked tiers cost nothing). Each tier adds to the ones below:
+--   1 Gilded:    gold trim along the rim wall, star banners on the gate pillars
+--   2 Runed:     a glowing rune circle on the meadow floor, fire braziers flanking the gate
+--   3 Crystal:   star crystals at the foot of the rock pillars, light motes drifting over the pen
+--   4 Ascendant: glowing rune strips up the rock pillars, an aurora over the pen (night only, set by the client)
+--   5 Legendary: a beam of starlight into the sky from the sanctuary, golden dragon statues on the gate pillars
+-- Lights ("TierLight"), the aurora ("Aurora" beams) and the motes ("Motes" emitter) are switched by the client.
+
+B.TierColors = {
+	Rune = Color3.fromRGB(120, 200, 255),
+	Crystal = Color3.fromRGB(130, 190, 255),
+	Fire = Color3.fromRGB(255, 170, 70),
+	Beam = Color3.fromRGB(255, 226, 150),
+	AuroraA = Color3.fromRGB(90, 230, 200),
+	AuroraB = Color3.fromRGB(170, 120, 255),
+}
+B.TierStatueSpecies = "Solflare" -- the golden guardian statues copy this Elder model
+
+local function noCollide(extra: { [string]: any }?): { [string]: any }
+	local t = { CanCollide = false, CanQuery = false, CanTouch = false }
+	for k, v in extra or {} do
+		t[k] = v
+	end
+	return t
+end
+
+function B.BuildSanctuaryTiers()
+	local assets = game:GetService("ReplicatedStorage"):WaitForChild("Assets")
+	local root = folder(assets, "SanctuaryTiers", true)
+	local TC = B.TierColors
+	for plotName, id in B.SanctuaryOrder do
+		local s
+		for _, cand in V.Sanct do
+			if cand.Name == id then
+				s = cand
+			end
+		end
+		local T = s.T
+		local center = Vector3.new(s.X, T, s.Z)
+		local fwd = Vector3.new(s.AX, 0, s.AZ)
+		local right = Vector3.new(-fwd.Z, 0, fwd.X)
+		local face = CFrame.lookAt(center, center + fwd)
+		local function at(forward: number, side: number, y: number): Vector3
+			return center + fwd * forward + right * side + Vector3.new(0, y, 0)
+		end
+		local function frame(forward: number, side: number, y: number): CFrame
+			return face.Rotation + at(forward, side, y)
+		end
+		-- a spot on the forecourt, on the real ground
+		local function grounded(forward: number, side: number): Vector3
+			local p = at(forward, side, 0)
+			return Vector3.new(p.X, surfaceY(p.X, p.Z, T), p.Z)
+		end
+		local plotFolder = folder(root, plotName)
+		local tiers = {}
+		for i = 1, 5 do
+			tiers[i] = model(plotFolder, "Tier" .. i)
+		end
+
+		-- 1 Gilded: gold trim on the rim wall (same segments as BuildSanctuary), banners on the gate pillars
+		for deg = 0, 348, 12 do
+			local a = rad(deg + 6)
+			if math.abs(math.deg(math.atan2(sin(a), cos(a)))) > 12 then
+				local p = at(cos(a) * 49, sin(a) * 49, 1.95)
+				local trim = P(tiers[1], "GoldTrim", Vector3.new(2 * 49 * sin(rad(6)) + 1, 0.3, 2.3), CFrame.lookAt(p, Vector3.new(center.X, p.Y, center.Z)), M.Foil, C.Gold, noCollide())
+				glow(trim)
+			end
+		end
+		for _, sd in { -9.5, 9.5 } do
+			local bf = frame(48.5 + 1.95, sd, 16.6)
+			P(tiers[1], "Banner", Vector3.new(3, 6.2, 0.2), bf, M.Fabric, C.Navy, noCollide())
+			P(tiers[1], "BannerRod", Vector3.new(3.6, 0.3, 0.3), bf * CFrame.new(0, 3.2, -0.05), M.Foil, C.Gold, noCollide())
+			star(tiers[1], bf * CFrame.new(0, 0.4, -0.15), 1.8) -- -Z = the banner's front (toward the road)
+		end
+
+		-- 2 Runed: a double rune circle on the meadow floor, braziers flanking the gate
+		local mz = B.MeadowZone
+		local mc = at(mz.Forward, mz.Side, 0)
+		local runeY = surfaceY(mc.X, mc.Z, T) + 0.25
+		for _, ring in { { R = mz.Radius, N = 16, W = 1.1 }, { R = mz.Radius - 3.5, N = 12, W = 0.7 } } do
+			for k = 0, ring.N - 1 do
+				local a = (k + 0.5) / ring.N * 2 * math.pi
+				local p = Vector3.new(mc.X + cos(a) * ring.R, runeY, mc.Z + sin(a) * ring.R)
+				local len = 2 * ring.R * sin(math.pi / ring.N) * 0.92
+				P(tiers[2], "RuneRing", Vector3.new(ring.W, 0.12, len), CFrame.lookAt(p, Vector3.new(mc.X, runeY, mc.Z)) * CFrame.Angles(0, math.pi / 2, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.3, CastShadow = false }))
+			end
+		end
+		for k = 0, 5 do
+			local a = k / 6 * 2 * math.pi
+			local p = Vector3.new(mc.X + cos(a) * (mz.Radius - 1.75), runeY, mc.Z + sin(a) * (mz.Radius - 1.75))
+			P(tiers[2], "RuneGlyph", Vector3.new(1.3, 0.14, 1.3), CFrame.new(p) * CFrame.Angles(0, a + math.pi / 4, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.2, CastShadow = false }))
+		end
+		for _, sd in { -14, 14 } do
+			local g = grounded(51.5, sd)
+			local post = P(tiers[2], "BrazierPost", Vector3.new(3, 1.3, 1.3), CFrame.new(g + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), M.Slate, C.Cap, noCollide({ CanCollide = true }))
+			post.Shape = Enum.PartType.Cylinder
+			disc(tiers[2], "BrazierBase", g + Vector3.new(0, 0.2, 0), 1.3, 0.4, M.Slate, C.StoneDark, noCollide({ CanCollide = true }))
+			local bowl = disc(tiers[2], "BrazierBowl", g + Vector3.new(0, 3.2, 0), 1.5, 0.5, M.Foil, C.Gold, noCollide())
+			glow(bowl)
+			local fire = Instance.new("ParticleEmitter")
+			fire.Name = "Fire"
+			fire.Texture = "rbxasset://textures/particles/fire_main.dds"
+			fire.Color = ColorSequence.new(Color3.fromRGB(255, 220, 120), TC.Fire)
+			fire.LightEmission = 1
+			fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.6), NumberSequenceKeypoint.new(1, 0.2) })
+			fire.Transparency = NumberSequence.new(0.1, 1)
+			fire.Lifetime = NumberRange.new(0.6, 1)
+			fire.Speed = NumberRange.new(2, 4)
+			fire.SpreadAngle = Vector2.new(12, 12)
+			fire.Rate = 22
+			fire.EmissionDirection = Enum.NormalId.Right -- the bowl is a cylinder lying on its side: +X is up
+			fire.Parent = bowl
+			local light = Instance.new("PointLight")
+			light.Name = "TierLight"
+			light.Color = TC.Fire
+			light.Range = 14
+			light.Brightness = 1.4
+			light.Shadows = false
+			light.Parent = bowl
+		end
+
+		-- 3 Crystal: crystals at the foot of each rock pillar (on the side facing the pen), light motes over the pen
+		for _, pl in s.PillarList do
+			local toCenter = Vector3.new(center.X - pl.X, 0, center.Z - pl.Z).Unit
+			-- clear of the pillar (its radius wobbles up to +30%); the ground ray starts low so it can't land on the top
+			local x, z = pl.X + toCenter.X * (V.PillarR * 1.3 + 1.5), pl.Z + toCenter.Z * (V.PillarR * 1.3 + 1.5)
+			local m = KIT.AI_Ench_MagicCrystals:Clone()
+			m:ScaleTo(1.4)
+			m:PivotTo(CFrame.new(x, surfaceY(x, z, T - 56) - 0.3, z) * CFrame.Angles(0, math.atan2(toCenter.X, toCenter.Z), 0))
+			for _, d in m:GetDescendants() do
+				if d:IsA("BasePart") then
+					d.CanCollide, d.CanQuery, d.CanTouch = false, false, false
+					if d.Name == "Crystals" then
+						d.Material = M.Glass
+						d.Color = TC.Crystal
+						d.Transparency = 0.05
+						glow(d, TC.Crystal)
+					end
+				end
+			end
+			m.Name = "PillarCrystals"
+			m.Parent = tiers[3]
+		end
+		local motes = P(tiers[3], "MoteVolume", Vector3.new(70, 16, 70), CFrame.new(center + Vector3.new(0, 12, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Name = "Motes"
+		emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		emitter.Color = ColorSequence.new(TC.Crystal, TC.Beam)
+		emitter.LightEmission = 1
+		emitter.LightInfluence = 0
+		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.45), NumberSequenceKeypoint.new(1, 0) })
+		emitter.Lifetime = NumberRange.new(4, 7)
+		emitter.Speed = NumberRange.new(0.3, 1)
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.Rate = 10
+		emitter.Shape = Enum.ParticleEmitterShape.Box
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		emitter.Parent = motes
+
+		-- 4 Ascendant: a rune strip up each rock pillar (on its surface facing the pen), the aurora
+		for _, pl in s.PillarList do
+			local height = pl.Top - T
+			local mid = T + height * 0.5
+			local from = Vector3.new(center.X, mid, center.Z)
+			local target = Vector3.new(pl.X, mid, pl.Z)
+			local hit = workspace:Raycast(from, (target - from), terrainOnly)
+			local toCenter = (from - target).Unit
+			local surface = if hit then hit.Position else target + toCenter * V.PillarR
+			local strip = CFrame.lookAt(surface + toCenter * 0.35, surface + toCenter * 2)
+			P(tiers[4], "PillarRunes", Vector3.new(1.2, height * 0.7, 0.2), strip, M.Neon, TC.Rune, noCollide({ CastShadow = false }))
+			for _, dy in { height * 0.42, -height * 0.42 } do
+				P(tiers[4], "PillarGlyph", Vector3.new(2, 2, 0.2), strip * CFrame.new(0, dy, 0) * CFrame.Angles(0, 0, math.pi / 4), M.Neon, TC.Rune, noCollide({ CastShadow = false }))
+			end
+		end
+		local sky = P(tiers[4], "AuroraAnchor", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 55, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
+		-- three thin, curving ribbons (a beam's side edges are hard, so wide ones read as a glass panel)
+		for i, spec in { { Side = -12, Width = 9, Curve = 26 }, { Side = 0, Width = 6, Curve = -22 }, { Side = 12, Width = 7, Curve = 18 } } do
+			local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+			a0.Parent, a1.Parent = sky, sky -- parent first: WorldPosition is relative to the parent
+			a0.WorldPosition = center + right * -55 + fwd * spec.Side + Vector3.new(0, 55 + i * 6, 0)
+			a1.WorldPosition = center + right * 55 + fwd * spec.Side + Vector3.new(0, 55 + i * 6, 0)
+			local beam = Instance.new("Beam")
+			beam.Name = "Aurora"
+			beam.Attachment0, beam.Attachment1 = a0, a1
+			beam.Width0, beam.Width1 = spec.Width, spec.Width * 0.7
+			beam.CurveSize0, beam.CurveSize1 = spec.Curve, -spec.Curve
+			beam.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, TC.AuroraA), ColorSequenceKeypoint.new(0.5, TC.AuroraB), ColorSequenceKeypoint.new(1, TC.AuroraA) })
+			beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1) })
+			beam.LightEmission = 1
+			beam.LightInfluence = 0
+			beam.Segments = 20
+			beam.Parent = sky
+		end
+
+		-- 5 Legendary: a beam of starlight from the sanctuary into the sky, golden dragon statues on the gate
+		local beamBase = P(tiers[5], "SkyBeamAnchor", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 1, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
+		local b0, b1 = Instance.new("Attachment"), Instance.new("Attachment")
+		b0.Parent, b1.Parent = beamBase, beamBase
+		b0.WorldPosition = center + Vector3.new(0, 1, 0)
+		b1.WorldPosition = center + Vector3.new(0, 420, 0)
+		for _, spec in { { Width = 7, T0 = 0.35 }, { Width = 2.5, T0 = 0 } } do
+			local beam = Instance.new("Beam")
+			beam.Name = "SkyBeam"
+			beam.Attachment0, beam.Attachment1 = b0, b1
+			beam.Width0, beam.Width1 = spec.Width, spec.Width * 2.2
+			beam.FaceCamera = true
+			beam.Color = ColorSequence.new(Color3.new(1, 1, 1), TC.Beam)
+			beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.03, spec.T0), NumberSequenceKeypoint.new(0.6, 0.6), NumberSequenceKeypoint.new(1, 1) })
+			beam.LightEmission = 1
+			beam.LightInfluence = 0
+			beam.Parent = beamBase
+		end
+		local template = assets.Dragons:FindFirstChild(B.TierStatueSpecies)
+		template = template and template:FindFirstChild("Elder")
+		-- golden guardians standing on the gate's lintel over each pillar, facing the road
+		for _, sd in { -9.5, 9.5 } do
+			if template then
+				local statue = template:Clone()
+				statue.Name = "GoldenGuardian"
+				for _, d in statue:GetDescendants() do
+					if d:IsA("SurfaceAppearance") or d:IsA("LuaSourceContainer") then
+						d:Destroy()
+					elseif d:IsA("BasePart") then
+						if d:IsA("MeshPart") then
+							d.TextureID = "" -- plain gold, no painted skin
+						end
+						d.Material = M.Foil
+						d.Color = C.Gold
+						d.CanCollide, d.CanQuery, d.CanTouch = false, false, false
+						d.Anchored = true
+					end
+				end
+				local _, size = statue:GetBoundingBox()
+				statue:ScaleTo(statue:GetScale() * 6.5 / math.max(size.X, size.Z))
+				local top = at(48.5, sd, 24.2) -- the lintel's top (it covers the pillar capitals)
+				statue:PivotTo(CFrame.lookAt(top, top + fwd))
+				statue.Parent = tiers[5]
 			end
 		end
 	end

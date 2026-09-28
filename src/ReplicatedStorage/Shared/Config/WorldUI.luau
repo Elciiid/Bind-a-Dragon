@@ -80,4 +80,19 @@ return {
 		BoardHeight = 14.5, -- studs above the stand's floor (just over the floating egg / coin)
 		BoardSideOffset = 3.5, -- studs outward from the gate's center line (clear of the owner banner)
 	},
+
+	-- Sanctuaries look grander as their owner upgrades the roost (SanctuaryTierController; the art is built in Studio by
+	-- ValleyBuild.BuildSanctuaryTiers into ReplicatedStorage.Assets.SanctuaryTiers). Upgrade points = extra roost slots
+	-- bought (0-5) + income levels / IncomeLevelsPerPoint (0-5); every PointsPerTier points unlock the next tier:
+	-- 1 Gilded, 2 Runed, 3 Crystal, 4 Ascendant, 5 Legendary (all upgrades maxed). Tiers add up.
+	SanctuaryTiers = {
+		IncomeLevelsPerPoint = 5,
+		PointsPerTier = 2,
+		Names = { "Gilded", "Runed", "Crystal", "Ascendant", "Legendary" },
+		LightDistance = 120, -- studs from the camera; brazier lights farther away stay off
+		AuroraNightBlend = 0.35, -- the aurora (tier 4) shows once the night blend passes this
+		BurstParticles = 90, -- starburst at the gate when a sanctuary reaches a new tier
+		BurstSound = "rbxassetid://128502047397803", -- "SE_DEMO_GET_STAR_2"
+		BurstVolume = 0.6,
+	},
 }
