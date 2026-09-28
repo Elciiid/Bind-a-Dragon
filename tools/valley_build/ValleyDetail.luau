@@ -17,6 +17,69 @@ local noise, sqrt, abs, max, min, rad, sin, cos = math.noise, math.sqrt, math.ab
 
 D.MaxTrees = 260
 
+-- Valley tidy-up (2026-09-28): open grass around the landmarks, fewer and bigger clusters of dressing.
+-- Clear zones: BuildNature leaves nothing (except the magical trees, which only stand where they mean something) in a
+-- ring of grass around the plaza and in the field in front of the portal terrace.
+D.ClearZones = {
+	Plaza = 82, -- radius around the altar (the plaza base is 57)
+	PortalFront = { R0 = 82, R1 = 136, Half = 56 }, -- from the plaza ring to the terrace wall (R 133), bearings within +/-Half
+}
+D.FlowerPatches = 14 -- wildflower patches of 9-13 flowers, toward the valley edges (the middle of each field stays open)
+D.MaxBoulders = 18 -- boulders on the lower slopes only (none in the open meadows)
+-- Trees removed by hand in the place (2026-09-28). BuildNature still generates them, so every other tree keeps its
+-- spot (all trees share one random stream), then removes them: { name, x, z }.
+D.RemovedByHand = {
+	{ "Fantasy_EmeraldTree_A", -271.7, 131.5 },
+	{ "Fantasy_TealFir_B", -255.2, 125.5 },
+	{ "Fantasy_TealFir_B", -254.9, 143.7 },
+	{ "Fantasy_TealFir", -195.0, 184.3 },
+	{ "Fantasy_TealFir_B", -140.1, 184.7 },
+	{ "Fantasy_TealFir_B", -105.8, 189.3 },
+	{ "Fantasy_EmeraldTree_B", -91.2, 178.0 },
+	{ "Fantasy_EmeraldTree_A", -76.7, 145.6 },
+	{ "Fantasy_TealFir_B", -77.3, 186.7 },
+	{ "Fantasy_EmeraldTree_B", 71.0, 146.7 },
+	{ "Fantasy_EmeraldTree_A", 69.6, 164.6 },
+	{ "Fantasy_TealFir_B", 204.4, 179.5 },
+	{ "Fantasy_EmeraldTree_B", 219.0, 173.3 },
+	{ "Fantasy_EmeraldTree_B", 234.7, -200.2 },
+	{ "Fantasy_TealFir_B", 248.7, -159.2 },
+	{ "Fantasy_EmeraldTree_A", 253.0, 112.8 },
+	{ "Fantasy_TealFir_B", 254.9, 146.0 },
+	{ "Fantasy_EmeraldTree_A", 270.2, -138.9 },
+	{ "Fantasy_TealFir_B", 279.1, -46.6 },
+	{ "Fantasy_TealFir_B", 295.6, -10.0 },
+	{ "Fantasy_LanternWillow", -252.5, 89.1 },
+	{ "Fantasy_LanternWillow", -159.5, 27.3 },
+	{ "Fantasy_LanternWillow", 113.5, 42.6 },
+	{ "Fantasy_LanternWillow", 242.8, 86.0 },
+	{ "Fantasy_LanternWillow", -61.0, 109.0 },
+	{ "Fantasy_LanternWillow", -89.3, 101.7 },
+	{ "Fantasy_LanternWillow", 101.0, 84.0 },
+	{ "Fantasy_LanternWillow", 61.0, 109.0 },
+	{ "Fantasy_StarBlossom", 286.5, 26.7 },
+	{ "Fantasy_CrystalTree", 273.5, 49.3 },
+	{ "Fantasy_StarBlossom", -124.5, -144.5 },
+	{ "Fantasy_StarBlossom", 124.5, -144.5 },
+	{ "Fantasy_StarBlossom", -106.5, -18.7 },
+	{ "Fantasy_StarBlossom", 92.0, 22.0 },
+	{ "Fantasy_StarBlossom", 85.0, 150.0 },
+	{ "Fantasy_CrystalTree", 59.0, 150.0 },
+	{ "Fantasy_StarBlossom", -109.7, -88.6 },
+	{ "Fantasy_StarBlossom", -138.2, -54.5 },
+	{ "Fantasy_StarBlossom", -146.0, -22.0 },
+	{ "Fantasy_StarBlossom", -146.0, 22.0 },
+	{ "Fantasy_StarBlossom", -122.9, 45.0 },
+	{ "Fantasy_StarBlossom", -114.8, 91.8 },
+	{ "Fantasy_StarBlossom", 138.2, -54.5 },
+	{ "Fantasy_StarBlossom", 109.7, -88.6 },
+	{ "Fantasy_StarBlossom", 146.0, 22.0 },
+	{ "Fantasy_StarBlossom", 146.0, -22.0 },
+	{ "Fantasy_StarBlossom", 114.8, 91.8 },
+	{ "Fantasy_EmeraldTree_B", 117.6, 142.6 },
+	{ "Fantasy_EmeraldTree_B", -127.1, 149.5 },
+}
+
 ---------------------------------------------------------------------------------------------------------------
 -- Where nature may go
 
@@ -63,6 +126,15 @@ local function open(x: number, z: number, margin: number): boolean
 	return true
 end
 D.Open = open
+
+-- Inside a clear zone (open grass around the plaza and in front of the portal terrace)?
+local function clear(x: number, z: number): boolean
+	local R = sqrt(x * x + z * z)
+	local th = math.deg(math.atan2(x, -z))
+	local pf = D.ClearZones.PortalFront
+	return R < D.ClearZones.Plaza or (R > pf.R0 and R < pf.R1 and abs(th) < pf.Half)
+end
+D.Clear = clear
 
 local function saddleDistance(th: number): number
 	local best = 180
@@ -273,28 +345,40 @@ function D.BuildNature()
 		end
 	end
 
-	-- wildflower meadows on the valley floor (patches of 4-6)
+	-- wildflower meadows: a few big patches (D.FlowerPatches) toward the valley edges, at least 55 studs apart, so the
+	-- middle of each field stays open grass (own random stream)
 	local flowers = B.Folder(f, "Flowers")
 	local kinds = { KIT.AI_Ench_Lupines, KIT.AI_Ench_Buttercups, KIT.AI_Ench_Daisies, KIT.Store_WildFlower }
-	local patches = 0
-	for _ = 1, 3000 do
-		if patches >= 44 then
+	local frng = Random.new(4401)
+	local patches, centers = 0, {}
+	for _ = 1, 4000 do
+		if patches >= D.FlowerPatches then
 			break
 		end
-		local x, z = rng:NextNumber(-280, 280), rng:NextNumber(-230, 170)
+		local x, z = frng:NextNumber(-280, 280), frng:NextNumber(-230, 170)
 		local R = sqrt(x * x + z * z)
 		local u = R - V.EdgeAt(math.deg(math.atan2(x, -z)))
-		if u < -8 and noise(x / 60, z / 60, 8.1) > -0.1 and open(x, z, 5) then
-			local mainKind = kinds[rng:NextInteger(1, #kinds)]
-			for i = 1, rng:NextInteger(4, 6) do
-				local a, r = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(0, 5)
+		local spaced = true
+		for _, c in centers do
+			if (c.X - x) ^ 2 + (c.Y - z) ^ 2 < 55 * 55 then
+				spaced = false
+				break
+			end
+		end
+		if u < -10 and u > -90 and spaced and not clear(x, z) and open(x, z, 9) then
+			table.insert(centers, Vector2.new(x, z))
+			local mainKind = kinds[frng:NextInteger(1, #kinds)]
+			for _ = 1, frng:NextInteger(9, 13) do
+				local a, r = frng:NextNumber(0, 2 * math.pi), sqrt(frng:NextNumber()) * 8
 				local px, pz = x + cos(a) * r, z + sin(a) * r
-				local _, h = slopeAt(px, pz)
-				local kind = if rng:NextNumber() < 0.7 then mainKind else kinds[rng:NextInteger(1, #kinds)]
-				local m = placeModel(kind, flowers, Vector3.new(px, h - 0.1, pz), rng:NextNumber(0, 2 * math.pi), rng:NextNumber(1, 1.6))
-				for _, d in m:GetDescendants() do
-					if d:IsA("BasePart") then
-						d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+				if open(px, pz, 1) then
+					local _, h = slopeAt(px, pz)
+					local kind = if frng:NextNumber() < 0.75 then mainKind else kinds[frng:NextInteger(1, #kinds)]
+					local m = placeModel(kind, flowers, Vector3.new(px, h - 0.1, pz), frng:NextNumber(0, 2 * math.pi), frng:NextNumber(1, 1.6))
+					for _, d in m:GetDescendants() do
+						if d:IsA("BasePart") then
+							d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+						end
 					end
 				end
 			end
@@ -338,25 +422,58 @@ function D.BuildNature()
 		end
 	end
 
-	-- boulders at the foot of the slopes and along the banks
+	-- boulders on the lower slopes (none in the open meadows)
 	local rocks = B.Folder(f, "Boulders")
 	local rockKinds = { { "Store_Boulder2", 0.35 }, { "Store_Boulder4", 0.5 }, { "Store_Boulder5", 0.7 }, { "Store_Boulder7", 0.4 }, { "Store_Boulder9", 0.45 }, { "Store_Boulder11", 0.35 }, { "Store_Boulder14", 0.5 }, { "Store_Boulder15", 0.4 } }
 	local rockCount = 0
 	for _ = 1, 2000 do
-		if rockCount >= 30 then
+		if rockCount >= D.MaxBoulders then
 			break
 		end
 		local x, z = rng:NextNumber(-340, 340), rng:NextNumber(-340, 240)
 		local R = sqrt(x * x + z * z)
 		local u = R - V.EdgeAt(math.deg(math.atan2(x, -z)))
-		if u > -12 and u < 40 and open(x, z, 4) then
+		if u > 4 and u < 40 and open(x, z, 4) then
 			local spec = rockKinds[rng:NextInteger(1, #rockKinds)]
 			local slope, h = slopeAt(x, z)
 			placeModel(KIT[spec[1]], rocks, Vector3.new(x, h - 0.8 - slope * 2, z), rng:NextNumber(0, 2 * math.pi), spec[2] * rng:NextNumber(0.8, 1.4))
 			rockCount += 1
 		end
 	end
-	return string.format("trees %d, magic trees %d, specimens %d, ferns %d, flower patches %d, night flora %d, boulders %d", count, #magic:GetChildren(), specimenCount, fernCount, patches, nightCount, rockCount)
+	-- prune: trees removed by hand, the magical trees of removed ruin sites, anything else in the clear zones
+	local pruned = 0
+	for _, e in D.RemovedByHand do
+		for _, sub in { trees, magic, specimens } do
+			for _, m in sub:GetChildren() do
+				local p = m:GetPivot().Position
+				if m.Name == e[1] and abs(p.X - e[2]) < 0.5 and abs(p.Z - e[3]) < 0.5 then
+					m:Destroy()
+					pruned += 1
+				end
+			end
+		end
+	end
+	for _, s in D.RuinSites do
+		if s[5] == false then
+			for _, m in magic:GetChildren() do
+				local p = m:GetPivot().Position
+				if (p.X - s[2].X) ^ 2 + (p.Z - s[2].Z) ^ 2 < 30 * 30 then
+					m:Destroy()
+					pruned += 1
+				end
+			end
+		end
+	end
+	for _, sub in { trees, specimens, ferns, flowers, night, rocks } do
+		for _, m in sub:GetChildren() do
+			local p = m:GetPivot().Position
+			if clear(p.X, p.Z) then
+				m:Destroy()
+				pruned += 1
+			end
+		end
+	end
+	return string.format("trees %d, magic trees %d, specimens %d, ferns %d, flower patches %d, night flora %d, boulders %d (generated); %d pruned", count, #magic:GetChildren(), specimenCount, fernCount, patches, nightCount, rockCount, pruned)
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -485,24 +602,28 @@ local function site(parent: Instance, name: string, pos: Vector3, yaw: number, k
 	return m
 end
 
+-- { name, position, yaw, pieces, keep }. Removed sites (keep = false, tidy-up 2026-09-28) stay listed: BuildNature
+-- still runs its magical-tree placement over every site (so every other tree keeps its spot), then removes theirs.
 D.RuinSites = {
-	{ "Ruin_Waterfall", Vector3.new(-262, 0, 38), 100, { "column", "arch", "rune" } },
-	{ "Ruin_LowPool", Vector3.new(280, 0, 38), -100, { "stump", "fallen", "rune" } },
-	{ "Ruin_TerraceWest", Vector3.new(-115, 0, -128), 48, { "rune", "step" } },
-	{ "Ruin_TerraceEast", Vector3.new(115, 0, -128), -48, { "step", "rune" } },
-	{ "Ruin_MeadowWest", Vector3.new(-100, 0, -30), 70, { "stump", "step", "fallen" } },
-	{ "Ruin_MeadowEast", Vector3.new(105, 0, 22), -70, { "fallen", "column" } },
-	{ "Ruin_SpireWest", Vector3.new(-52, 0, -262), 90, { "column", "stump" } },
-	{ "Ruin_SpireEast", Vector3.new(52, 0, -262), -90, { "stump", "column" } },
-	{ "Ruin_Market", Vector3.new(72, 0, 150), 200, { "rune", "fallen" } },
+	{ "Ruin_Waterfall", Vector3.new(-262, 0, 38), 100, { "column", "arch", "rune" }, true },
+	{ "Ruin_LowPool", Vector3.new(280, 0, 38), -100, { "stump", "fallen", "rune" }, true },
+	{ "Ruin_TerraceWest", Vector3.new(-115, 0, -128), 48, { "rune", "step" }, false },
+	{ "Ruin_TerraceEast", Vector3.new(115, 0, -128), -48, { "step", "rune" }, false },
+	{ "Ruin_MeadowWest", Vector3.new(-100, 0, -30), 70, { "stump", "step", "fallen" }, true },
+	{ "Ruin_MeadowEast", Vector3.new(105, 0, 22), -70, { "fallen", "column" }, false },
+	{ "Ruin_SpireWest", Vector3.new(-52, 0, -262), 90, { "column", "stump" }, true },
+	{ "Ruin_SpireEast", Vector3.new(52, 0, -262), -90, { "stump", "column" }, true },
+	{ "Ruin_Market", Vector3.new(72, 0, 150), 200, { "rune", "fallen" }, false },
 }
 
 function D.BuildRuins()
 	local f = B.Folder(SM, "Ruins", true)
 	for _, s in D.RuinSites do
-		site(f, s[1], s[2], rad(s[3]), s[4])
+		if s[5] ~= false then
+			site(f, s[1], s[2], rad(s[3]), s[4])
+		end
 	end
-	-- each sanctuary: a broken binder arch between the back pillars and a rune stone
+	-- each sanctuary: a rune stone (its broken arch was removed: it read as a second gate)
 	for plotName, id in B.SanctuaryOrder do
 		for _, s in V.Sanct do
 			if s.Name == id then
@@ -511,7 +632,6 @@ function D.BuildRuins()
 				local right = Vector3.new(-fwd.Z, 0, fwd.X)
 				local yaw = math.atan2(-fwd.X, -fwd.Z)
 				local m = B.Model(f, "Sanctuary_" .. id)
-				brokenArch(m, center - fwd * 45.5, yaw)
 				runeStone(m, center - fwd * 36 - right * 26, yaw, 1.6)
 			end
 		end
@@ -563,6 +683,11 @@ function D.BuildDressing()
 		for _, arm in obelisk:GetChildren() do
 			if arm.Name == "SignArm" then
 				i += 1
+				for _, old in arm:GetChildren() do
+					if old:IsA("SurfaceGui") then
+						old:Destroy() -- a rebuild replaces the words instead of stacking them
+					end
+				end
 				for _, face in { Enum.NormalId.Left, Enum.NormalId.Right } do
 					local gui = Instance.new("SurfaceGui")
 					gui.Face = face
@@ -612,16 +737,10 @@ function D.BuildDressing()
 		end
 	end
 
-	-- more lanterns: halfway along each sanctuary road and on the north road
+	-- road lanterns: only the pair on the north road where it leaves the plaza toward the portal terrace (lanterns
+	-- elsewhere stand at junctions: the plaza, the bridge ends, the entrance gate, the grand stairs, the sanctuary gates)
 	local lamps = B.Folder(f, "RoadLanterns")
-	for _, bearing in { -58, -90, 58, 90 } do
-		local r = rad(bearing)
-		local dir = Vector3.new(sin(r), 0, -cos(r))
-		local side = Vector3.new(-dir.Z, 0, dir.X) * 7.5
-		local p = dir * 100 + side
-		B.Lantern(lamps, Vector3.new(p.X, V.Height(p.X, p.Z), p.Z), 0)
-	end
-	for _, xz in { { -76, 32 }, { 76, 32 }, { -9.5, -78 }, { 9.5, -78 } } do
+	for _, xz in { { -9.5, -78 }, { 9.5, -78 } } do
 		B.Lantern(lamps, Vector3.new(xz[1], V.Height(xz[1], xz[2]), xz[2]), 0)
 	end
 

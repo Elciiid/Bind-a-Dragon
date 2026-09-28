@@ -312,7 +312,7 @@ end
 function B.BuildPlaza()
 	local f = folder(SM.Plaza, "Dressing", true)
 	disc(f, "OuterStep", Vector3.new(0, 1.4, 0), 48, 1.2, M.Cobblestone, C.StoneDark)
-	for _, b in { 29, 74, 106, 151, -29, -74, -106, -151 } do
+	for _, b in { 29, 151, -29, -151 } do -- lanterns flanking the north and south approaches (tidy-up: was 8)
 		local r = rad(b)
 		lantern(f, Vector3.new(45 * sin(r), 2.0, -45 * cos(r)), -r)
 	end
@@ -571,23 +571,12 @@ function B.BuildSanctuary(plot: Model)
 		P(shelter, "Roof", Vector3.new(14.4, 0.5, 6.2), sc * CFrame.new(0, 9.2, sgn * 2.6) * CFrame.Angles(sgn * rad(32), 0, 0), M.RoofShingles, C.Roof)
 	end
 
-	-- open meadow: a stone water trough and a few boulders (outside the meadow zone)
-	local mz = B.MeadowZone
+	-- open meadow: a stone water trough (no boulders: the meadow stays open for dragons lying down)
 	local meadow = model(sf, "Meadow")
 	local trough = model(meadow, "Placeholder_Trough")
 	local tc = frame(24, 22, 0) * CFrame.Angles(0, rad(-30), 0)
 	P(trough, "Stone", Vector3.new(9, 2.2, 3.8), tc * CFrame.new(0, 1.1, 0), M.Slate, C.Cap)
 	P(trough, "Water", Vector3.new(8, 0.3, 2.8), tc * CFrame.new(0, 2, 0), M.Glass, C.Water, { Transparency = 0.25, CanCollide = false })
-	for i, spec in { { "Store_Boulder5", 0.7, 50 }, { "Store_Boulder14", 0.45, 140 }, { "Store_Boulder4", 0.45, 230 } } do
-		local bd = KIT:FindFirstChild(spec[1])
-		if bd then
-			local rock = bd:Clone()
-			rock:ScaleTo(spec[2])
-			local a = rad(spec[3])
-			rock:PivotTo(CFrame.new(at(mz.Forward + cos(a) * 24, mz.Side + sin(a) * 24, -0.3)) * CFrame.Angles(0, a, 0))
-			rock.Parent = meadow
-		end
-	end
 end
 
 function B.BuildSanctuaries()

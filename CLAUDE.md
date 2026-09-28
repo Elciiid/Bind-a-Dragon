@@ -87,7 +87,7 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
 - `Plaza`: the Star Altar model `StarAltar` (tag `StarAltar`, `AreaId = "StarterMeadow"`, PrimaryPart `Core` = invisible
   part on its top platform; Bind prompt range 20) on its round stepped stone `Floor` (radius 42), the
   `AltarShimmer` and the `CrystalRing` (8 star-blue crystal clusters on gold sockets on the lower floor step, between
-  the roads, `NightGlow`; `ValleyBuild.BuildCrystalRing`). `Dressing`: an outer step (radius 48), 8 lanterns, 4 `Placeholder_StarBanner` poles; flagstone base
+  the roads, `NightGlow`; `ValleyBuild.BuildCrystalRing`). `Dressing`: an outer step (radius 48), 4 lanterns (flanking the north and south approaches), 4 `Placeholder_StarBanner` poles; flagstone base
   (terrain, radius 57). Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
 - `Pens`: **6 plots** = the Dragon Sanctuaries on terraces, 3 per side on a circle 220 studs out at bearings ±58°,
   ±90°, ±122° from north: W1 (-187, -117) top y 10, W2 (-220, 0) y 8, W3 (-187, 117) y 6, E1–E3 mirrored; gates face
@@ -96,8 +96,8 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   terrain grass). Inside `Sanctuary`: a stone rim wall, the `Placeholder_SanctuaryGate` (pillars with gold runes, a
   lintel with a gold star) with the owner `Sign` hanging under the lintel, the upgrade stands `UpgradeSlots` /
   `UpgradeIncome` (+ `...Glow` caps) on the forecourt outside the gate, 2 lanterns, steps down to the road; the
-  nesting ground (front left: `Placeholder_Nest` x3, hay, `Placeholder_Shelter`) and the meadow (`Placeholder_Trough`,
-  boulders). Four terrain rock pillars (18-28 studs, 43 out) and a two-step cliff stand behind the back half; fliers
+  nesting ground (front left: `Placeholder_Nest` x3, hay, `Placeholder_Shelter`) and the meadow (`Placeholder_Trough`; no
+  boulders, so it stays open for dragons lying down). Four terrain rock pillars (18-28 studs, 43 out) and a two-step cliff stand behind the back half; fliers
   stay within 34 studs. `Perches`: invisible parts named `Perch` on the four pillar tops (attribute `Size` 2, fit
   Elders) and two on the cliff ledge (`Size` 1): resting fliers land on a free one
   (`RoostAnimationController`, `Config/Roost.Turns`/`Perch`, stage `PerchSize` in `Config/Evolution`). `Zones`: invisible discs `NestZone` (radius 13) and `MeadowZone` (radius 20):
@@ -149,26 +149,33 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   named after its plot (forecourt, facing the gate). If a pen moves, rebuild them.
 - `Bounds`: 60 invisible walls 30 studs up the foothills all around the valley (from the terrain's edge table).
 - `Nature`: magical, painterly fantasy trees (kit `ServerStorage.PropKits.Fantasy`, approved 2026-09-28; placed by
-  `ValleyDetail.BuildNature`): 237 forest trees (`Trees`) = teal firs `Fantasy_TealFir` / `_TealFir_B` on the ridges and
+  `ValleyDetail.BuildNature`): 217 forest trees (`Trees`) = teal firs `Fantasy_TealFir` / `_TealFir_B` on the ridges and
   high slopes, emerald broadleaves `Fantasy_EmeraldTree_A` / `_B` on the valley floor, both mixed on the foothills
-  (canopies tinted via SurfaceAppearance.Color, `ValleyDetail.FantasyTint`); 37 magical trees (`MagicTrees`, ~13%)
-  placed where they matter: lantern willows (glowing orbs) on the river banks and by the ponds and low pool, a
-  star-blossom (white-gold canopy) and a crystal tree (aqua crystals) at each ruin site, star-blossoms flanking every
-  sanctuary gate road, crystal trees framing the altar approaches; 5 big broadleaf `Specimens` at the valley edges;
+  (canopies tinted via SurfaceAppearance.Color, `ValleyDetail.FantasyTint`); 9 magical trees (`MagicTrees`)
+  where they matter: lantern willows (glowing orbs) by the low pool, a star-blossom and/or crystal tree (aqua crystals)
+  at the kept ruin sites, crystal trees framing the altar approaches; 3 big broadleaf `Specimens` at the valley edges;
   the giant `Fantasy_AncientTree` (`Landmark`, ~115 studs, faint glow + fireflies) on the cliff top beside the
   waterfall. Magical trees glow at night (`NightGlow`; canopies with a SurfaceAppearance glow through its emissive,
   `GlowStrength`). Never on roads or play spaces, thinner in the saddles behind the gates; trees inside the bounds have
   an invisible `TrunkCollider`, foliage doesn't collide. Kit sources: emerald/teal/star-blossom/ancient = Creator
   Store "Yasu's Stylized Tree Pack" (92016775395411; a hidden script was removed; the rest of the pack is kept in
   `Fantasy.Store_YasuStylizedTreePack`), crystal tree + lantern willow = AI-generated (owned by the game's creator).
-  The realistic Store firs/pines/oak were deleted from PropKits and ValleyHold (2026-09-28). Also ferns, wildflower
-  patches (lupines, buttercups, daisies, white wildflowers), night flora (moonflowers and glow mushrooms tagged
-  `NightGlow`) by the river and forest edge, boulders.
+  The realistic Store firs/pines/oak were deleted from PropKits and ValleyHold (2026-09-28). Also ferns, 14 big
+  wildflower patches toward the valley edges (lupines, buttercups, daisies, white wildflowers; `D.FlowerPatches`), night
+  flora (moonflowers and glow mushrooms tagged `NightGlow`) by the river and forest edge, 18 boulders on the lower
+  slopes only (`D.MaxBoulders`). **Tidy-up (2026-09-28):** `D.ClearZones` keep a ring of open grass around the plaza
+  (radius 82) and the field in front of the portal terrace free of nature (magical trees excepted); trees the user
+  removed by hand are in `D.RemovedByHand` (BuildNature still generates them so every other tree keeps its spot, since
+  all trees share one random stream, then removes them; add to that list when removing trees by hand). Backup of the
+  folders before the tidy-up: `ServerStorage.Backups.StarterMeadow_2026-09-28_BeforeTidy`.
 - `Ruins`: binder ruins (columns with gold bands, broken arches, fallen columns, rune stones, star-inlaid steps; gold
-  parts tagged `NightGlow`) at 9 sites (waterfall, low pool, terrace ends, meadows, Spire hill, market) and a broken
-  arch + rune stone in each sanctuary's flight zone.
+  parts tagged `NightGlow`) at 5 sites (waterfall, low pool, west meadow, Spire hill west/east; `D.RuinSites`, the
+  removed terrace/east meadow/market sites stay listed with keep = false) and a rune stone in each sanctuary's flight
+  zone (the broken arches there were removed: they read as extra gates).
 - `Dressing`: crystals at each portal gate in its area's color (glass by day, `NightGlow` at night), the obelisk's
-  signpost words (SurfaceGuis), market crates and barrels, lily pads, road lanterns, the east cascade (beam + foam
+  signpost words (SurfaceGuis), market crates and barrels (the only crates/barrels in the Valley), lily pads, one pair of road lanterns where the
+  north road leaves the plaza (other lanterns stand only at junctions: plaza, bridge ends, entrance, grand stairs,
+  sanctuary gates; 26 in all), the east cascade (beam + foam
   tagged `AmbientFX`).
 - `ServerStorage.ValleyHold`: what's left of the old layout: realistic Creator Store trees/rocks/ferns/flowers,
   Enchanted AI props and old part-built pieces (curbs, plaza ring, platforms, stairs). The 509 cartoon AI props were
