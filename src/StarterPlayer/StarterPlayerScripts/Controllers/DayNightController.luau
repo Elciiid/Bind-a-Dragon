@@ -64,6 +64,7 @@ end
 
 function DayNightController:Init()
 	local gui = HudLayout.MakeScreenGui("SkyHud", "Hud")
+	gui.ScreenInsets = Enum.ScreenInsets.None -- measured from the very top, like the travel row above it
 	local colors = UITheme.Colors
 
 	card = Instance.new("Frame")

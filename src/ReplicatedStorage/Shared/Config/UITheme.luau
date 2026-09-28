@@ -208,7 +208,8 @@ return {
 		TravelHomeIcon = 72, -- PC: Home (middle, bigger)
 		PhoneTravelIcon = 34,
 		PhoneTravelHomeIcon = 42,
-		TravelTop = 6, -- PC: top of the travel row; the day/night pill sits under it
+		TravelTop = 4, -- PC: pixels from the very top of the screen to the travel row (it sits in Roblox's top bar, between
+		-- its left and right buttons); the day/night pill sits under it
 		PhoneTravelTop = 2,
 		SkyPill = Vector2.new(440, 30), -- PC: slim day/night pill (max size)
 		PhoneSkyPill = Vector2.new(330, 24),

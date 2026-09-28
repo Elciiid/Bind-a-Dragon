@@ -1,5 +1,5 @@
 --!strict
--- Travel buttons: three big HUD icons in a row at the top-center (Portals | Home | Market; Home in the middle, a bit
+-- Travel buttons: three big HUD icons in a row at the very top-center (in the middle of Roblox's top bar) (Portals | Home | Market; Home in the middle, a bit
 -- bigger), in UITheme.Travel. Tapping one asks the server to teleport (TravelService checks everything; works from
 -- any area and brings the player back to the Valley), then the camera swings to face the destination.
 -- The day/night pill (DayNightController) sits under the row. Destinations in Config/Travel.
@@ -45,6 +45,7 @@ end
 
 function TravelController:Init()
 	local gui = HudLayout.MakeScreenGui("TravelHud", "Hud")
+	gui.ScreenInsets = Enum.ScreenInsets.None -- the row sits at the very top, in the middle of Roblox's top bar
 	local row = Instance.new("Frame")
 	row.Name = "TravelRow"
 	row.AnchorPoint = Vector2.new(0.5, 0)
