@@ -304,7 +304,104 @@ def tex_strata(colors, seed, band=22):
     return px
 
 
+
+# ---------------------------------------------------------------- Valley ground restyle (2026-09-28)
+# Painterly grass: near-white with soft, low-noise value washes and warm light patches; its green comes from the
+# terrain Grass (and Mud = forest/slope grass) color, so the grass blades match the ground.
+
+def tex_paint_grass(seed, wash=0.10, warm=0.08, strokes=0, stroke_len=16, stroke_w=2.2, stroke_k=0.10, flecks=0):
+    big = [ValueNoise(2, seed), ValueNoise(4, seed + 1), ValueNoise(8, seed + 2)]
+    warmth = [ValueNoise(2, seed + 5), ValueNoise(4, seed + 6)]
+    sm = strokes_map(strokes, seed + 7, stroke_len, stroke_w, angle_spread=0.9) if strokes else {}
+    fl = speckle_map(flecks, seed + 8, 1.2, 2.0) if flecks else {}
+    base = (236, 240, 232)
+    px = []
+    for y in range(N):
+        for x in range(N):
+            n = fbm(big, x, y)  # soft value wash
+            v = 1 - wash + wash * 2 * max(0.0, min(1.0, (n - 0.2) / 0.6))
+            w = max(0.0, (fbm(warmth, x, y) - 0.5) * 2)  # warm, light patches
+            c = (base[0] * v + 30 * w * warm * 10, base[1] * v + 18 * w * warm * 10, base[2] * v - 20 * w * warm * 10)
+            k = y * N + x
+            st = sm.get(k)
+            if st:
+                c = mix(c, (255, 255, 236), st * stroke_k * 4)
+            f = fl.get(k)
+            if f:
+                c = mix(c, (255, 255, 250), min(1, f * 1.4))
+            px.append(clamp8(c))
+    return px
+
+
+def slab_field(cells, seed, jitter=0.85):
+    """Per pixel: (cell id, edge distance in px) for irregular slabs, tileable."""
+    vor = Voronoi(cells, seed, jitter)
+    out = []
+    for y in range(N):
+        for x in range(N):
+            cid, f1, f2 = vor.at(x, y)
+            out.append((cid, (f2 - f1) / 2))
+    return out
+
+
+def tex_flagstone(field, slab_colors, grout, seed, grout_w=3.0, bevel=9.0, moss=None, moss_share=0.0):
+    wash = [ValueNoise(4, seed), ValueNoise(8, seed + 1), ValueNoise(16, seed + 2)]
+    mossn = ValueNoise(8, seed + 3)
+    px = []
+    for i, (cid, e) in enumerate(field):
+        x, y = i % N, i // N
+        col = slab_colors[int(cid * 997) % len(slab_colors)]
+        tint = (cid * 7.31) % 1.0  # per-slab value shift
+        col = tuple(v * (0.94 + 0.10 * tint) for v in col)
+        n = fbm(wash, x, y)
+        c = tuple(v * (0.93 + 0.12 * n) for v in col)
+        if e < bevel:  # soft rounded edge: darker toward the grout
+            t = e / bevel
+            c = mix(tuple(v * 0.80 for v in c), c, t * t * (3 - 2 * t))
+        if e < grout_w:
+            g = grout
+            if moss and mossn.at(x, y) > 1 - moss_share:
+                g = moss
+            c = mix(g, c, max(0.0, (e - grout_w * 0.5) / (grout_w * 0.5)))
+        px.append(clamp8(c))
+    return px
+
+
+def normal_slabs(field, bevel=9.0, strength=2.2):
+    h = [min(1.0, e / bevel) for _, e in field]
+    h = [t * t * (3 - 2 * t) for t in h]
+    px = []
+    for y in range(N):
+        for x in range(N):
+            dx = (h[y * N + (x + 1) % N] - h[y * N + (x - 1) % N]) * strength
+            dy = (h[((y + 1) % N) * N + x] - h[((y - 1) % N) * N + x]) * strength
+            nx, ny, nz = -dx, dy, 1.0
+            l = math.sqrt(nx * nx + ny * ny + nz * nz)
+            px.append(clamp8(((nx / l + 1) * 127.5, (ny / l + 1) * 127.5, (nz / l + 1) * 127.5)))
+    return px
+
+
+_SLABS = {}
+
+
+def slabs(cells, seed):
+    key = (cells, seed)
+    if key not in _SLABS:
+        _SLABS[key] = slab_field(cells, seed)
+    return _SLABS[key]
+
+
 TEXTURES = {
+    # Valley ground restyle options (2026-09-28): grass A soft wash, B painted strokes, C sunny meadow with flecks;
+    # roads A cream, B honey sandstone with mossy joints, C pale cream/limestone mix (5 x 5 rounded slabs per tile).
+    # In use: A (MaterialService Valley_GrassA on Grass + Valley_ForestA on Mud, 48 studs/tile; Valley_RoadA on
+    # Brick with valley_road_a_n, 20 studs/tile). Colors come from the terrain material colors (see CLAUDE.md).
+    "valley_grass_a": lambda: tex_paint_grass(301, wash=0.07, warm=0.06),
+    "valley_grass_b": lambda: tex_paint_grass(311, wash=0.10, warm=0.07, strokes=700, stroke_len=18, stroke_w=2.4, stroke_k=0.05),
+    "valley_grass_c": lambda: tex_paint_grass(321, wash=0.08, warm=0.10, flecks=60),
+    "valley_road_a": lambda: tex_flagstone(slabs(5, 331), [hexc("EADCBE"), hexc("E2D0AE"), hexc("EFE4CC"), hexc("DCC8A4")], hexc("A88E6A"), 331),
+    "valley_road_b": lambda: tex_flagstone(slabs(5, 341), [hexc("E4C99A"), hexc("D8B884"), hexc("ECD4A8"), hexc("CFAE7C")], hexc("8E7452"), 341, moss=hexc("7D8E5E"), moss_share=0.35),
+    "valley_road_c": lambda: tex_flagstone(slabs(5, 351), [hexc("F1EADA"), hexc("E6DCC6"), hexc("DCD8CE"), hexc("EDE2C8")], hexc("B4A48A"), 351, grout_w=2.4),
     # Starter Meadow
     # grass is near white: its hue comes from the terrain Grass color, so the ground matches the grass blades
     "grass": lambda: tex_grass_like(hexc("E6EDDD"), hexc("FFFFF4"), hexc("BFCBB2"), hexc("FAFFE6"), 11),
@@ -338,6 +435,8 @@ NORMALS = {
     "rock": (31, 10), "cobble": (181, 9), "basalt": (61, 9), "asphalt": (71, 6), "lava": (81, 7), "glacier": (101, 5),
     "limestone": (111, 7), "slate": (131, 8), "voidstone": (161, 7), "templestone": (171, 5),
 }
+# rounded-slab normal maps (name -> (cells, seed)) matching the flagstone color maps
+SLAB_NORMALS = {"valley_road_a": (5, 331), "valley_road_b": (5, 341), "valley_road_c": (5, 351)}
 
 if __name__ == "__main__":
     names = sys.argv[1:] or list(TEXTURES)
@@ -347,4 +446,7 @@ if __name__ == "__main__":
         if name in NORMALS:
             seed, cells = NORMALS[name]
             write_png(os.path.join(OUT, name + "_n.png"), normal_facets(seed, cells))
+        if name in SLAB_NORMALS:
+            cells, seed = SLAB_NORMALS[name]
+            write_png(os.path.join(OUT, name + "_n.png"), normal_slabs(slabs(cells, seed)))
         print(name, round(time.time() - t, 1), "s")

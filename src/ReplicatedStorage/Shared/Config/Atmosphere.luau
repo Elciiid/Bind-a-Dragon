@@ -295,6 +295,11 @@ return {
 	-- World particle effects placed in the areas (ParticleEmitters tagged "AmbientFX": waterfall foam and mist, ...).
 	-- With Low effects they run at this share of their rate (AmbientFXController).
 	AmbientFXLowRate = 0.3,
+	-- Beams tagged "DistanceFade" (the waterfall's water sheets) fade out with distance from the camera: fully drawn
+	-- within BeamFadeStart studs, gone past BeamFadeEnd (far away they read as thin white poles). The foam and spray
+	-- stay. AmbientFXController.
+	BeamFadeStart = 380,
+	BeamFadeEnd = 500,
 
 	-- Parts tagged "NightGlow" (mushroom caps, rune carvings, magic flowers) light up in their "GlowColor" attribute
 	-- once the night blend passes this (0 = day, 1 = full night). WorldLifeController.

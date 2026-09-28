@@ -125,7 +125,8 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   CanCollide off): touching it teleports (`AreaService`, server-checked). The return portals (`Portal_StarterMeadow` in
   each area) use that area's own arch. `PortalController` draws the Surface per client: destination color, light,
   swirl and particles when unlocked; dim gray with a lock + "Rebirth X" (close up) when locked (`Config/Portals`).
-- `Water`: the `Waterfall` on the western cliff (lip (-304, 61, 58)): streak Beams facing the camera on `BeamAnchor`,
+- `Water`: the `Waterfall` on the western cliff (lip (-304, 61, 58)): streak Beams facing the camera on `BeamAnchor`
+  (tagged `DistanceFade`: they fade out 380-500 studs from the camera, `Config/Atmosphere` BeamFade*, AmbientFXController; the east cascade too),
   foam/spray emitters tagged `AmbientFX`, a `SoundSource` tagged `Waterfall` for `Config/Audio`. The river (terrain
   water, level -1) runs from its pool east through the gap between W2 and W3, past the plaza's south side (z ≈ 63),
   with two ponds flanking the market, and leaves through the E2/E3 gap into a lower pool (294, 62). Edit terrain near
@@ -135,12 +136,12 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   floor, sanctuary terraces (rock pillars, back cliffs), the portal terrace + Spire hill, jagged mountains all around
   (green foothills, rocky peaks, saddles behind the gates so the landmarks show), the winding river, the south gorge.
   Mountains: grass up to the tree line, rock higher up, snowcaps above `SnowLine` (terrain `Sand` colored white:
-  `Snow` carries the Frozen area's stylized override). Flagstone roads and squares = terrain `Brick` with the realistic `Valley_Flagstone` MaterialVariant override (AI-generated, owned by the game's creator; `ValleyTerrain.V.RoadMaterial`; not Cobblestone, because overrides restyle parts too and ~360 Valley parts use Cobblestone, while no part uses Brick) (roads from the plaza to each sanctuary, the main road, the
+  `Snow` carries the Frozen area's stylized override). Flagstone roads and squares = terrain `Brick` with the painterly cream `Valley_RoadA` MaterialVariant override (`ValleyTerrain.V.RoadMaterial`; not Cobblestone, because overrides restyle parts too and ~360 Valley parts use Cobblestone, while no part uses Brick) (roads from the plaza to each sanctuary, the main road, the
   terrace walkway, the spawn plaza, the Spire court). Solid terrain surfaces end up ~2 studs above the voxel fill
   height, so the script writes solids 2 lower (`SurfaceLift`); keep that in mind for any other terrain script.
 - `SpawnLocation` at the valley mouth (0, 1.3, 160) facing north (new players); `AreaSpawn` (arrivals from other
   areas) on the portal terrace (0, 13.5, -150) facing the altar.
-- `Tiles`: real Granite stone tiles flush on the flagstone (`ValleyBuild.BuildTiles`, 132 parts): a two-row ring around
+- `Tiles`: real Granite stone tiles in warm cream shades (to match the cream roads) flush on the flagstone (`ValleyBuild.BuildTiles`, 132 parts): a two-row ring around
   the plaza's outer step (gap at the grand bridge, none over the river bank) and a two-row ring around the market
   obelisk, with gold inlays (`NightGlow`) at the compass points.
 - `TravelPoints`: invisible markers the Travel menu lands on (`ValleyBuild.BuildTravelPoints`): `Altar` (plaza, facing
@@ -198,9 +199,15 @@ Salt, Sandstone; Eclipse: LeafyGrass, Concrete, Pavement) so each area can have 
 **Stylized terrain:** `MaterialService` holds 19 `BAD_*` MaterialVariants; these are set as base-material overrides
 (other areas, until they are remastered): Basalt, Asphalt, CrackedLava = lava, Snow, Glacier, Limestone, Ice, Salt =
 storm floor, Sandstone = canyon walls, LeafyGrass = violet moss, Concrete = void stone, Pavement = temple stone. The
-Meadow uses Roblox's own Grass, Ground, Rock and Water, plus Brick for the roads with the realistic `Valley_Flagstone`
-override (the Mud/Brick/Sand cartoon overrides were removed 2026-09-27), terrain colors Grass (54, 128, 62), Ground (128, 106, 78), Rock (112, 110, 112),
-Cobblestone (168, 160, 146), Sand (236, 241, 248) = the snowcaps. `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
+Meadow (painterly ground restyle 2026-09-28, option A, matching the concept art): Grass = `Valley_GrassA` (soft,
+low-noise near-white wash with warm light patches, 48 studs/tile; its green comes from the terrain color (88, 112, 60),
+which the grass blades also use, so they match; the lighting boosts saturation, so keep it soft); Mud = the deeper
+teal-green forest/slope grass `Valley_ForestA` (same texture, color (46, 92, 72), no blades), painted on steep ground,
+high ground and around forest trees by `ValleyTerrain.PaintForest()`; Brick = the roads, `Valley_RoadA` (warm cream
+flagstone, big rounded painted slabs + normal map, 20 studs/tile, color (226, 214, 196)); Roblox's own Ground, Rock and
+Water; Ground (128, 106, 78), Rock (112, 110, 112), Cobblestone (168, 160, 146), Sand (236, 241, 248) = the snowcaps.
+Parts using Grass (nests, hay, lily pads, plot base discs) take the painted texture in their own color. Sources:
+`tools/terrain_textures/gen.py` (`valley_*`; the A PNGs are kept next to it). `MaterialService.Use2022Materials` is on (set by hand 2026-09-27; scripts can't read or
 change it). Textures are hand-made
 tileable PNGs (`tools/terrain_textures/gen.py`, uploaded as images); faceted materials have per-facet normal maps.
 Overrides also restyle **parts** with those materials, so part-built art should avoid them (Slate is deliberately not

@@ -2,6 +2,7 @@
 -- Writes the whole Starter Meadow terrain (x/z -640..640, y -48..400) from a height function, water included.
 -- Usage (Studio command bar / MCP): local V = require(ServerStorage.RemasterTools.ValleyTerrain:Clone())
 --   for row = 1, 5 do V.WriteRow(row) end
+--   V.PaintForest() -- after the trees are placed (ValleyDetail.BuildNature): forest/slope grass
 -- Water cells never share a voxel with ground (beds sit below the water's voxel layer), otherwise the water
 -- doesn't render in this place.
 -- The live copy is ServerStorage.RemasterTools.ValleyTerrain in the place; this file is the reference copy.
@@ -52,8 +53,8 @@ end
 
 V.Spire = { X = 0, Z = -252, R = 42, Top = 28 }
 
--- Road material: terrain Brick with the realistic Valley_Flagstone override (MaterialService). Not Cobblestone:
--- overrides restyle parts too, and hundreds of wall/bridge parts use Cobblestone; no part uses Brick.
+-- Road material: terrain Brick with the painterly cream flagstone override Valley_RoadA (MaterialService). Not
+-- Cobblestone: overrides restyle parts too, and hundreds of wall/bridge parts use Cobblestone; no part uses Brick.
 V.RoadMaterial = Enum.Material.Brick
 
 -- Flagstone roads (terrain V.RoadMaterial), each a polyline with a half-width. The W3/E3 roads bend to cross the river
@@ -485,6 +486,87 @@ function V.WriteRow(row: number)
 	for cx = G.X0, G.X1 - 1, 256 do
 		V.WriteChunk(cx, cz)
 	end
+end
+
+-- Forest/slope grass (run after the terrain and the trees are built): surface Grass on steep ground, high ground and
+-- around forest trees (StarterMeadow.Nature.Trees) becomes Mud, which carries the deeper teal-green Valley_ForestA
+-- override (no grass blades there). The warm meadow Grass stays on the valley floor, terraces and flat tops.
+-- Deterministic; rerun after moving trees. Returns the number of voxels changed.
+function V.PaintForest(): number
+	local G = V.Region
+	local grid = {}
+	local trees = workspace:FindFirstChild("StarterMeadow") and workspace.StarterMeadow:FindFirstChild("Nature")
+	trees = trees and trees:FindFirstChild("Trees")
+	for _, m in (if trees then trees:GetChildren() else {}) do
+		local p = if m:IsA("Model") then m:GetPivot().Position elseif m:IsA("BasePart") then m.Position else nil
+		if p then
+			local k = math.floor(p.X / 16) .. "," .. math.floor(p.Z / 16)
+			grid[k] = grid[k] or {}
+			table.insert(grid[k], p)
+		end
+	end
+	local function nearTree(x: number, z: number): boolean
+		local gx, gz = math.floor(x / 16), math.floor(z / 16)
+		local r = 9 + noise(x / 23, z / 23, 4.2) * 4
+		for i = gx - 1, gx + 1 do
+			for j = gz - 1, gz + 1 do
+				for _, p in grid[i .. "," .. j] or {} do
+					if (p.X - x) ^ 2 + (p.Z - z) ^ 2 < r * r then
+						return true
+					end
+				end
+			end
+		end
+		return false
+	end
+	local Grass, Mud, Water, Air = Enum.Material.Grass, Enum.Material.Mud, Enum.Material.Water, Enum.Material.Air
+	local changed = 0
+	-- chunks in order, each read with a 1-cell border for the slope (written back as read)
+	for cz = G.Z0, G.Z1 - 1, 256 do
+		for cx = G.X0, G.X1 - 1, 256 do
+			local x0, z0 = cx - RES, cz - RES
+			local region = Region3.new(Vector3.new(x0, G.Y0, z0), Vector3.new(min(cx + 256, G.X1) + RES, G.Y1, min(cz + 256, G.Z1) + RES))
+			local ch = Terrain:ReadVoxelChannels(region, RES, { "SolidMaterial", "SolidOccupancy", "LiquidOccupancy" })
+			local mats, occs = ch.SolidMaterial, ch.SolidOccupancy
+			local nx, ny, nz = #mats, #mats[1], #mats[1][1]
+			local H, top = {}, {}
+			for ix = 1, nx do
+				H[ix], top[ix] = {}, {}
+				for iz = 1, nz do
+					local h, t = -1e9, nil
+					for iy = ny, 1, -1 do
+						local m = mats[ix][iy][iz]
+						if occs[ix][iy][iz] > 0 and m ~= Water and m ~= Air then
+							h, t = G.Y0 + (iy - 1) * RES + occs[ix][iy][iz] * RES, iy
+							break
+						end
+					end
+					H[ix][iz], top[ix][iz] = h, t
+				end
+			end
+			for ix = 2, nx - 1 do
+				for iz = 2, nz - 1 do
+					local t = top[ix][iz]
+					if t then
+						local h = H[ix][iz]
+						local slope = max(abs(H[ix + 1][iz] - h), abs(H[ix - 1][iz] - h), abs(H[ix][iz + 1] - h), abs(H[ix][iz - 1] - h)) / RES
+						local x, z = x0 + (ix - 0.5) * RES, z0 + (iz - 0.5) * RES
+						local n = noise(x / 40, z / 40, 7.7)
+						if slope > 0.5 + n * 0.15 or h > 42 + n * 12 or nearTree(x, z) then
+							for iy = t, max(1, t - 2), -1 do
+								if mats[ix][iy][iz] == Grass then
+									mats[ix][iy][iz] = Mud
+									changed += 1
+								end
+							end
+						end
+					end
+				end
+			end
+			Terrain:WriteVoxelChannels(region, RES, { SolidMaterial = mats, SolidOccupancy = occs, LiquidOccupancy = ch.LiquidOccupancy })
+		end
+	end
+	return changed
 end
 
 return V

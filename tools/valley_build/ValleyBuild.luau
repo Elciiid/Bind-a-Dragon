@@ -616,13 +616,13 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Tiles: real stone tiles (parts) laid flush on the flagstone terrain in two places: a two-row ring around the
 -- plaza's outer step (gap where the grand bridge lands) and a two-row ring around the market obelisk. Granite
--- (no material override), alternating warm stone shades, outer row offset half a tile like laid paving; small gold
--- inlays at the compass points (NightGlow).
+-- (no material override), alternating warm cream stone shades (matching the cream flagstone roads, Valley_RoadA),
+-- outer row offset half a tile like laid paving; small gold inlays at the compass points (NightGlow).
 
 function B.BuildTiles()
 	local f = folder(SM, "Tiles", true)
 	local rng = Random.new(2718)
-	local shades = { Color3.fromRGB(184, 174, 154), Color3.fromRGB(163, 155, 139), Color3.fromRGB(174, 168, 158) }
+	local shades = { Color3.fromRGB(222, 204, 170), Color3.fromRGB(202, 186, 154), Color3.fromRGB(214, 200, 176) }
 	local groundParams = RaycastParams.new() -- tiles only where their outer edge is on solid ground (not the river bank)
 	groundParams.FilterType = Enum.RaycastFilterType.Include
 	groundParams.FilterDescendantsInstances = { workspace.Terrain }
@@ -636,7 +636,7 @@ function B.BuildTiles()
 			local hit = workspace:Raycast(edge + Vector3.new(0, 20, 0), Vector3.new(0, -40, 0), groundParams)
 			local onGround = hit ~= nil and hit.Material ~= Enum.Material.Water and hit.Position.Y > center.Y - 0.3
 			if onGround and (skip == nil or not skip(at)) then
-				local shade = shades[(i % #shades) + 1]:Lerp(Color3.fromRGB(150, 146, 138), rng:NextNumber(0, 0.25))
+				local shade = shades[(i % #shades) + 1]:Lerp(Color3.fromRGB(190, 178, 156), rng:NextNumber(0, 0.25))
 				P(parent, "Tile", Vector3.new(width, 0.5, (r1 - r0) * 0.92), CFrame.lookAt(at, Vector3.new(center.X, at.Y, center.Z)), M.Granite, shade, { CastShadow = false })
 			end
 		end
