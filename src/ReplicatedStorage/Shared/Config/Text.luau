@@ -47,6 +47,15 @@ local Text = {
 		DuskNoFavor = "Head to a Star Altar!",
 	},
 
+	-- Boards over the roost upgrade stands (UpgradeStandController). {slots}/{max} = roost slots, {bonus} = income %.
+	UpgradeStands = {
+		SlotsTitle = "Roost slots",
+		SlotsLine = "{slots} / {max} slots",
+		IncomeTitle = "Roost income",
+		IncomeLine = "+{bonus}% gold",
+		MaxedLine = "Fully upgraded!",
+	},
+
 	-- Travel button + menu (TravelController, TravelService). {place} = a destination name below.
 	Travel = {
 		Button = "Travel",

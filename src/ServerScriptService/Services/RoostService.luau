@@ -424,6 +424,9 @@ local function refreshPlot(player: Player, data: PlayerData)
 	if plot == nil or current == nil then
 		return
 	end
+	-- the upgrade stands show everyone the owner's progress (UpgradeStandController)
+	plot:SetAttribute("RoostSlots", DragonStats.GetRoostSlots(data))
+	plot:SetAttribute("RoostIncomeLevel", data.RoostIncomeLevel)
 
 	local wanted: { [string]: boolean } = {}
 	for _, dragonId in data.RoostDragonIds do
@@ -491,6 +494,8 @@ end
 
 local function clearPlot(plot: Model)
 	setSign(plot, nil)
+	plot:SetAttribute("RoostSlots", nil)
+	plot:SetAttribute("RoostIncomeLevel", nil)
 end
 
 local function assignPlot(player: Player)

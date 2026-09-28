@@ -1,7 +1,7 @@
 --!strict
 -- Roost upgrade stands in front of the local player's own pen ("UpgradeSlots" and "UpgradeIncome" parts in the plot).
--- Adds client-only prompts (so only the owner sees them) plus a label with the current level, and asks the
--- server to buy (BuyRoostUpgrade). The server checks cost and limits.
+-- Adds client-only prompts (so only the owner sees them) and asks the server to buy (BuyRoostUpgrade). The server
+-- checks cost and limits. The stands' art, gems and level boards (seen by everyone) are UpgradeStandController.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -11,8 +11,6 @@ local DataController = require(script.Parent.DataController)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
-local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
-local WorldLabels = require(ReplicatedStorage.Shared.Config.UITheme).WorldLabels
 
 local PLOT_TAG = "RoostPlot"
 local UPDATE_INTERVAL = 0.4
@@ -21,7 +19,7 @@ local buyRoostUpgrade = ReplicatedStorage.Remotes.BuyRoostUpgrade :: RemoteEvent
 
 local RoostUpgradeController = {}
 
-type Stand = { Prompt: ProximityPrompt, Label: TextLabel }
+type Stand = { Prompt: ProximityPrompt }
 local stands: { [BasePart]: Stand } = {}
 
 local function getOwnPlot(): Model?
@@ -51,23 +49,7 @@ local function ensureStand(part: BasePart, kind: string): Stand
 	end)
 	prompt.Parent = part
 
-	local gui = Instance.new("BillboardGui")
-	gui.Name = "UpgradeLabel"
-	gui.Size = UDim2.fromOffset(WorldLabels.UpgradeStand.X, WorldLabels.UpgradeStand.Y)
-	gui.StudsOffset = Vector3.new(0, 3.5, 0)
-	gui.MaxDistance = WorldLabels.MaxDistance
-	gui.AlwaysOnTop = false
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
-	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 220, 120)
-	label.TextStrokeTransparency = 0.3
-	label.Parent = gui
-	gui.Parent = part
-
-	local stand = { Prompt = prompt, Label = label }
+	local stand = { Prompt = prompt }
 	stands[part] = stand
 	return stand
 end
@@ -78,10 +60,6 @@ local function update()
 	for part, stand in stands do
 		if plot == nil or not part:IsDescendantOf(plot) then
 			stand.Prompt:Destroy()
-			local gui = stand.Label.Parent
-			if gui then
-				gui:Destroy()
-			end
 			stands[part] = nil
 		end
 	end
@@ -94,7 +72,6 @@ local function update()
 	if slotsPart and slotsPart:IsA("BasePart") then
 		local stand = ensureStand(slotsPart, "Slots")
 		local cost = DragonStats.GetNextSlotCost(data)
-		stand.Label.Text = `Roost slots {DragonStats.GetRoostSlots(data)}/{RoostConfig.MaxSlots}`
 		stand.Prompt.ActionText = if cost then `+1 slot: {Format.Number(cost)} gold` else "Maxed"
 		stand.Prompt.Enabled = cost ~= nil
 	end
@@ -103,9 +80,7 @@ local function update()
 	if incomePart and incomePart:IsA("BasePart") then
 		local stand = ensureStand(incomePart, "Income")
 		local cost = DragonStats.GetNextIncomeUpgradeCost(data)
-		local bonus = math.round((DragonStats.GetRoostIncomeMultiplier(data) - 1) * 100)
 		local step = math.round(Economy.RoostUpgrades.IncomeBonusPerLevel * 100)
-		stand.Label.Text = `Roost income +{bonus}%`
 		stand.Prompt.ActionText = if cost then `+{step}% income: {Format.Number(cost)} gold` else "Maxed"
 		stand.Prompt.Enabled = cost ~= nil
 	end

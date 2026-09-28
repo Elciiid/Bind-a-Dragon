@@ -588,6 +588,132 @@ function B.BuildSanctuaries()
 end
 
 ---------------------------------------------------------------------------------------------------------------
+-- Upgrade stands: two shrines in the altar's style (blue slate, gold, star glass) on each sanctuary forecourt, built
+-- around the "UpgradeSlots" / "UpgradeIncome" parts (kept, invisible: they carry the owner's prompts and the server
+-- measures the buy range from them). Art goes in the plot's "UpgradeStandArt" folder:
+--   Slots:  a column with a floating star egg over a gold cup, circled by star crystals ("Orbit"); 8 gems on the
+--           capital ("Pip1".."Pip8": one per roost slot owned)
+--   Income: a column with a gold bowl heaped with coins and a floating star coin; 5 jade gems ("Pip1".."Pip5": 5
+--           income levels each)
+-- The "Floater" (egg / star coin) bobs and spins, the orbit turns and the gems light up on the client
+-- (UpgradeStandController); nothing here is animated.
+
+B.StandColors = {
+	SlateLow = Color3.fromRGB(78, 84, 116),
+	Slate = Color3.fromRGB(116, 122, 154),
+	Egg = Color3.fromRGB(150, 205, 255),
+	EggCore = Color3.fromRGB(205, 235, 255),
+	Pip = Color3.fromRGB(58, 64, 92), -- unlit gem (lit colors: UpgradeStandController)
+	Jade = Color3.fromRGB(96, 214, 150),
+	Coin = Color3.fromRGB(196, 132, 50), -- deeper amber, so its gold stars stand out
+}
+B.StandScale = 1.6 -- the stand is modelled ~7.5 studs tall, then scaled
+
+-- Part with a sphere mesh (an ellipsoid of its size).
+local function ellipsoid(parent: Instance, name: string, size: Vector3, cf: CFrame, mat: Enum.Material, color: Color3, extra: { [string]: any }?): Part
+	local p = P(parent, name, size, cf, mat, color, extra)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = p
+	return p
+end
+
+local function buildStand(parent: Instance, anchor: BasePart, kind: string, out: Vector3): Model
+	local S = B.StandColors
+	local m = model(parent, kind .. "Stand")
+	local base = Vector3.new(anchor.Position.X, anchor.Position.Y - anchor.Size.Y / 2, anchor.Position.Z)
+	local face = CFrame.lookAt(base, base + out) -- -Z faces the road
+	local function y(h: number): Vector3
+		return base + Vector3.new(0, h, 0)
+	end
+	local noCollide = { CanCollide = false }
+
+	-- stepped plinth with gold trim, column with gold bands and a star, capital
+	disc(m, "Plinth", y(0.3), 2.3, 0.6, M.Slate, S.SlateLow)
+	glow(disc(m, "PlinthTrim", y(0.64), 2.36, 0.12, M.Foil, C.Gold, noCollide))
+	disc(m, "Step", y(0.95), 1.8, 0.6, M.Slate, S.Slate)
+	local shaft = P(m, "Column", Vector3.new(2.9, 1.7, 1.7), CFrame.new(y(2.7)) * CFrame.Angles(0, 0, math.pi / 2), M.Slate, S.Slate)
+	shaft.Shape = Enum.PartType.Cylinder
+	for _, h in { 1.55, 3.9 } do
+		glow(disc(m, "GoldBand", y(h), 0.94, 0.2, M.Foil, C.Gold, noCollide))
+	end
+	disc(m, "Capital", y(4.35), 1.45, 0.45, M.Slate, S.SlateLow)
+	glow(disc(m, "CapitalTrim", y(4.6), 1.5, 0.1, M.Foil, C.Gold, noCollide))
+	star(m, face * CFrame.new(0, 2.75, -0.87), 1.1)
+
+	local floater = model(m, "Floater")
+	if kind == "Slots" then
+		disc(m, "Cup", y(4.78), 1.15, 0.3, M.Foil, C.Gold, noCollide)
+		ellipsoid(floater, "Egg", Vector3.new(1.55, 2.1, 1.55), CFrame.new(y(6.25)), M.Glass, S.Egg, { CanCollide = false, Transparency = 0.15, CastShadow = false })
+		P(floater, "EggCore", Vector3.new(0.85, 0.85, 0.85), CFrame.new(y(6.2)), M.Neon, S.EggCore, { CanCollide = false, CastShadow = false, Shape = Enum.PartType.Ball })
+		star(floater, CFrame.lookAt(y(6.3), y(6.3) + out) * CFrame.new(0, 0, -0.78), 0.55)
+		local orbit = model(m, "Orbit")
+		for i = 1, 6 do
+			local a = rad(i * 60)
+			local pos = y(6.25 + sin(a * 2) * 0.25) + Vector3.new(sin(a), 0, cos(a)) * 1.9
+			P(orbit, "Crystal", Vector3.new(0.3, 0.75, 0.3), CFrame.new(pos) * CFrame.Angles(0, a, rad(20)), M.Glass, S.Egg, { CanCollide = false, CastShadow = false })
+		end
+		for i = 1, 8 do
+			local a = rad((i - 1) * 45 + 22.5)
+			local pos = y(4.62) + Vector3.new(sin(a), 0, cos(a)) * 1.32
+			P(m, "Pip" .. i, Vector3.new(0.28, 0.28, 0.28), CFrame.new(pos) * CFrame.Angles(rad(45), a, rad(45)), M.Glass, S.Pip, noCollide)
+		end
+	else
+		disc(m, "Bowl", y(4.85), 1.4, 0.5, M.Foil, C.Gold, noCollide)
+		disc(m, "BowlRim", y(5.12), 1.48, 0.12, M.Foil, C.Gold, noCollide)
+		ellipsoid(m, "Hoard", Vector3.new(2.5, 1.1, 2.5), CFrame.new(y(5.12)), M.Metal, C.GoldGlow, noCollide)
+		local rng = Random.new(77)
+		for _ = 1, 9 do
+			local a, r = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(0.1, 1.0)
+			local pos = y(5.2 + (1 - r) * 0.45) + Vector3.new(sin(a) * r, 0, cos(a) * r)
+			local tilt = CFrame.Angles(rng:NextNumber(-0.6, 0.6), rng:NextNumber(0, 6.3), math.pi / 2 + rng:NextNumber(-0.5, 0.5))
+			local coin = P(m, "Coin", Vector3.new(0.08, 0.5, 0.5), CFrame.new(pos) * tilt, M.Foil, C.Gold, noCollide)
+			coin.Shape = Enum.PartType.Cylinder
+		end
+		for i = 1, 2 do
+			local a = rad(i * 150)
+			P(m, "Gem", Vector3.new(0.35, 0.35, 0.35), CFrame.new(y(5.45) + Vector3.new(sin(a), 0, cos(a)) * 0.55) * CFrame.Angles(rad(45), a, rad(45)), M.Glass, S.Jade, noCollide)
+		end
+		local coinFace = CFrame.lookAt(y(6.9), y(6.9) + out)
+		local big = P(floater, "StarCoin", Vector3.new(0.22, 1.9, 1.9), coinFace * CFrame.Angles(0, math.pi / 2, 0), M.Foil, S.Coin, { CanCollide = false, CastShadow = false })
+		big.Shape = Enum.PartType.Cylinder -- no NightGlow: a whole neon coin blooms too much (the client adds a light)
+		for _, side in { -1, 1 } do
+			star(floater, coinFace * CFrame.new(0, 0, side * -0.13), 0.95)
+		end
+		for i = 1, 5 do
+			local a = rad((i - 1) * 72 + 36)
+			local pos = y(4.62) + Vector3.new(sin(a), 0, cos(a)) * 1.42
+			P(m, "Pip" .. i, Vector3.new(0.32, 0.32, 0.32), CFrame.new(pos) * CFrame.Angles(rad(45), a, rad(45)), M.Glass, S.Pip, noCollide)
+		end
+	end
+	m.PrimaryPart = m:FindFirstChild("Plinth") :: BasePart
+	m.WorldPivot = CFrame.new(base)
+	m:ScaleTo(B.StandScale)
+	return m
+end
+
+function B.BuildUpgradeStands()
+	for _, plot in SM.Pens:GetChildren() do
+		local center = if plot:IsA("Model") then plot:GetAttribute("RoamCenter") else nil
+		if typeof(center) == "Vector3" then
+			local f = folder(plot, "UpgradeStandArt", true)
+			for _, kind in { "Slots", "Income" } do
+				local anchor = plot:FindFirstChild("Upgrade" .. kind) :: BasePart?
+				local cap = plot:FindFirstChild("Upgrade" .. kind .. "Glow") :: BasePart?
+				if anchor then
+					local out = Vector3.new(anchor.Position.X - center.X, 0, anchor.Position.Z - center.Z).Unit
+					buildStand(f, anchor, kind, out)
+					anchor.Transparency, anchor.CanCollide = 1, false
+				end
+				if cap then
+					cap.Transparency, cap.CanCollide = 1, false
+				end
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------------------------------
 -- Bounds: invisible walls a little way up the foothills all around the valley
 
 function B.BuildBounds()

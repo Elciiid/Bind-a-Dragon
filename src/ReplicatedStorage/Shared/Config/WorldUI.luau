@@ -56,4 +56,28 @@ return {
 		MerchantResetText = "New prices at dawn",
 		SpireClimbText = "Climb!",
 	},
+
+	-- Roost upgrade stands on each sanctuary forecourt (UpgradeStandController; the art is built in Studio by
+	-- ValleyBuild.BuildUpgradeStands). Everyone sees the owner's progress: the slots stand lights one gem per roost slot,
+	-- the income stand one jade gem per GemLevels income levels (a gem in progress glows part-way).
+	UpgradeStands = {
+		AnimateDistance = 150, -- studs from the camera; farther stands hold still
+		LightDistance = 70, -- the glow light only near the camera
+		BobHeight = 0.35, -- studs up and down (times the stand's scale)
+		BobSpeed = 1.3, -- radians per second
+		EggSpin = 0.5, -- radians per second
+		CoinSpin = 1.6,
+		OrbitSpeed = 0.9,
+		GemLevels = 5, -- income levels per jade gem
+		SlotGemColor = Color3.fromRGB(140, 205, 255),
+		IncomeGemColor = Color3.fromRGB(96, 224, 150),
+		MaxedColor = Color3.fromRGB(255, 214, 110), -- egg core / coin glow once that upgrade is maxed
+		LightRange = 12,
+		LightBrightness = 1.2,
+		SparkleRate = 3, -- per second (more as the upgrade fills up, x2 when maxed; Low effects: none)
+		BurstParticles = 40, -- on every upgrade bought
+		BoardSize = Vector2.new(190, 50), -- pixels
+		BoardHeight = 14.5, -- studs above the stand's floor (just over the floating egg / coin)
+		BoardSideOffset = 3.5, -- studs outward from the gate's center line (clear of the owner banner)
+	},
 }
