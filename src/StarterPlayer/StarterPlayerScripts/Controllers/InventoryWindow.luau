@@ -104,7 +104,7 @@ local function ensure(): Window.Window
 	local win = Window.new({
 		Name = "Inventory",
 		Title = "Inventory",
-		Icon = "Menu_Dragons",
+		Icon = "Menu_Inventory",
 		Size = UDim2.new(0.92, 0, 0.8, 0),
 		MaxSize = Vector2.new(740, 580),
 	})

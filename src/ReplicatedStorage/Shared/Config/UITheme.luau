@@ -44,13 +44,13 @@ local Icons: { [string]: string } = {
 	-- Roblox's own settings gear (ships with the client; white, matches the Roblox top bar buttons)
 	Settings = "rbxasset://textures/ui/Settings/MenuBarIcons/GameSettingsTab@2x.png",
 
-	-- UI renewal art slots: "" = not painted yet (HUD icons show their Glyph meanwhile, tabs their stand-in).
-	Menu_Inventory = "",
-	Travel_Home = "",
-	Travel_Portals = "",
-	Travel_Market = "",
-	Tab_Items = "",
-	Tab_Collection = "",
+	-- UI renewal icons (painted, assets/new_icons.png, cut to assets/icons/)
+	Menu_Inventory = "rbxassetid://131935771919529",
+	Travel_Home = "rbxassetid://80330708379862",
+	Travel_Portals = "rbxassetid://125960619227000",
+	Travel_Market = "rbxassetid://89424033701741",
+	Tab_Items = "rbxassetid://86820373487722",
+	Tab_Collection = "rbxassetid://109516944039537",
 }
 
 -- Per rarity / element: colors come from their game configs (one source); icons from above.
@@ -114,7 +114,7 @@ return {
 	-- Icon = UITheme.Icons asset ("" = not painted yet: the Glyph (an emoji) or the Fallback icon shows instead).
 	-- Color = glow on hover and the fallback tint.
 	Menu = {
-		Inventory = { Label = "Inventory", Color = Color3.fromRGB(112, 193, 224), Order = 1, Icon = Icons.Menu_Inventory, Fallback = Icons.Menu_Dragons },
+		Inventory = { Label = "Inventory", Color = Color3.fromRGB(112, 193, 224), Order = 1, Icon = Icons.Menu_Inventory },
 		Quests = { Label = "Quests", Color = Color3.fromRGB(112, 211, 173), Order = 2, Icon = Icons.Menu_Quests },
 		Shop = { Label = "Shop", Color = Color3.fromRGB(230, 186, 101), Order = 3, Icon = Icons.Menu_Shop },
 		Rebirth = { Label = "Rebirth", Color = Color3.fromRGB(255, 205, 90), Order = 4, Icon = Icons.Menu_Rebirth },
