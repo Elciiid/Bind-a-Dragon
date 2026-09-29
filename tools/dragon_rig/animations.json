@@ -74,6 +74,114 @@
      1.2333333333333334
     ]
    }
+  },
+  "Dragon_Sleep": {
+   "frames": 150,
+   "seconds": 5.0,
+   "loop": true,
+   "markers": {}
+  },
+  "Dragon_HappyHop": {
+   "frames": 60,
+   "seconds": 2.0,
+   "loop": false,
+   "markers": {}
+  },
+  "Dragon_Sneeze": {
+   "frames": 45,
+   "seconds": 1.5,
+   "loop": false,
+   "markers": {
+    "FX_Sneeze": [
+     0.7333333333333333
+    ]
+   }
+  },
+  "Dragon_Stretch": {
+   "frames": 90,
+   "seconds": 3.0,
+   "loop": false,
+   "markers": {}
+  },
+  "Dragon_Preen": {
+   "frames": 90,
+   "seconds": 3.0,
+   "loop": false,
+   "markers": {}
+  },
+  "Dragon_Shake": {
+   "frames": 45,
+   "seconds": 1.5,
+   "loop": false,
+   "markers": {}
+  },
+  "Dragon_TailFlick": {
+   "frames": 30,
+   "seconds": 1.0,
+   "loop": false,
+   "markers": {}
+  },
+  "Dragon_BarrelRoll": {
+   "frames": 60,
+   "seconds": 2.0,
+   "loop": false,
+   "markers": {}
+  },
+  "Dragon_Evolve": {
+   "frames": 90,
+   "seconds": 3.0,
+   "loop": false,
+   "markers": {
+    "FX_Burst": [
+     2.0
+    ]
+   }
+  },
+  "Dragon_LevelUp": {
+   "frames": 45,
+   "seconds": 1.5,
+   "loop": false,
+   "markers": {
+    "FX_LevelUp": [
+     0.4
+    ]
+   }
+  },
+  "Dragon_Attack": {
+   "frames": 30,
+   "seconds": 1.0,
+   "loop": false,
+   "markers": {
+    "FX_Attack": [
+     0.43333333333333335
+    ]
+   }
+  },
+  "Dragon_Hit": {
+   "frames": 18,
+   "seconds": 0.6,
+   "loop": false,
+   "markers": {
+    "FX_Hit": [
+     0.03333333333333333
+    ]
+   }
+  },
+  "Dragon_Victory": {
+   "frames": 60,
+   "seconds": 2.0,
+   "loop": false,
+   "markers": {
+    "FX_Roar": [
+     0.6
+    ]
+   }
+  },
+  "Dragon_Defeat": {
+   "frames": 60,
+   "seconds": 2.0,
+   "loop": false,
+   "markers": {}
   }
  }
 }

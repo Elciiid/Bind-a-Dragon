@@ -279,9 +279,11 @@ To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on W
   a bottom-center pivot facing -Z, no scripts.
 - **Dragon rig + animation set (Blender, 2026-09-30, not in the game yet):** `tools/dragon_rig/` (README there). One
   standard skeleton (`template.py`: Root, Spine1-3, Neck1-3, Head, Jaw, Tail1-6, Wing_L/R_Upper/Fore/Hand/Tip,
-  Leg_FL/FR/BL/BR_Upper/Lower/Foot; wings standardized to a spread rest pose) and one set of generic actions
-  (`Dragon_Idle/TakeOff/FlyLoop/Glide/Land/Roar/Reveal`, FX markers in `animations.json`) that play on every re-rigged
-  dragon. `rerig.py` re-rigs a Meshy GLB automatically (~2 s: UniRig skeleton as landmarks, automatic weights), then
+  Leg_FL/FR/BL/BR_Upper/Lower/Foot; wings standardized to a spread rest pose, the tail straightened onto the center
+  line) and one set of 21 generic actions (core: Idle/TakeOff/FlyLoop/Glide/Land/Roar/Reveal; roost: Sleep, HappyHop,
+  Sneeze, Stretch, Preen, Shake, TailFlick, BarrelRoll; moments/battle: Evolve, LevelUp, Attack, Hit, Victory, Defeat;
+  lengths + FX markers in `animations.json`) that play on every re-rigged dragon. Straight tails make models longer
+  (Solflare 19 studs, Infernus 27 nose to tail tip; bodies keep their size). `rerig.py` re-rigs a Meshy GLB automatically (~2 s: UniRig skeleton as landmarks, automatic weights), then
   `apply_actions.py` copies the actions from `assets/Dragons/blend/DragonAnimations.blend`. Done: Solflare + Infernus
   Elder (`assets/Dragons/blend/`, rigged FBX in `assets/Dragons/fbx/rigged/`, per-action FBX in `assets/Dragons/fbx/anim/`,
   previews in `assets/Dragons/previews/`; blends and previews are not in Git). The game still uses the UniRig bone maps

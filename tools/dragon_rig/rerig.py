@@ -2,10 +2,15 @@
 
 Run with Blender in background mode:
     blender -b --python tools/dragon_rig/rerig.py -- <input.glb> <output.blend> [--stage Elder] [--fbx <out.fbx>]
-        [--tris 10000] [--texture 1024] [--flip] [--landmarks <overrides.json>] [--no-canonical]
+        [--tris 10000] [--texture 1024] [--flip] [--landmarks <overrides.json>] [--no-canonical] [--curled-tail]
 
 Steps:
-  1. import the GLB, delete helper meshes, apply transforms;
+  1. import the GLB, delete helper meshes, apply transforms; then straighten the tail (most Meshy dragons curl it to the
+     side): with the model's own UniRig skeleton and skin (9-11 tail bones, finer than the template's 6), the tail chain
+     is posed onto the body's center line, straight back in line with the spine with a slight droop that grows toward
+     the tip (TAIL_DROOP; less if the tip would touch the ground), and baked as the rest shape (--curled-tail skips it).
+     The stage scale is measured on the model as generated (curled tail), so bodies keep their size and only the tail
+     gets longer;
   2. same export rules as tools/glb_to_fbx.py: decimate to ~--tris triangles, keep only the base-color texture at
      --texture px, facing -Y (--flip turns 180 degrees), scaled to the stage length in studs, feet at Z = 0, centered;
   3. find landmarks from the model's own UniRig skeleton (it is already fitted to the mesh; only its topology and
@@ -46,7 +51,7 @@ def parse_args():
     if len(argv) < 2:
         raise SystemExit(__doc__)
     opts = {"input": argv[0], "output": argv[1], "stage": "Elder", "fbx": None, "tris": 10000, "texture": 1024,
-            "flip": False, "landmarks": None, "canonical": True}
+            "flip": False, "landmarks": None, "canonical": True, "straight_tail": True}
     i = 2
     while i < len(argv):
         key = argv[i]
@@ -60,6 +65,8 @@ def parse_args():
             opts["flip"] = True; i += 1
         elif key == "--no-canonical":
             opts["canonical"] = False; i += 1
+        elif key == "--curled-tail":
+            opts["straight_tail"] = False; i += 1
         else:
             raise SystemExit(f"unknown option {key}")
     if opts["stage"] not in T.STAGE_LENGTH:
@@ -290,6 +297,63 @@ def head_from_mesh(mesh, head_base, body_len):
     return tip, hinge, jaw_tip
 
 
+TAIL_DROOP = (4.0, 16.0)  # degrees below the spine line: tail base, tail tip (grows along the tail)
+
+
+def straighten_tail(src, mesh, flip=False):
+    """Poses the source tail chain straight back along the center line and bakes it into the mesh and the source
+    skeleton's rest pose (the landmarks then read the straight tail). Returns a small report."""
+    from mathutils import Matrix as M
+    pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
+    lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
+    hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    body_len, height = hi.y - lo.y, hi.z - lo.z
+    lm = find_landmarks(src, mesh, body_len, height)
+    names = lm["report"]["tail"]
+    spine = lm["spine"]
+    # straight back along the center line, level (a sloping spine, e.g. a wyvern standing up, would point it into the
+    # ground), then drooping per TAIL_DROOP
+    back = Vector((0.0, -1.0 if flip else 1.0, 0.0))  # --flip sources face +Y until they are turned later
+    before_tip = src.matrix_world @ src.data.bones[names[-1]].tail_local
+    select_only(src)
+    bpy.ops.object.mode_set(mode="POSE")
+    n = len(names)
+    used = 0.0
+    for scale in (1.0, 0.6, 0.3, 0.0, -0.4):  # less droop (at last a slight rise) if the tip would hit the ground
+        for name in names:
+            src.pose.bones[name].matrix_basis = M.Identity(4)
+        bpy.context.view_layer.update()
+        for i, name in enumerate(names):
+            pb = src.pose.bones[name]
+            bpy.context.view_layer.update()
+            droop = math.radians((TAIL_DROOP[0] + (TAIL_DROOP[1] - TAIL_DROOP[0]) * i / max(n - 1, 1)) * scale)
+            want = (M.Rotation(-droop, 3, "X") @ back).normalized()
+            cur = pb.matrix.col[1].to_3d().normalized()
+            rot = cur.rotation_difference(want).to_matrix().to_4x4()
+            head = pb.matrix.translation.copy()
+            m = pb.matrix.copy()
+            m.translation = Vector((0, 0, 0))
+            new = rot @ m
+            new.translation = head
+            pb.matrix = new
+        bpy.context.view_layer.update()
+        tip = src.matrix_world @ src.pose.bones[names[-1]].tail
+        used = scale
+        if tip.z >= lo.z + 0.06 * height:
+            break
+    bpy.ops.object.mode_set(mode="OBJECT")
+    select_only(mesh)
+    mod = next(m for m in mesh.modifiers if m.type == "ARMATURE")
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    select_only(src)
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    after_tip = src.matrix_world @ src.data.bones[names[-1]].tail_local
+    return {"bones": n, "droop_scale": used, "tip_before": [round(c, 3) for c in before_tip],
+            "tip_after": [round(c, 3) for c in after_tip]}
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Fit the template
 
@@ -455,6 +519,11 @@ def main():
             o.select_set(True)
         bpy.ops.object.join()
     mesh = skinned[0]
+    report = {"input": opts["input"], "stage": opts["stage"]}
+    pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
+    generated_length = max(p.y for p in pts) - min(p.y for p in pts)  # the stage scale uses this (see step 1)
+    if opts["straight_tail"]:
+        report["tail_straightened"] = straighten_tail(src, mesh, opts["flip"])
     # unparent (keep transform) and drop the old skinning
     select_only(mesh)
     bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
@@ -464,7 +533,6 @@ def main():
     for o in (src, mesh):
         select_only(o)
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-    report = {"input": opts["input"], "stage": opts["stage"]}
 
     # weld the seams: the glTF import splits vertices at UV/normal seams, which leaves hundreds of loose islands that
     # the automatic-weights (bone heat) solver can't handle. UVs live on the face corners, so they survive.
@@ -522,7 +590,7 @@ def main():
     pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
     lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
-    s = T.STAGE_LENGTH[opts["stage"]] / (hi.y - lo.y)
+    s = T.STAGE_LENGTH[opts["stage"]] / generated_length
     offset = Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
     for o in (src, mesh):
         o.matrix_world = Matrix.Scale(s, 4) @ Matrix.Translation(offset) @ o.matrix_world
@@ -533,7 +601,9 @@ def main():
     pts = [v.co for v in mesh.data.vertices]
     size = Vector((max(p.x for p in pts) - min(p.x for p in pts), max(p.y for p in pts) - min(p.y for p in pts),
                    max(p.z for p in pts)))
-    body_len, height = size.y, size.z
+    # detection thresholds are shares of the body length as generated (= the stage length after scaling), not of the
+    # straightened length: a long straightened tail would stretch them
+    body_len, height = T.STAGE_LENGTH[opts["stage"]], size.z
     report["size_studs"] = [round(v, 2) for v in size]
 
     # landmarks

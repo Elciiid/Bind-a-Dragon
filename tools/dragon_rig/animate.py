@@ -8,9 +8,10 @@
 
 Every action is generic (Dragon_<Name>, not per species) and uses only the template's bone names and axis
 conventions, so the same actions play on every re-rigged dragon. 30 fps, in place (no root motion: the game moves
-the dragon; the Root bone only rotates, plus a small vertical crouch/heave). Loops are seamless (the last frame equals
-the first). Timeline markers (action pose markers) name where Roblox fires effects: FX_Flap (each downbeat),
-FX_TakeOff, FX_Land, FX_Roar, FX_Burst. The same data is written to tools/dragon_rig/animations.json.
+the dragon; the Root bone only rotates, plus a small vertical crouch/heave/hop). Loops are seamless (the last frame
+equals the first). Timeline markers (action pose markers) name where Roblox fires effects: FX_Flap (each downbeat),
+FX_TakeOff, FX_Land, FX_Roar, FX_Burst, FX_Sneeze, FX_LevelUp, FX_Attack, FX_Hit. The same data is written to
+tools/dragon_rig/animations.json.
 
 How the motion is made: each action is a function of time giving the "driver" pose (key poses eased into each other,
 or periodic waves for loops); follow-through comes from delaying bones further down a chain (neck -> head, wing
@@ -124,7 +125,8 @@ WINGS_FOLDED = wings(Upper=(38, 66, 0), Fore=(-45, 0, 0), Hand=(25, 0, 0), Tip=(
 # Wings half open (Roar, proud stance)
 WINGS_HALF = wings(Upper=(28, 22, 5), Fore=(-10, 20, 0), Hand=(0, -25, 0), Tip=(0, -8, 0))
 # Wings wide ("star pose", Glide base): slight dihedral, tips spread
-WINGS_WIDE = wings(Upper=(8, -8, 0), Fore=(0, -4, 0), Hand=(2, -8, 0), Tip=(4, -16, 0))
+# (more dihedral, the Hand/Tip fanned forward and twisted up: the membrane is spread wide and reads from the front)
+WINGS_WIDE = wings(Upper=(14, -8, 0), Fore=(2, -6, 3), Hand=(6, -24, 8), Tip=(12, -40, 10))
 # Wings wrapped around the body (Reveal: curled in a ball)
 WINGS_WRAPPED = wings(Upper=(-20, -55, 30), Fore=(-40, 40, 0), Hand=(-30, 70, 0), Tip=(-20, 30, 0))
 
@@ -184,12 +186,16 @@ def flight_wings(t, period, amp=1.0, base=0.0, phase=0.0):
     the outer segments lagging (wingtips trail the beat)."""
     out = {}
     lag = {"Upper": 0.0, "Fore": 0.45, "Hand": 0.9, "Tip": 1.3}
-    gain = {"Upper": 27, "Fore": 9, "Hand": 7, "Tip": 6}
+    # the shoulder rises less than it falls (less membrane stretch at the top of the beat); the outer segments bend
+    # more on the way up instead, so the stroke still reads big. The wing also sweeps back a little at the top.
+    gain_up = {"Upper": 18, "Fore": 12, "Hand": 9, "Tip": 7}
+    gain_down = {"Upper": 26, "Fore": 10, "Hand": 7, "Tip": 6}
     for seg in ("Upper", "Fore", "Hand", "Tip"):
         f = flap_wave(t, period, phase=phase + lag[seg])
         up = max(0.0, flap_wave(t, period, phase=phase + lag[seg] + 0.6))  # the upstroke half
-        flap = (base + (6 if seg == "Upper" else 0)) + amp * gain[seg] * f
-        sweep = amp * {"Upper": -6 * f, "Fore": 14 * up, "Hand": -18 * up, "Tip": -10 * up}[seg]
+        flap = (base + (5 if seg == "Upper" else 0)) + amp * (gain_up if f > 0 else gain_down)[seg] * f
+        sweep = amp * {"Upper": 4 * max(f, 0.0) + 6 * min(f, 0.0), "Fore": 14 * up, "Hand": -18 * up,
+                       "Tip": -10 * up}[seg]
         twist = amp * {"Upper": 4 * f, "Fore": 6 * f, "Hand": 8 * f, "Tip": 6 * f}[seg]
         out.update(wing(seg, flap, sweep, twist))
     return out
@@ -213,11 +219,16 @@ def idle():
         look = wave(t, T_)
         look = math.copysign(abs(look) ** 0.55, look)  # linger when looking to a side
         nod = wave(t, T_ / 2, 1.2)
+        # an occasional wing shuffle: the wings lift, flutter and settle once per loop (zero at the loop ends)
+        u = (t - 2.35) / 0.8
+        shuffle = math.sin(math.pi * u) if 0 < u < 1 else 0.0
+        flutter = shuffle * math.sin(2 * math.pi * 6 * (t - 2.35))
         pose = add(GROUND,
-                   chain(SPINE, x=-1.2 * breath), P(Root=(0, 1.8 * wave(t, T_, 0.8), 0)),
-                   chain(NECK, x=-2.0 * breath + 2.5 * nod, z=9 * look), P(Head=(3 * nod, 0, 10 * look)),
-                   P(Jaw=(1.5 * max(0.0, breath), 0, 0)),
-                   wings(Upper=(2.5 * breath, 0, 0), Fore=(-1.5 * breath, 0, 0)),
+                   chain(SPINE, x=-2.2 * breath), P(Root=(0, 1.8 * wave(t, T_, 0.8), 0)),
+                   chain(NECK, x=-3.0 * breath + 3 * nod, z=14 * look), P(Head=(4 * nod, 0, 16 * look)),
+                   P(Jaw=(2.0 * max(0.0, breath), 0, 0)),
+                   wings(Upper=(4 * breath + 12 * shuffle, -6 * shuffle, 0), Fore=(-2 * breath, 0, 0),
+                         Hand=(5 * flutter, 0, 0), Tip=(7 * flutter, 0, 0)),
                    legs("F", upper=1.2 * wave(t, T_, 0.8)), legs("B", upper=-1.2 * wave(t, T_, 0.8)))
         for i, b in enumerate(TAIL):  # a slow curl traveling down the tail
             pose = add(pose, {b: [2.5 * wave(t, T_, 0.6 + 0.5 * i), 0, 5 + 7 * wave(t, T_, 0.5 * i)]})
@@ -241,7 +252,7 @@ def glide():
     def drive(t):
         bank = wave(t, T_)
         pose = add(FLIGHT,
-                   P(Root=(1.5 * wave(t, T_ / 2), 3.5 * bank, 0)),
+                   P(Root=(1.5 * wave(t, T_ / 2), 0, 4 * bank)),
                    wings(Upper=(3 * wave(t, T_ / 2, 0.3), 2 * wave(t, T_, 1.0), 2 * wave(t, T_ / 2)),
                          Hand=(2.5 * wave(t, T_ / 2, 0.9), 0, 0), Tip=(3.5 * wave(t, T_ / 2, 1.3), 3 * wave(t, T_, 1.4), 0)),
                    chain(NECK, x=1.2 * wave(t, T_ / 2, 0.5), z=-3 * bank), P(Head=(0, 0, -4 * bank)))
@@ -314,7 +325,7 @@ def roar():
 def reveal():
     # 0.0-1.0 curled in a ball (a slow, tense pulse); 1.0-1.25 bursts open into the star pose (FX_Burst) and roars;
     # 1.25-2.4 holds the star pose, floating; 2.4-3.0 settles into the Idle start pose.
-    ball = add(WINGS_WRAPPED, LEGS_CURLED, chain(NECK, x=26), P(Head=(22, 0, 0)), P(Jaw=(0, 0, 0)),
+    ball = add(WINGS_WRAPPED, LEGS_CURLED, chain(NECK, x=15, z=14), P(Head=(10, 0, 12)), P(Jaw=(0, 0, 0)),
                chain(SPINE, x=10), P(Root=(12, 0, 0)), chain(TAIL, z=-26, x=4))
     star = add(WINGS_WIDE, wings(Upper=(14, -6, 0), Tip=(8, -8, 0)), legs("F", upper=-18, lower=10, splay=10),
                legs("B", upper=-6, splay=8), chain(NECK, x=-10, grow=0.2), P(Head=(-18, 0, 0)), P(Jaw=(34, 0, 0)),
@@ -336,6 +347,251 @@ def reveal():
         {"delay": 1.0, "spring": True, "root_drop": [(0.0, 0.0), (0.95, -0.015), (1.2, 0.03), (1.5, 0.0)]}
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Personality, roost and battle actions
+
+# Lying down (Sleep): back legs folded under, front legs forward (sphinx), body on the ground (the Root drops)
+LEGS_LYING = add(legs("B", upper=-35, lower=100, foot=-70), legs("F", upper=-70, lower=40, foot=20))
+LYING_DROP = -0.2  # share of REFERENCE_HEIGHT
+
+
+def leg_one(leg, upper=0.0, lower=0.0, foot=0.0):
+    return {f"Leg_{leg}_Upper": [upper, 0, 0], f"Leg_{leg}_Lower": [lower, 0, 0], f"Leg_{leg}_Foot": [foot, 0, 0]}
+
+
+def env(t, t0, t1, fade=0.15):
+    """1 inside [t0, t1] with smooth fades at both ends, 0 outside."""
+    return smooth((t - t0) / fade) * (1 - smooth((t - (t1 - fade)) / fade))
+
+
+def sleep():
+    # curled up on the ground: head curled round to the right, the tail wrapped round the same way over the nose;
+    # two slow, deep breaths per loop
+    T_ = 5.0
+    # the tail turns hard at its base to run forward along the right flank, and its tip hooks in over the nose
+    # (long tails reach past the head, so the tip curls back in)
+    tail = {"Tail1": [-4, 0, 80], "Tail2": [0, 0, 70], "Tail3": [0, 0, 20], "Tail4": [0, 0, 6], "Tail5": [0, 0, 22],
+            "Tail6": [4, 0, 40]}
+    curled = add(GROUND, wings(Upper=(-12, 6, 0)), LEGS_LYING, P(Root=(4, 0, 0)),
+                 chain(NECK, x=7, z=30), P(Head=(12, 0, 30)), tail)
+
+    def drive(t):
+        b = wave(t, T_ / 2)
+        return add(curled, chain(SPINE, x=-2.8 * b), wings(Upper=(3.5 * b, 0, 0)), P(Head=(-1.2 * b, 0, 0)),
+                   {"Tail6": [0, 0, 3 * wave(t, T_, 1.0)]})
+    return 150, True, drive, {}, {"delay": 0.0, "spring": False,
+                                  "root_drop": lambda t: LYING_DROP + 0.012 * wave(t, T_ / 2, 0.5)}
+
+
+def happy_hop():
+    # looks up toward the viewer with a head tilt, a little hop with a wing flick, tail wagging all through
+    look = add(GROUND, chain(NECK, x=-6, z=-6), P(Head=(-8, 18, -8)))
+    crouch = add(look, mul(LEGS_CROUCH, 0.9), wings(Upper=(8, 0, 0)))
+    air = add(look, legs("B", upper=12, lower=-10, foot=20), legs("F", upper=10, lower=-15, foot=15),
+              wings(Upper=(26, -10, 0), Fore=(-10, -10, 0)), chain(TAIL, x=6), P(Root=(-6, 0, 0)))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.3, look), (0.58, crouch), (0.8, air), (1.05, add(look, mul(LEGS_CROUCH, 0.5))),
+                      (1.35, look), (2.0, GROUND)], t)
+        wag = math.sin(math.pi * min(t / 2.0, 1.0))
+        tail = {b: [0, 0, 11 * wag * math.sin(2 * math.pi * 3 * t - 0.6 * i)] for i, b in enumerate(TAIL)}
+        wiggle = P(Root=(0, 0, 3 * env(t, 1.1, 1.7) * math.sin(2 * math.pi * 4 * t)))
+        return add(base, tail, wiggle)
+    return 60, False, drive, {}, {"delay": 1.0, "spring": True,
+                                  "root_drop": [(0.0, 0.0), (0.5, 0.0), (0.62, -0.05), (0.82, 0.18), (1.02, -0.03),
+                                                (1.3, 0.0)]}
+
+
+def sneeze():
+    # the breath builds (head up, jaw opening), a sharp jerk forward-down (FX_Sneeze), then a little head shake
+    build = add(GROUND, chain(NECK, x=-5), P(Head=(-14, 0, 0), Jaw=(10, 0, 0)), P(Root=(-4, 0, 0)))
+    peak = add(build, chain(NECK, x=-2), P(Head=(-6, 0, 0), Jaw=(4, 0, 0)))
+    achoo = add(GROUND, chain(NECK, x=10), P(Head=(18, 0, 0), Jaw=(0, 0, 0)), P(Root=(7, 0, 0)),
+                wings(Upper=(14, -8, 0)), chain(TAIL, x=8))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.35, build), (0.66, peak), (0.74, achoo), (0.95, add(GROUND, chain(NECK, x=3))),
+                      (1.5, GROUND)], t)
+        k = env(t, 0.85, 1.35, 0.1)
+        return add(base, P(Head=(0, 0, 7 * k * math.sin(2 * math.pi * 7 * t))),
+                   chain(NECK, z=3 * k * math.sin(2 * math.pi * 7 * t - 0.6)))
+    return 45, False, drive, {"FX_Sneeze": [22]}, {"delay": 0.6, "spring": True, "root_drop": None}
+
+
+def stretch():
+    # a cat-like stretch (front legs forward, chest low, wings up and wide), a big yawn, then the wings shake out
+    prep = add(GROUND, mul(LEGS_CROUCH, 0.4), chain(NECK, x=4))
+    reach = add(WINGS_WIDE, wings(Upper=(24, -4, 0), Tip=(6, -6, 0)), legs("F", upper=-42, lower=-12, foot=-10),
+                legs("B", upper=8, lower=-6), P(Root=(11, 0, 0)), chain(SPINE, x=4), chain(NECK, x=-6),
+                P(Head=(-12, 0, 0), Jaw=(12, 0, 0)), chain(TAIL, x=-2))  # tail kept level against the Root pitch
+    yawn = add(reach, P(Head=(-8, 0, 0), Jaw=(28, 0, 0)), wings(Upper=(6, -4, 0)))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.45, prep), (1.15, reach), (1.7, yawn),
+                      (2.1, add(WINGS_HALF, P(Root=(2, 0, 0)))), (3.0, GROUND)], t)
+        k = env(t, 1.95, 2.55, 0.12)
+        return add(base, wings(Upper=(6 * k * math.sin(2 * math.pi * 9 * t), 0, 0),
+                               Hand=(10 * k * math.sin(2 * math.pi * 9 * t - 1.0), 0, 0),
+                               Tip=(12 * k * math.sin(2 * math.pi * 9 * t - 2.0), 0, 0)))
+    return 90, False, drive, {}, {"delay": 1.0, "spring": True, "root_drop": [(0.0, 0.0), (0.45, -0.02), (1.15, -0.03),
+                                                                              (2.1, 0.0)]}
+
+
+def preen():
+    # turns round to the left wing (lifted a little toward the head) and nibbles at it, then back
+    left_wing_up = wing("Upper", flap=14, sweep=-22, sides=("L",))
+    left_wing_up.update(wing("Fore", flap=10, sweep=-10, sides=("L",)))
+    turn = add(GROUND, left_wing_up, chain(NECK, x=5, z=-26), P(Head=(22, 0, -26)), P(Root=(0, 6, 0)))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.65, turn), (2.3, turn), (3.0, GROUND)], t)
+        k = env(t, 0.75, 2.25, 0.15)
+        nib = math.sin(2 * math.pi * 4 * t)
+        return add(base, P(Head=(5 * k * nib, 0, 0), Jaw=(6 * k * (0.5 + 0.5 * nib), 0, 0)),
+                   chain(NECK, z=3 * k * math.sin(2 * math.pi * 1.5 * t)), wing("Hand", flap=3 * k * nib, sides=("L",)))
+    return 90, False, drive, {}, {"delay": 1.0, "spring": True, "root_drop": None}
+
+
+def shake():
+    # a wet-dog shake: a roll wave running from the body to the head and down the tail, wings half open and ruffling
+    half = lerp_pose(GROUND, WINGS_HALF, 0.6)
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.18, half), (1.15, half), (1.5, GROUND)], t)
+        k = env(t, 0.05, 1.3, 0.22)
+        w = 2 * math.pi * 5 * t
+        r = 2 * math.pi * 7 * t
+        pose = add(base, P(Root=(0, 3 * k * math.sin(w - 0.4), 12 * k * math.sin(w))),
+                   chain(SPINE, z=5 * k * math.sin(w - 0.8)), chain(NECK, z=7 * k * math.sin(w - 1.5)),
+                   P(Head=(0, 0, 10 * k * math.sin(w - 2.2))),
+                   wings(Upper=(8 * k * math.sin(r), 0, 0), Hand=(10 * k * math.sin(r - 1), 0, 0),
+                         Tip=(12 * k * math.sin(r - 2), 0, 0)))
+        for i, b in enumerate(TAIL):
+            pose = add(pose, {b: [0, 0, 9 * k * math.sin(w - 1.2 - 0.5 * i)]})
+        return pose
+    return 45, False, drive, {}, {"delay": 0.0, "spring": False, "root_drop": None}
+
+
+def tail_flick():
+    # a small wind-up to the left, then a whip to the right that travels to the tip (chain delay + springs)
+    wind = add(GROUND, chain(TAIL, z=-16, x=3))
+    flick = add(GROUND, chain(TAIL, z=24, x=9, grow=0.15), P(Head=(0, 0, 6)))
+
+    def drive(t):
+        return keyed([(0.0, GROUND), (0.25, wind), (0.42, flick), (0.68, add(GROUND, chain(TAIL, z=-4))),
+                      (1.0, GROUND)], t)
+    return 30, False, drive, {}, {"delay": 1.4, "spring": True, "root_drop": None}
+
+
+def barrel_roll():
+    # in flight: a small counter-roll, a full roll to the right with the wings swept back, a little overshoot, then
+    # flapping back into the FlyLoop (it ends on the FlyLoop's first frame)
+    period = 1.2
+    tucked = add(FLIGHT, wings(Upper=(-4, 22, 0), Hand=(0, 10, 0)), chain(NECK, x=-3))
+
+    def drive(t):
+        base = keyed([(0.0, FLIGHT), (0.28, add(tucked, P(Root=(0, 0, -22)))), (1.25, add(tucked, P(Root=(0, 0, 360)))),
+                      (1.55, add(FLIGHT, P(Root=(0, 0, 366)))), (2.0, add(FLIGHT, P(Root=(0, 0, 360))))], t)
+        tail = {b: [0, 0, -8 * env(t, 0.3, 1.4, 0.3) * (1 + 0.2 * i)] for i, b in enumerate(TAIL)}
+        k = smooth((t - 1.2) / 0.4)
+        beats = add(flight_wings(t + 0.4, period, amp=k), flap_heave(t + 0.4, period, amp=k)) if k > 0 else {}
+        return add(base, tail, beats)
+    return 60, False, drive, {}, {"delay": 1.0, "spring": True, "root_drop": None}
+
+
+def evolve():
+    # gathers itself, rises while spinning once round, flings the wings wide at the peak with a roar (FX_Burst),
+    # floats a moment, then settles back to the ground pose
+    gather = add(GROUND, wings(Upper=(0, 10, 0)), LEGS_CROUCH, chain(NECK, x=6), P(Head=(6, 0, 0)), P(Root=(5, 0, 0)))
+    spin_pose = add(lerp_pose(WINGS_FOLDED, WINGS_HALF, 0.5), mul(LEGS_TUCKED, 0.5), chain(TAIL, x=-3))
+    star = add(WINGS_WIDE, wings(Upper=(20, -6, 0), Tip=(8, -8, 0)), legs("F", upper=-18, lower=10, splay=10),
+               legs("B", upper=-6, splay=8), chain(NECK, x=-10, grow=0.2), P(Head=(-18, 0, 0), Jaw=(32, 0, 0)),
+               chain(SPINE, x=-5), P(Root=(-8, 0, 0)))
+
+    def drive(t):
+        spin = keyed([(0.0, {"Root": [0, 0, 0]}), (0.4, {"Root": [0, 0, 0]}), (1.95, {"Root": [0, 360, 0]}),
+                      (3.0, {"Root": [0, 360, 0]})], t)
+        base = keyed([(0.0, GROUND), (0.4, gather), (1.0, spin_pose), (1.8, spin_pose), (2.05, star),
+                      (2.5, add(star, P(Jaw=(-26, 0, 0)))), (3.0, GROUND)], t)
+        k = env(t, 2.05, 2.55, 0.15)
+        return add(base, spin, wings(Upper=(3 * k * math.sin((t - 2.05) * 9), 0, 0),
+                                     Tip=(4 * k * math.sin((t - 2.05) * 9 - 1), 0, 0)))
+    return 90, False, drive, {"FX_Burst": [60]}, {"delay": 1.0, "spring": True,
+                                                  "root_drop": [(0.0, 0.0), (0.4, -0.04), (1.9, 0.15), (2.5, 0.13),
+                                                                (3.0, 0.0)]}
+
+
+def level_up():
+    # a small dip, then chest out and head high (FX_LevelUp), a proud little shake of wings and tail, settle
+    proud = add(lerp_pose(WINGS_FOLDED, WINGS_HALF, 0.5), P(Root=(-8, 0, 0)), chain(SPINE, x=-4), chain(NECK, x=-6),
+                P(Head=(-10, 0, 0)), chain(TAIL, x=5))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.2, add(GROUND, mul(LEGS_CROUCH, 0.4), P(Head=(5, 0, 0)))), (0.45, proud),
+                      (1.05, proud), (1.5, GROUND)], t)
+        k = env(t, 0.5, 1.05, 0.12)
+        return add(base, P(Root=(0, 0, 5 * k * math.sin(2 * math.pi * 6 * t))),
+                   wings(Upper=(6 * k * math.sin(2 * math.pi * 8 * t), 0, 0),
+                         Tip=(8 * k * math.sin(2 * math.pi * 8 * t - 1.2), 0, 0)),
+                   {b: [0, 0, 8 * k * math.sin(2 * math.pi * 5 * t - 0.5 * i)] for i, b in enumerate(TAIL)})
+    return 45, False, drive, {"FX_LevelUp": [12]}, {"delay": 1.0, "spring": True,
+                                                    "root_drop": [(0.0, 0.0), (0.2, -0.02), (0.45, 0.02), (1.0, 0.01),
+                                                                  (1.5, 0.0)]}
+
+
+def attack():
+    # rears back with the right front claw raised, lunges into a bite (jaw snaps shut, FX_Attack) with a swipe
+    wind = add(WINGS_HALF, P(Root=(-10, 0, 0)), chain(NECK, x=-6), P(Head=(-10, 0, 0), Jaw=(10, 0, 0)),
+               leg_one("FR", upper=-55, lower=45, foot=-10))
+    bite = add(WINGS_HALF, P(Root=(12, 0, 0)), chain(NECK, x=4), P(Head=(8, 0, 0), Jaw=(36, 0, 0)),
+               leg_one("FR", upper=38, lower=-10, foot=15))
+    snap = add(bite, P(Jaw=(-36, 0, 0)))
+
+    def drive(t):
+        return keyed([(0.0, GROUND), (0.25, wind), (0.37, bite), (0.45, snap), (0.62, snap), (1.0, GROUND)], t)
+    return 30, False, drive, {"FX_Attack": [13]}, {"delay": 0.7, "spring": True,
+                                                   "root_drop": [(0.0, 0.0), (0.25, 0.02), (0.42, -0.02), (0.8, 0.0)]}
+
+
+def hit():
+    # flinches back and away (FX_Hit on the first frames), then springs back
+    recoil = add(GROUND, P(Root=(-10, 0, 5)), chain(NECK, x=-8, z=6), P(Head=(-12, 0, 8)), wings(Upper=(12, -10, 0)),
+                 chain(TAIL, x=6))
+
+    def drive(t):
+        return keyed([(0.0, GROUND), (0.07, recoil), (0.6, GROUND)], t)
+    return 18, False, drive, {"FX_Hit": [1]}, {"delay": 0.6, "spring": True, "root_drop": None}
+
+
+def victory():
+    # a wind-up, then a proud roar with the wings raised high and spread (FX_Roar), hold, settle
+    wind = add(GROUND, chain(NECK, x=7), P(Head=(10, 0, 0)), P(Root=(4, 0, 0)), wings(Upper=(-6, 8, 0)))
+    up = add(wings(Upper=(55, -6, 0), Fore=(10, -10, 0), Hand=(4, -24, 6), Tip=(6, -30, 8)),
+             chain(NECK, x=-12, grow=0.2), P(Head=(-16, 0, 0), Jaw=(34, 0, 0)), chain(SPINE, x=-4), P(Root=(-9, 0, 0)),
+             legs("F", upper=-6), chain(TAIL, x=8, grow=0.2))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.32, wind), (0.6, up), (1.45, add(up, P(Jaw=(-8, 0, 0)))), (2.0, GROUND)], t)
+        k = env(t, 0.6, 1.45, 0.12)
+        return add(base, wings(Tip=(3 * k * math.sin(t * 30), 0, 0)))
+    return 60, False, drive, {"FX_Roar": [18]}, {"delay": 1.0, "spring": True,
+                                                 "root_drop": [(0.0, 0.0), (0.32, -0.02), (0.6, 0.02), (1.45, 0.02),
+                                                               (2.0, 0.0)]}
+
+
+def defeat():
+    # head sinks, wings droop open and low, the body sags, one slow sigh; ends slumped (the game holds or fades out)
+    slump = add(WINGS_FOLDED, wings(Upper=(-30, -18, 0), Fore=(-12, 0, 0), Hand=(-10, 0, 0)), mul(LEGS_CROUCH, 0.6),
+                P(Root=(4, 0, 0)), chain(NECK, x=10), P(Head=(14, 0, 0)), chain(TAIL, x=-2))
+    lower = add(slump, chain(NECK, x=3), P(Head=(5, 0, 0)))
+
+    def drive(t):
+        base = keyed([(0.0, GROUND), (0.65, slump), (2.0, lower)], t)
+        sigh = env(t, 1.0, 1.8, 0.35)
+        return add(base, chain(SPINE, x=-3.5 * sigh), wings(Upper=(4 * sigh, 0, 0)))
+    return 60, False, drive, {}, {"delay": 1.2, "spring": True, "root_drop": [(0.0, 0.0), (0.65, -0.07), (2.0, -0.08)]}
+
+
 ACTIONS = {
     "Dragon_Idle": idle,
     "Dragon_TakeOff": take_off,
@@ -344,6 +600,20 @@ ACTIONS = {
     "Dragon_Land": land,
     "Dragon_Roar": roar,
     "Dragon_Reveal": reveal,
+    "Dragon_Sleep": sleep,
+    "Dragon_HappyHop": happy_hop,
+    "Dragon_Sneeze": sneeze,
+    "Dragon_Stretch": stretch,
+    "Dragon_Preen": preen,
+    "Dragon_Shake": shake,
+    "Dragon_TailFlick": tail_flick,
+    "Dragon_BarrelRoll": barrel_roll,
+    "Dragon_Evolve": evolve,
+    "Dragon_LevelUp": level_up,
+    "Dragon_Attack": attack,
+    "Dragon_Hit": hit,
+    "Dragon_Victory": victory,
+    "Dragon_Defeat": defeat,
 }
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -396,6 +666,8 @@ def root_drop(follow, t, scale):
     keys = follow.get("root_drop") if follow else None
     if not keys:
         return 0.0
+    if callable(keys):
+        return keys(t) * scale
     if t <= keys[0][0]:
         return keys[0][1] * scale
     for (t0, a), (t1, b) in zip(keys, keys[1:]):

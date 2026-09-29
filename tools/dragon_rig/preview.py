@@ -130,6 +130,10 @@ if opts["action"]:
 else:
     start = end = 1
     name = "rest"
+    if rig.animation_data and rig.animation_data.action:  # the rest pose, whatever action the file had active
+        rig.animation_data.action = None
+        for pb in rig.pose.bones:
+            pb.matrix_basis.identity()
 if opts["all"]:
     frames = list(range(start, end + 1, opts["step"]))
 elif opts["frames"]:
