@@ -24,3 +24,4 @@ Thumbs.db
 *.blend1
 assets/Dragons/previews/
 assets/Dragons/blend/
+__pycache__/
