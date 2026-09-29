@@ -97,6 +97,15 @@ function Toast.Build(parent: Instance, text: string, kind: string?, icon: string
 	label.TextWrapped = false
 	label.ZIndex = 2
 	Style.Outline(label, 1.5)
+	-- A long line shrinks its text until the pill fits the toast area (it never clips at the edges).
+	local function fit()
+		local room = holder.AbsoluteSize.X - 12
+		if room > 0 and pill.AbsoluteSize.X > room and label.TextSize > 10 then
+			label.TextSize -= 1
+		end
+	end
+	pill:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 	return holder, group, pill
 end
 

@@ -313,6 +313,12 @@ function HudLayout.AddMenuButton(id: string): TextButton
 	return icon.Instance
 end
 
+-- A left-column icon's button (e.g. to fly Spire drops into "Inventory"), or nil if it doesn't exist.
+function HudLayout.GetMenuButton(id: string): GuiObject?
+	local entry = entries[id]
+	return if entry then entry.Icon.Instance else nil
+end
+
 -- Changes a menu icon's label (e.g. "Rebirth ★3"); phones can use a shorter one ("★3").
 function HudLayout.SetMenuText(id: string, text: string, phoneText: string?)
 	local entry = entries[id]

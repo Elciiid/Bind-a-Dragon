@@ -53,8 +53,11 @@ return {
 		BoardSize = Vector2.new(150, 40), -- pixels: icon + count / price / record boards
 		MerchantBoardSize = Vector2.new(230, 58),
 		SpireBoardSize = Vector2.new(210, 58),
-		MerchantResetText = "New prices at dawn",
+		MerchantResetText = "New prices at dawn", -- in the board's tooltip line under the price
 		SpireClimbText = "Climb!",
+		-- While a station's own prompt shows, its board hides (one thing at a time); so does your own ★ badge.
+		HideBoardWithPrompt = true,
+		BadgeHideRange = 45, -- studs: your own ★ badge also hides this close to the Spire / merchant board
 	},
 
 	-- Roost upgrade stands on each sanctuary forecourt (UpgradeStandController; the art is built in Studio by

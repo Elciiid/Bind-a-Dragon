@@ -260,6 +260,12 @@ return {
 		PhoneTravelSlot = 62,
 		PhoneCardScale = 0.55, -- phones: Inventory dragon and potion cards are drawn this much smaller (a full row fits)
 		PhoneSkyIcon = 40,
+		SpireHud = Vector2.new(500, 150), -- PC: the Spire battle HUD (bottom center); phones draw it at PhoneSpireScale
+		PhoneSpireScale = 0.6,
+		SpirePortrait = 104, -- dragon portraits in the HUD
+		SpireFloorBadge = Vector2.new(170, 46), -- the big "Floor 40" badge on the HUD's top edge
+		SpireMini = Vector2.new(150, 46), -- the HUD minimized (Hide): just the floor badge
+		SpireDropIcon = 40, -- drops flying to the Inventory button
 
 		-- UI renewal HUD (pixels). Icons are ~1.5x the old tile icons; labels in the title font.
 		HudIcon = 80, -- PC: left column icons (Inventory, Quests, Shop, Rebirth)
@@ -292,6 +298,10 @@ return {
 	},
 
 	Motion = {
+		SpireChip = 1.3, -- seconds a "Floor 39 cleared!" chip stays before it fades
+		SpireFly = 0.75, -- seconds a drop icon takes to fly to the Inventory button
+		SpireHit = 0.6, -- seconds between the portraits' "hits" during a fight
+		SpireMaxFlyers = 8, -- at most this many drop icons in the air (fast floors can drop a lot)
 		PopIn = 0.18, -- window open (scale 0.85 -> 1, Back easing)
 		PopOut = 0.12,
 		StartScale = 0.85,

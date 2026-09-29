@@ -122,10 +122,11 @@ local function rollDrops(drops: { SpireConfig.Drop }, floor: number, rewardMulti
 	return reward
 end
 
-local function getEnemy(floor: number): string
+-- The floor's enemy: (name, species id). Display only; its power comes from DragonStats.GetEnemyPower.
+local function getEnemy(floor: number): (string, string)
 	local speciesId = speciesIds[(floor * 7) % #speciesIds + 1]
 	local species = Dragons[speciesId]
-	return if species then species.Name else "Wild Dragon"
+	return if species then species.Name else "Wild Dragon", speciesId
 end
 
 -- The Tower Elevator (pass, or one Elevator Skip) starts above the record: no fast floors and no re-clears.
@@ -190,13 +191,17 @@ local function climb(player: Player, useElevator: boolean)
 		-- Far weaker enemies go fast; an already-cleared floor won that way gives nothing (no farming).
 		local fast = power >= enemyPower * SpireConfig.PowerFastRatio
 		local seconds = if fast then SpireConfig.FastFloorSeconds else SpireConfig.FightSeconds
+		local enemyName, enemyId = getEnemy(floor)
 		spireUpdate:FireClient(player, {
 			Phase = "Fight",
 			Floor = floor,
 			Boss = DragonStats.IsBossFloor(floor),
 			Dragon = if species then species.Name else "Your dragon",
+			SpeciesId = best.SpeciesId, -- for the HUD portraits
+			Level = best.Level,
 			Power = power,
-			Enemy = getEnemy(floor),
+			Enemy = enemyName,
+			EnemyId = enemyId,
 			EnemyPower = enemyPower,
 			Seconds = seconds,
 			Fast = fast,
@@ -239,6 +244,8 @@ local function climb(player: Player, useElevator: boolean)
 			Floor = floor,
 			FirstClear = firstClear,
 			Rewards = table.concat(parts, ", "),
+			Reward = reward, -- the items, so the HUD can fly their icons to the Inventory button
+			Gold = gold,
 			Record = data.SpireRecord,
 		})
 		floor += 1

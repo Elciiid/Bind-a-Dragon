@@ -484,7 +484,8 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	end
 end
 
--- The in-world look (prompts, boards, banners over things): the window style made small. Navy glass, a gold border,
+-- The in-world look (prompts, boards, banners over things): the window style made small. Indigo -> violet with the
+-- faint sparkle pattern, a gold border,
 -- a small gold diamond on each end and (optionally) a little gold star on top. `accent` tints the inner line.
 function Style.WorldPanel(frame: GuiObject, accent: Color3?, star: boolean?)
 	local world = UITheme.WorldPanel
@@ -493,6 +494,7 @@ function Style.WorldPanel(frame: GuiObject, accent: Color3?, star: boolean?)
 	Style.Gradient(frame, UITheme.Colors.PanelV2Top, UITheme.Colors.PanelV2Bottom)
 	Style.Corner(frame, world.Corner)
 	Style.GoldBorder(frame, world.Border)
+	Style.Pattern(frame, world.Corner, 0) -- the panels' faint sparkles, under the content
 	if accent then
 		local inner = Instance.new("Frame")
 		inner.Name = "AccentLine"

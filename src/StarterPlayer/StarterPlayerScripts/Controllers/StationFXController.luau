@@ -4,9 +4,13 @@
 --  * Dragonstone Forge: a board with your Dragonstones; the forge's fire flares while you have any.
 --  * Star Merchant: tonight's Stardust price for you and when it resets.
 --  * Dragon Spire door: your record floor and "Climb!".
+-- One thing at a time: while a station's own prompt shows (e.g. the Spire's "Climb" E prompt), its board hides, and so
+-- does your own ★ rebirth badge (so it never covers the prompt).
 -- Settings: Config/WorldUI Stations.
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataController = require(script.Parent.DataController)
@@ -16,7 +20,6 @@ local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
-local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 local WorldUI = require(ReplicatedStorage.Shared.Config.WorldUI)
 
 local Stations = WorldUI.Stations
@@ -28,6 +31,7 @@ local StationFXController = {}
 local glowing: { [Instance]: Glowing } = {}
 local merchants: { [Instance]: WorldBoard.WorldBoard } = {}
 local spires: { [Instance]: WorldBoard.WorldBoard } = {}
+local openPrompts: { [ProximityPrompt]: boolean } = {}
 
 local function modelTop(model: Instance): (BasePart?, number)
 	local part = if model:IsA("Model") then model.PrimaryPart elseif model:IsA("BasePart") then model else nil
@@ -57,10 +61,10 @@ local function refresh()
 	end
 	local price = DragonStats.GetMerchantPrice(data, Cycle.GetState().NightIndex)
 	for _, board in merchants do
-		board:Set(`{Economy.Merchant.BundleSize} Stardust: {Format.Number(price)} gold`, Stations.MerchantResetText)
+		board:Set(`{Economy.Merchant.BundleSize} Stardust`, `{Format.Number(price)} gold · {Stations.MerchantResetText}`)
 	end
 	for _, board in spires do
-		board:Set(`Record floor {data.SpireRecord}/{SpireConfig.MaxFloors}`, Stations.SpireClimbText)
+		board:Set(`Best floor {data.SpireRecord}`, Stations.SpireClimbText)
 	end
 end
 
@@ -155,7 +159,66 @@ local function watch(tag: string, fn: (Instance) -> ())
 	end
 end
 
+-- Hides a station's board while one of its own prompts shows, and your own ★ badge while any prompt shows.
+local function updatePromptHiding()
+	local anyOpen = next(openPrompts) ~= nil
+	for _, list in { merchants, spires } do
+		for station, board in list do
+			local covered = false
+			for prompt in openPrompts do
+				if prompt:IsDescendantOf(station) then
+					covered = true
+				end
+			end
+			board:SetEnabled(not covered)
+		end
+	end
+	for station, glow in glowing do
+		local covered = false
+		for prompt in openPrompts do
+			if prompt:IsDescendantOf(station) then
+				covered = true
+			end
+		end
+		glow.Board:SetEnabled(not covered)
+	end
+	local character = Players.LocalPlayer.Character
+	local head = character and character:FindFirstChild("Head")
+	local badge = head and head:FindFirstChild("RebirthBadge")
+	if badge and badge:IsA("BillboardGui") then
+		-- your own badge also hides near a station board, where it would sit right in front of it
+		local nearBoard = false
+		if head and head:IsA("BasePart") then
+			for _, list in { merchants, spires } do
+				for _, board in list do
+					local adornee = board.Gui.Adornee
+					if adornee and adornee:IsA("BasePart") and (adornee.Position - head.Position).Magnitude <= Stations.BadgeHideRange then
+						nearBoard = true
+					end
+				end
+			end
+		end
+		badge.Enabled = not anyOpen and not nearBoard
+	end
+end
+
 function StationFXController:Start()
+	if Stations.HideBoardWithPrompt then
+		ProximityPromptService.PromptShown:Connect(function(prompt)
+			openPrompts[prompt] = true
+			updatePromptHiding()
+		end)
+		ProximityPromptService.PromptHidden:Connect(function(prompt)
+			openPrompts[prompt] = nil
+			updatePromptHiding()
+		end)
+	end
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			updatePromptHiding() -- the ★ badge check follows the player around
+		end
+	end)
 	watch("RuneShrine", function(instance)
 		setupGlow(instance, "Rune")
 	end)

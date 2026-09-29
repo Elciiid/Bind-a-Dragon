@@ -34,6 +34,26 @@ local Text = {
 	},
 	SpirePanelTitle = "Dragon Spire", -- the banner on the Spire card
 	SpireStuckTip = "Level up, inscribe runes and temper grades, or use a Wyrmblood Tonic to go higher.",
+	-- Spire battle HUD (SpireController). {floor}, {from}, {to}, {record}, {n} are filled in.
+	Spire = {
+		Floor = "Floor {floor}",
+		Floors = "Floors {from}-{to}",
+		Record = "Record {record}",
+		Best = "Best {record}",
+		Boss = "BOSS",
+		Vs = "VS",
+		Cleared = "Floor {floor} cleared!", -- the chip that pops over the HUD (first clears also sparkle)
+		Ready = "Your best dragon climbs!",
+		Fast = "Zooming up...",
+		Lost = "Beaten on floor {floor}",
+		Top = "You reached the top!",
+		Stopped = "Climb stopped",
+		Climb = "Climb",
+		Again = "Climb again",
+		Elevator = "Elevator {floor}",
+		ElevatorLeft = "Elevator {floor} ({n})",
+		Stop = "Stop",
+	},
 	PortalLocked = "Rebirth {rebirths}", -- under the lock on a portal the player can't use yet
 
 	-- Day/night card at the top of the screen (DayNightController). {time} = m:ss left in the phase,
@@ -49,8 +69,8 @@ local Text = {
 		Favors = "favors {area} ({luck})",
 		NoBonus = "Bind at a Star Altar",
 		-- Toast DuskWarningSeconds before night ({seconds}); {where} = DuskFavors or DuskNoFavor.
-		DuskWarning = "Night falls in {seconds}s: {constellation} rises. {where}",
-		DuskFavors = "It favors {area}!",
+		DuskWarning = "Night in {seconds}s: {constellation}! {where}",
+		DuskFavors = "Favors {area}",
 		DuskNoFavor = "Head to a Star Altar!",
 		-- the slim pill under the travel buttons (one line); {extra} = PillFavors / PillEverywhere parts, or ""
 		PillDay = "Daylight · night in {time}",

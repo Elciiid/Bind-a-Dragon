@@ -73,6 +73,17 @@ function Tooltip.Attach(target: GuiObject, getText: () -> string)
 	target.MouseLeave:Connect(function()
 		hide(target)
 	end)
+	-- the target hides or goes away under the mouse (no MouseLeave then): hide its tooltip too
+	target:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not target.Visible then
+			hide(target)
+		end
+	end)
+	target.AncestryChanged:Connect(function()
+		if target.Parent == nil then
+			hide(target)
+		end
+	end)
 	target.TouchLongPress:Connect(function(positions, state)
 		if state == Enum.UserInputState.Begin then
 			local p = positions[1]
