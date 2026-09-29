@@ -277,6 +277,15 @@ To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on W
   All, no leaf bones. It prints a report (bones per chain, weights, triangles, texture). Import the FBX with Studio's
   3D Importer, then the model goes to `ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId>` with a PrimaryPart and
   a bottom-center pivot facing -Z, no scripts.
+- **Dragon rig + animation set (Blender, 2026-09-30, not in the game yet):** `tools/dragon_rig/` (README there). One
+  standard skeleton (`template.py`: Root, Spine1-3, Neck1-3, Head, Jaw, Tail1-6, Wing_L/R_Upper/Fore/Hand/Tip,
+  Leg_FL/FR/BL/BR_Upper/Lower/Foot; wings standardized to a spread rest pose) and one set of generic actions
+  (`Dragon_Idle/TakeOff/FlyLoop/Glide/Land/Roar/Reveal`, FX markers in `animations.json`) that play on every re-rigged
+  dragon. `rerig.py` re-rigs a Meshy GLB automatically (~2 s: UniRig skeleton as landmarks, automatic weights), then
+  `apply_actions.py` copies the actions from `assets/Dragons/blend/DragonAnimations.blend`. Done: Solflare + Infernus
+  Elder (`assets/Dragons/blend/`, rigged FBX in `assets/Dragons/fbx/rigged/`, per-action FBX in `assets/Dragons/fbx/anim/`,
+  previews in `assets/Dragons/previews/`; blends and previews are not in Git). The game still uses the UniRig bone maps
+  in `Config/DragonRigs` until this set is imported to Roblox.
 - Third-party code is copied into `src/ServerScriptService/Packages` with its license, no package manager. ProfileStore is there, from MadStudioRoblox/ProfileStore @ 45c9847.
 - Services/Controllers are ModuleScripts that may expose `Init()` (setup) and `Start()` (run).
   `ServerScriptService/Main.server.luau` and `StarterPlayerScripts/Main.client.luau` load them all automatically.

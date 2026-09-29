@@ -1,0 +1,79 @@
+{
+ "fps": 30,
+ "actions": {
+  "Dragon_Idle": {
+   "frames": 120,
+   "seconds": 4.0,
+   "loop": true,
+   "markers": {}
+  },
+  "Dragon_TakeOff": {
+   "frames": 45,
+   "seconds": 1.5,
+   "loop": false,
+   "markers": {
+    "FX_TakeOff": [
+     0.4
+    ],
+    "FX_Flap": [
+     0.4,
+     0.6,
+     1.1
+    ]
+   }
+  },
+  "Dragon_FlyLoop": {
+   "frames": 36,
+   "seconds": 1.2,
+   "loop": true,
+   "markers": {
+    "FX_Flap": [
+     0.26666666666666666
+    ]
+   }
+  },
+  "Dragon_Glide": {
+   "frames": 90,
+   "seconds": 3.0,
+   "loop": true,
+   "markers": {}
+  },
+  "Dragon_Land": {
+   "frames": 45,
+   "seconds": 1.5,
+   "loop": false,
+   "markers": {
+    "FX_Flap": [
+     0.06666666666666667,
+     0.4666666666666667
+    ],
+    "FX_Land": [
+     0.9
+    ]
+   }
+  },
+  "Dragon_Roar": {
+   "frames": 60,
+   "seconds": 2.0,
+   "loop": false,
+   "markers": {
+    "FX_Roar": [
+     0.6
+    ]
+   }
+  },
+  "Dragon_Reveal": {
+   "frames": 90,
+   "seconds": 3.0,
+   "loop": false,
+   "markers": {
+    "FX_Burst": [
+     1.1
+    ],
+    "FX_Roar": [
+     1.2333333333333334
+    ]
+   }
+  }
+ }
+}

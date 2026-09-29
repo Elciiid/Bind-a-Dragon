@@ -20,3 +20,7 @@ Thumbs.db
 *.glb
 *.fbx
 *.fbm/
+*.blend
+*.blend1
+assets/Dragons/previews/
+assets/Dragons/blend/
