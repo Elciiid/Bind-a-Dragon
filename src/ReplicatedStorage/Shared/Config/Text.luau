@@ -133,6 +133,8 @@ local Text = {
 		Constellation = "Rare night!",
 		ConstellationTag = "{luck} bind luck tonight",
 		ConstellationPlain = "Bind at a Star Altar",
+		Look = "New look!",
+		LookTag = "Your sanctuary is transformed",
 	},
 
 	-- Dragons tab of the Inventory (InventoryController) and the Equip best button (RoostService). {n} = a count.

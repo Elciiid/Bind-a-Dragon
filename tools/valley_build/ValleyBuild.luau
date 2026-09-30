@@ -421,6 +421,7 @@ end
 B.SanctuaryOrder = { RoostPlot6 = "W1", RoostPlot5 = "W2", RoostPlot4 = "W3", RoostPlot1 = "E1", RoostPlot2 = "E2", RoostPlot3 = "E3" }
 local Slots = V.Slots
 B.RoamRadius = Slots.Roam
+B.PlainArt = false -- true = BuildSanctuary also builds the plain "Placeholder_*" stand-ins (rim wall, gate, perch spires, nests, pond)
 
 -- The base sanctuary (Valley rework 2026-10): a neutral terrace with the slots every sanctuary look shares (zones,
 -- perches, upgrade stands, sign; layout in ValleyTerrain V.Slots, local x/y = right/toward the gate) plus plain
@@ -574,6 +575,12 @@ function B.BuildSanctuary(plot: Model)
 		local nm = model(art, "Placeholder_Nest")
 		disc(nm, "Straw", c + Vector3.new(0, 0.9, 0), 5.5, 1.8, M.Grass, C.Straw)
 		disc(nm, "Hollow", c + Vector3.new(0, 1.1, 0), 3.8, 1.8, M.Grass, C.StrawDark)
+	end
+	-- the look kits (SanctuaryLooks module) bring their own walls, gates, perches and nests
+	if not B.PlainArt then
+		for _, n in { "Placeholder_RimWall", "Placeholder_SanctuaryGate", "Placeholder_Plain" } do
+			sf[n]:Destroy()
+		end
 	end
 end
 

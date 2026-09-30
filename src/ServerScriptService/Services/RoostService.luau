@@ -27,6 +27,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
@@ -35,6 +36,7 @@ local QuestService = require(script.Parent.QuestService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local RoostZones = require(ReplicatedStorage.Shared.RoostZones)
+local SanctuaryLooks = require(ReplicatedStorage.Shared.SanctuaryLooks)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
@@ -42,6 +44,7 @@ local Products = require(ReplicatedStorage.Shared.Config.Products)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local WorldLabels = require(ReplicatedStorage.Shared.Config.UITheme).WorldLabels
+local LookSettings = require(ReplicatedStorage.Shared.Config.WorldUI).SanctuaryLooks
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
@@ -439,6 +442,11 @@ local function refreshPlot(player: Player, data: PlayerData)
 	-- the upgrade stands show everyone the owner's progress (UpgradeStandController)
 	plot:SetAttribute("RoostSlots", DragonStats.GetRoostSlots(data))
 	plot:SetAttribute("RoostIncomeLevel", data.RoostIncomeLevel)
+	-- the sanctuary's look (Shared/SanctuaryLooks); in Studio a Player attribute can force one for testing
+	local forced = if RunService:IsStudio() then player:GetAttribute(LookSettings.TestAttribute) else nil
+	plot:SetAttribute("SanctuaryLook", if type(forced) == "string" and SanctuaryLooks.IsLook(forced)
+		then forced
+		else SanctuaryLooks.ForPoints(SanctuaryLooks.Points(DragonStats.GetRoostSlots(data), data.RoostIncomeLevel)))
 
 	local wanted: { [string]: boolean } = {}
 	for _, dragonId in data.RoostDragonIds do
@@ -560,6 +568,7 @@ local function clearPlot(plot: Model)
 	setSign(plot, nil)
 	plot:SetAttribute("RoostSlots", nil)
 	plot:SetAttribute("RoostIncomeLevel", nil)
+	plot:SetAttribute("SanctuaryLook", LookSettings.Default)
 end
 
 local function assignPlot(player: Player)
@@ -570,6 +579,12 @@ local function assignPlot(player: Player)
 			shown[player] = {}
 			plot:SetAttribute("OwnerUserId", player.UserId)
 			setSign(plot, player)
+			player:GetAttributeChangedSignal(LookSettings.TestAttribute):Connect(function()
+				local data = DataService:GetData(player)
+				if data then
+					refreshPlot(player, data)
+				end
+			end)
 			return
 		end
 	end

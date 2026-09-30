@@ -147,7 +147,7 @@ local function rarityColor(rarityId: string): Color3
 end
 
 -- payload.Moment: "NewDragon" { SpeciesId, Level?, Starborn?, Auto? } | "Evolve" { SpeciesId, Level, Stage, Under? }
--- | "Rebirth" { Rebirths, Income, CapTo, Unlocked? } | "Tier" { Tier, Name } | "Constellation" { Name, Luck }.
+-- | "Rebirth" { Rebirths, Income, CapTo, Unlocked? } | "Tier" { Tier, Name } | "Look" { Name } | "Constellation" { Name, Luck }.
 -- fallback = the toast text if the payload can't be shown.
 function NotificationController:Moment(payload: any, fallback: string?)
 	local words = Text.Moments
@@ -193,6 +193,15 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			Title = words.Tier,
 			Name = payload.Name,
 			Tag = Text.Format(words.TierTag, { tier = payload.Tier }),
+			Color = UITheme.Colors.Gold,
+			Icon = "Travel_Home",
+			Button = words.Button,
+		})
+	elseif moment == "Look" then
+		RewardPopup.Show({
+			Title = words.Look,
+			Name = payload.Name,
+			Tag = words.LookTag,
 			Color = UITheme.Colors.Gold,
 			Icon = "Travel_Home",
 			Button = words.Button,

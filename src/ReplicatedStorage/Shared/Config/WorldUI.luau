@@ -84,6 +84,30 @@ return {
 		BoardSideOffset = 6, -- studs outward from the gate's center line (clear of the owner banner)
 	},
 
+	-- Sanctuary looks (Valley rework, SanctuaryLookController): each sanctuary shows one look, a kit of set pieces built in
+	-- Studio by ValleyBuild.BuildSanctuaryLooks into ReplicatedStorage.Assets.SanctuaryLooks.<LookId>.<PlotName> (world
+	-- positions; every top-level child is a piece that grows in / shrinks away). The server sets the plot attribute
+	-- SanctuaryLook (RoostService); each client clones in only the look of sanctuaries near the camera. Until the Essence
+	-- feature exists a sanctuary shows the highest look whose MinPoints its owner's upgrade points reach
+	-- (Shared/SanctuaryLooks); in Studio a Player attribute TestAttribute (a look id) forces that look on the player's sanctuary.
+	SanctuaryLooks = {
+		Default = "WildHollow", -- unowned sanctuaries, and owners below every threshold
+		Looks = {
+			{ Id = "WildHollow", Name = "Wild Hollow", MinPoints = 0 },
+			{ Id = "CrystalGarden", Name = "Crystal Garden", MinPoints = 4 }, -- placeholder threshold
+			{ Id = "CelestialSanctum", Name = "Celestial Sanctum", MinPoints = 8 }, -- placeholder threshold
+		} :: { { Id: string, Name: string, MinPoints: number } },
+		TestAttribute = "TestSanctuaryLook",
+		CloneDistance = 320, -- a kit is cloned in while the camera is this close to the sanctuary's center ...
+		DropDistance = 380, -- ... and dropped again beyond this
+		LightDistance = 120, -- kit lights (PointLight) are on only this close to the camera
+		OutSeconds = 1.6, -- look change: the old look sinks away over this long
+		InSeconds = 2.6, -- the new one grows in, piece after piece, over this long
+		PieceSeconds = 0.9, -- each piece takes this long to grow
+		StartScale = 0.04, -- pieces grow from / shrink to this scale
+		BurstParticles = 70, -- sparkles at the gate on a look change (Low effects: none); sound = SanctuaryTiers.BurstSound
+	},
+
 	-- Sanctuaries look grander as their owner upgrades the roost (SanctuaryTierController; the art is built in Studio by
 	-- ValleyBuild.BuildSanctuaryTiers into ReplicatedStorage.Assets.SanctuaryTiers). Upgrade points = extra roost slots
 	-- bought (0-5) + income levels / IncomeLevelsPerPoint (0-5); every PointsPerTier points unlock the next tier:
