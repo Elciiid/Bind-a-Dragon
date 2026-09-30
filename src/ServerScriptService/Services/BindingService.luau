@@ -6,8 +6,8 @@
 -- ProximityPrompt.Triggered fires on the server with the real player, so the client never sends any values.
 -- Every player gets their own roll; one bind per player per night (tracked by NightIndex, so it holds across servers).
 -- Luck comes from Shared/Luck, the same math the client uses to display it. An armed luck charge
--- (Config/Boosts) is included and used up by the bind. Each bind may be Starborn (Config/Index StarbornChance)
--- and is recorded in the Dragon Index (IndexService). The Auto-bind pass binds for its owner at base luck near the
+-- (Config/Boosts) is included and used up by the bind. One normalized server roll chooses the species and mutation,
+-- then IndexService records both discoveries. The Auto-bind pass binds for its owner at base luck near the
 -- end of any night they haven't bound (Config/Products AutoBindSecondsLeft), at the altar of the area they're in.
 -- Rosters: each area binds only its Config/Areas Species; element areas are their element's home (all rarities),
 -- Starter Meadow lets tonight's constellation pick the element.
@@ -26,10 +26,11 @@ local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
-local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
+local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local bindResult = ReplicatedStorage.Remotes.BindResult :: RemoteEvent
@@ -51,43 +52,6 @@ local function getRollElement(areaId: string, constellation: { Element: string? 
 	return if area and area.Element then area.Element else constellation.Element
 end
 
--- Weighted rarity roll over the rarities this area's roster has (Shared/Luck, same math as the luck panel).
-local function rollRarity(areaId: string, element: string?, luck: number): Rarities.Rarity?
-	local weights = Luck.GetAreaRarityWeights(areaId, element, luck)
-	local total = 0
-	for _, weight in weights do
-		total += weight
-	end
-	if total <= 0 then
-		return nil
-	end
-	local roll = rng:NextNumber() * total
-	for index, rarity in Rarities do
-		roll -= weights[index]
-		if roll < 0 then
-			return rarity
-		end
-	end
-	return nil
-end
-
--- Picks a species of the given rarity from the area's roster (matching the element, if given).
-local function pickSpecies(areaId: string, rarityId: string, element: string?): string?
-	local area = Areas[areaId]
-	local pool = {}
-	for _, speciesId in if area then area.Species else {} do
-		local species = Dragons[speciesId]
-		if species and species.Rarity == rarityId and (element == nil or species.Element == element) then
-			table.insert(pool, speciesId)
-		end
-	end
-	if #pool == 0 then
-		return nil
-	end
-	table.sort(pool) -- stable order so the roll isn't affected by table iteration order
-	return pool[rng:NextInteger(1, #pool)]
-end
-
 local function getAreaId(altar: Instance): string
 	local areaId = altar:GetAttribute("AreaId")
 	return if type(areaId) == "string" then areaId else DEFAULT_AREA
@@ -95,10 +59,18 @@ end
 
 -- Shared checks for binding and offering. Returns the player's data and the cycle state,
 -- or nil after telling the player why not.
-local function checkAltarUse(player: Player, altar: Instance): (PlayerDataTypes.PlayerData?, Cycle.State?)
+local function checkAltarUse(player: Player, altar: Instance, part: BasePart, allowSigil: boolean): (PlayerDataTypes.PlayerData?, Cycle.State?)
 	local data = DataService:GetData(player)
 	if data == nil then
 		notify:FireClient(player, "Your data is still loading.", "error")
+		return nil, nil
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if humanoid == nil or humanoid.Health <= 0 or root == nil or not root:IsA("BasePart")
+		or (root.Position - part.Position).Magnitude > BindingConfig.PromptRange + BindingConfig.ServerDistanceTolerance then
+		notify:FireClient(player, "Move closer to the Star Altar.", "error")
 		return nil, nil
 	end
 
@@ -107,7 +79,7 @@ local function checkAltarUse(player: Player, altar: Instance): (PlayerDataTypes.
 		notify:FireClient(player, "The stars only answer at night.", "error")
 		return nil, nil
 	end
-	if data.LastBindNight == state.NightIndex then
+	if data.LastBindNight == state.NightIndex and (not allowSigil or data.EchoSigils <= 0) then
 		notify:FireClient(player, "You've already bound tonight. Come back next night!", "error")
 		return nil, nil
 	end
@@ -137,15 +109,23 @@ local function performBind(
 	usePotion: boolean
 )
 	local element = getRollElement(areaId, state.Constellation)
-	local rarity = rollRarity(areaId, element, luck)
-	local speciesId = rarity and pickSpecies(areaId, rarity.Id, element)
-	if rarity == nil or speciesId == nil then
+	local outcome = BindingOdds.Roll(rng, areaId, element, luck)
+	local speciesId = outcome and outcome.SpeciesId
+	local species = speciesId and Dragons[speciesId]
+	local rarity = species and (function()
+		for _, value in Rarities do if value.Id == species.Rarity then return value end end
+		return nil
+	end)()
+	if outcome == nil or rarity == nil or speciesId == nil then
 		warn(`[BindingService] Area {areaId} has no species to bind (element {element})`)
 		notify:FireClient(player, "The stars were silent. Try again.", "error")
 		return
 	end
 
-	local starborn = rng:NextNumber() < IndexConfig.StarbornChance
+	local mutationId = outcome.MutationId
+	local mutation = Mutations.Get(mutationId)
+	local usedSigil = data.LastBindNight == state.NightIndex
+	if usedSigil then data.EchoSigils -= 1 end
 	local dragonId = tostring(data.NextDragonId)
 	data.NextDragonId += 1
 	data.Dragons[dragonId] = {
@@ -153,7 +133,7 @@ local function performBind(
 		SpeciesId = speciesId,
 		Level = 1,
 		ObtainedAt = os.time(),
-		Starborn = if starborn then true else nil,
+		MutationId = if mutationId ~= Mutations.NormalId then mutationId else nil,
 	}
 	data.LastBindNight = state.NightIndex
 	if usePotion then
@@ -167,7 +147,10 @@ local function performBind(
 		SpeciesId = speciesId,
 		ConstellationId = constellationId,
 		Luck = luck,
-		Starborn = starborn,
+		MutationId = mutationId,
+		BaseOneIn = outcome.BaseOneIn,
+		EffectiveOneIn = outcome.EffectiveOneIn,
+		UsedEchoSigil = usedSigil,
 		Auto = not usePotion,
 	})
 	IndexService:Sync(player, data)
@@ -176,14 +159,14 @@ local function performBind(
 		QuestService:Progress(player, "FavoredBind", 1)
 	end
 
-	if rarity.AnnounceOnBind or starborn then
-		local variant = if starborn then "STARBORN " else ""
+	if rarity.AnnounceOnBind or mutation.AnnounceOnBind then
+		local variant = if mutationId ~= Mutations.NormalId then `{mutation.Name} ` else ""
 		announcement:FireAllClients(`{player.DisplayName} bound a {variant}{rarity.Name} {Dragons[speciesId].Name}!`)
 	end
 end
 
 local function tryBind(player: Player, altar: Instance, part: BasePart)
-	local data, state = checkAltarUse(player, altar)
+	local data, state = checkAltarUse(player, altar, part, true)
 	if data == nil or state == nil then
 		return
 	end
@@ -198,8 +181,8 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 	performBind(player, data, state, getAreaId(altar), luck.Total, true)
 end
 
-local function tryOffer(player: Player, altar: Instance)
-	local data, state = checkAltarUse(player, altar)
+local function tryOffer(player: Player, altar: Instance, part: BasePart)
+	local data, state = checkAltarUse(player, altar, part, false)
 	if data == nil or state == nil then
 		return
 	end
@@ -296,7 +279,7 @@ local function setupAltar(altar: Instance)
 	offerPrompt.UIOffset = Vector2.new(0, 80) -- stack below the Bind prompt instead of overlapping
 	offerPrompt.Triggered:Connect(function(player)
 		guarded(player, function()
-			tryOffer(player, altar)
+			tryOffer(player, altar, part)
 		end)
 	end)
 

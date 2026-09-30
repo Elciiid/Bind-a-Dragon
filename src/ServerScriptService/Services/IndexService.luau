@@ -1,5 +1,5 @@
 --!strict
--- Dragon Index: records every species (and Starborn variant) a player has owned and hands out its rewards
+-- Dragon Index: records every species plus optional mutation discovery badges and hands out species rewards
 -- (Config/Index). The income bonus itself is computed in Shared/DragonStats GetIndexMultiplier.
 --
 -- Sync(player, data) is idempotent: it records every owned dragon and grants any reward reached but not yet given.
@@ -13,6 +13,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
@@ -26,12 +27,20 @@ function IndexService:Sync(player: Player, data: PlayerDataTypes.PlayerData)
 		if data.Index[entryId] == nil and Dragons[dragon.SpeciesId] then
 			data.Index[entryId] = now
 			local species = Dragons[dragon.SpeciesId]
-			local name = if dragon.Starborn then `Starborn {species.Name}` else species.Name
+			local name = species.Name
 			notify:FireClient(
 				player,
 				`New Index entry: {name}! Index income {Format.Multiplier(DragonStats.GetIndexMultiplier(data))}`,
 				"success"
 			)
+		end
+		local mutation = Mutations.Get(dragon.MutationId)
+		if mutation.Id ~= Mutations.NormalId and Dragons[dragon.SpeciesId] then
+			local mutationEntry = `{dragon.SpeciesId}:{mutation.Id}`
+			if data.MutationIndex[mutationEntry] == nil then
+				data.MutationIndex[mutationEntry] = now
+				notify:FireClient(player, `Mutation discovered: {mutation.Name} {Dragons[dragon.SpeciesId].Name}!`, "success")
+			end
 		end
 	end
 

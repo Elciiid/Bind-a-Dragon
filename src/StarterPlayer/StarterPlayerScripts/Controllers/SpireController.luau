@@ -25,6 +25,7 @@ local Tooltip = require(script.Parent.UI.Tooltip)
 local DragonPicture = require(script.Parent.UI.DragonPicture)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
@@ -320,7 +321,10 @@ local function showReady()
 	local data = DataController:Get()
 	record = if data then data.SpireRecord else record
 	local best = if data then DragonStats.GetBestDragon(data) else nil
-	setPortrait(mine, if best then best.SpeciesId else nil, if best then best.Level else nil)
+	local species = if best then Dragons[best.SpeciesId] else nil
+	local mutation = if best then Mutations.Get(best.MutationId) else Mutations.Get(nil)
+	local bestName = if species and mutation.Id ~= Mutations.NormalId then `{mutation.Name} {species.Name}` else if species then species.Name else nil
+	setPortrait(mine, if best then best.SpeciesId else nil, if best then best.Level else nil, bestName)
 	setBars(1, 1)
 	setFloorBadge(format(words.Best, { record = record }), false)
 	message.Text = words.Ready
@@ -351,7 +355,9 @@ local function onUpdate(update: { [string]: any })
 		setMode("Fast")
 	elseif phase == "Fight" then
 		setFloorBadge(format(words.Floor, { floor = update.Floor }), update.Boss == true)
-		setPortrait(mine, update.SpeciesId, update.Level, update.Dragon)
+		local mutation = Mutations.Get(update.MutationId)
+		local dragonName = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {update.Dragon}` else update.Dragon
+		setPortrait(mine, update.SpeciesId, update.Level, dragonName)
 		-- fast fights change enemy every fraction of a second: keep the last picture, just rename
 		if update.Fast and enemy.Key ~= "" then
 			enemy.Name.Text = update.Enemy

@@ -11,6 +11,7 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
+local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 
 export type Breakdown = {
 	Total: number, -- after the cap
@@ -65,22 +66,13 @@ end
 
 -- Rarity weights for an area's roster: rarities not in the roster (for the given element, if any) weigh 0.
 function Luck.GetAreaRarityWeights(areaId: string, element: string?, luck: number): { number }
-	local weights = Luck.GetRarityWeights(luck)
-	local area = Areas[areaId]
-	if area == nil then
-		return weights
-	end
-	local present: { [string]: boolean } = {}
-	for _, speciesId in area.Species do
-		local species = Dragons[speciesId]
-		if species and (element == nil or species.Element == element) then
-			present[species.Rarity] = true
-		end
-	end
-	for index, rarity in Rarities do
-		if not present[rarity.Id] then
-			weights[index] = 0
-		end
+	local weights = table.create(#Rarities, 0)
+	local indexByRarity: { [string]: number } = {}
+	for index, rarity in Rarities do indexByRarity[rarity.Id] = index end
+	for _, outcome in BindingOdds.GetPool(areaId, element, luck) do
+		local species = Dragons[outcome.SpeciesId]
+		local index = species and indexByRarity[species.Rarity]
+		if index then weights[index] += outcome.EffectiveProbability end
 	end
 	return weights
 end
@@ -102,7 +94,11 @@ end
 function Luck.GetRarityWeights(luck: number): { number }
 	local weights = {}
 	for index, rarity in Rarities do
-		weights[index] = rarity.BindWeight * luck ^ (LuckConfig.TierScaling * (index - 1))
+		local base = 0
+		for _, species in Dragons do
+			if species.Rarity == rarity.Id then base += species.BindWeight end
+		end
+		weights[index] = base * luck ^ (0.2 * (index - 1))
 	end
 	return weights
 end

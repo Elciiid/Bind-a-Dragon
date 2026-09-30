@@ -11,6 +11,7 @@ local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.Rebirth)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
@@ -99,36 +100,36 @@ end
 
 function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 	local species = Dragons[dragon.SpeciesId]
-	local rarity = species and rarityById[species.Rarity]
-	if rarity == nil then
+	if species == nil then
 		return 0
 	end
 	local trait = DragonStats.GetTrait(dragon)
 	local grade = DragonStats.GetGrade(dragon)
-	return rarity.GoldPerSecond
+	local mutation = Mutations.Get(dragon.MutationId)
+	return species.BaseGoldPerSecond
 		* Leveling.IncomePerLevel ^ (dragon.Level - 1)
 		* DragonStats.GetStage(dragon.Level).IncomeMultiplier
 		* DragonStats.GetBranchMultiplier(dragon)
 		* (if trait then trait.Income else 1)
 		* (if grade then grade.Multiplier else 1)
-		* (if dragon.Starborn then IndexConfig.StarbornIncome else 1)
+		* mutation.IncomeMultiplier
 end
 
 -- Spire battle power: rarity base x level x stage x trait x grade.
 function DragonStats.GetPower(dragon: Dragon): number
 	local species = Dragons[dragon.SpeciesId]
-	local rarity = species and rarityById[species.Rarity]
-	if rarity == nil then
+	if species == nil then
 		return 0
 	end
 	local trait = DragonStats.GetTrait(dragon)
 	local grade = DragonStats.GetGrade(dragon)
-	return rarity.BasePower
+	local mutation = Mutations.Get(dragon.MutationId)
+	return species.BasePower
 		* Leveling.PowerPerLevel ^ (dragon.Level - 1)
 		* DragonStats.GetStage(dragon.Level).PowerMultiplier
 		* (if trait then trait.Power else 1)
 		* (if grade then grade.Multiplier else 1)
-		* (if dragon.Starborn then IndexConfig.StarbornPower else 1)
+		* mutation.PowerMultiplier
 end
 
 -- The player's most powerful dragon (fights in the Spire), or nil if they have none.
@@ -156,9 +157,8 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- Dragon Index (Config/Index)
 
--- The Index entry a dragon fills: its SpeciesId, or "<SpeciesId>_Starborn".
 function DragonStats.GetIndexEntryId(dragon: Dragon): string
-	return if dragon.Starborn then `{dragon.SpeciesId}_Starborn` else dragon.SpeciesId
+	return dragon.SpeciesId
 end
 
 -- Elements whose every normal species is in the Index, and whether every normal species is.
@@ -199,16 +199,20 @@ function DragonStats.GetIndexMultiplier(data: PlayerData): number
 		* (if all then IndexConfig.AllSpeciesMultiplier else 1)
 end
 
--- Product of the player's active timed boosts on a stat (Config/Boosts), 1 if none.
+-- Gold uses only the strongest active potion to prevent multiplicative inflation; other stats retain product behavior.
 function DragonStats.GetBoostMultiplier(data: PlayerData, stat: string): number
 	local multiplier = 1
 	for potionId, seconds in data.ActiveBoosts do
 		local potion = Boosts.ById[potionId]
 		if potion and potion.Stat == stat and seconds > 0 then
-			multiplier *= potion.Multiplier
+			if stat == "Gold" then
+				multiplier = math.max(multiplier, potion.Multiplier)
+			else
+				multiplier *= potion.Multiplier
+			end
 		end
 	end
-	return multiplier
+	return if stat == "Gold" then math.min(multiplier, 5) else multiplier
 end
 
 -- Permanent roost income multiplier from rebirths (x IncomeBonusPerRebirth per rebirth, multiplying).
@@ -220,11 +224,11 @@ end
 -- a real gold sink after every rebirth (see Config/Leveling).
 function DragonStats.GetLevelUpCost(dragon: Dragon, rebirths: number): number
 	local species = Dragons[dragon.SpeciesId]
-	local base = species and Leveling.BaseCost[species.Rarity]
-	if base == nil then
+	local share = species and Leveling.CostFractionOfNextRebirth[species.Rarity]
+	if share == nil then
 		return math.huge
 	end
-	return base * Leveling.CostGrowth ^ (dragon.Level - 1) * DragonStats.GetRebirthBonus(rebirths)
+	return math.max(1, math.floor(DragonStats.GetRebirthCost(rebirths) * share))
 end
 
 -- Levels and total gold for buying up to `count` levels (stops at the cap). Doesn't change the dragon.
@@ -256,7 +260,10 @@ function DragonStats.GetRebirthCost(rebirths: number): number
 		local weeklyGrowth = config.IncomeBonusPerRebirth
 			* Leveling.IncomePerLevel ^ Leveling.CapPerRebirth
 			* config.WeeklyGrowthStep
-		cost *= config.WeeklyJump * weeklyGrowth ^ (r - config.CurveEnd)
+		local postLaunch = r - config.CurveEnd
+		local weeklyJumps = math.ceil(postLaunch / config.WeeklyRebirths)
+		local normalSteps = postLaunch - weeklyJumps
+		cost *= config.WeeklyJump ^ weeklyJumps * weeklyGrowth ^ normalSteps
 	end
 	return cost
 end
@@ -264,6 +271,11 @@ end
 -- True once the player has done every rebirth this week's update allows (Config/Rebirth RebirthCap).
 function DragonStats.IsAtRebirthCap(data: PlayerData): boolean
 	return data.Rebirths >= RebirthConfig.RebirthCap
+end
+
+-- Gold that may be banked at the weekly cap. Nil means there is no bank limit yet.
+function DragonStats.GetGoldBankLimit(data: PlayerData): number?
+	return if DragonStats.IsAtRebirthCap(data) then DragonStats.GetRebirthCost(data.Rebirths) else nil
 end
 
 -- True if the player has enough rebirths for the area (areas stay unlocked since rebirths never go down).

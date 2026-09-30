@@ -115,6 +115,23 @@ local function updateBanner(plot: Model)
 	task.spawn(function()
 		(panel:FindFirstChild("Avatar") :: ImageLabel).Image = thumbnail(ownerId)
 	end)
+
+end
+
+local function updateMutationAuras()
+	local camera = workspace.CurrentCamera
+	for _, plot in CollectionService:GetTagged("RoostPlot") do
+		if plot:IsA("Model") then
+			for _, aura in plot:GetDescendants() do
+				if aura:IsA("Sparkles") and aura.Name == "MutationAura" then
+					local parent = aura.Parent
+					aura.Enabled = not EffectsQuality.IsLow()
+						and camera ~= nil and parent ~= nil and parent:IsA("BasePart")
+						and (camera.CFrame.Position - parent.Position).Magnitude <= 60
+				end
+			end
+		end
+	end
 end
 
 local function watchPlot(plot: Instance)
@@ -259,6 +276,13 @@ local function onDragonsChanged()
 end
 
 function RoostFXController:Start()
+	-- One controller-level culling loop; updateBanner may run many times as plot ownership changes.
+	task.spawn(function()
+		while true do
+			updateMutationAuras()
+			task.wait(0.5)
+		end
+	end)
 	CollectionService:GetInstanceAddedSignal("RoostPlot"):Connect(function(plot)
 		task.spawn(watchPlot, plot)
 	end)

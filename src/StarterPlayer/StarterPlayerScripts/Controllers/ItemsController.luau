@@ -1,6 +1,6 @@
 --!strict
--- Items: the Items tab of the Inventory window (InventoryWindow): a big card per item (Wyrm Runes, Dragonstones,
--- Stardust) with its icon, how many the player has, what it is for and where to get it. Wording in Config/Text.Items.
+-- Items: the Items tab of the Inventory window (InventoryWindow): a big card per item with its icon, count,
+-- purpose and source. Wording in Config/Text.Items.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -21,6 +21,7 @@ local ITEMS = {
 	{ Key = "WyrmRunes", Icon = "WyrmRune", Color = Color3.fromRGB(200, 160, 255), Words = "WyrmRunes" },
 	{ Key = "Dragonstones", Icon = "Dragonstone", Color = Color3.fromRGB(255, 150, 120), Words = "Dragonstones" },
 	{ Key = "Stardust", Icon = "Stardust", Color = UITheme.Colors.Stardust, Words = "Stardust" },
+	{ Key = "EchoSigils", Icon = "Stardust", Color = Color3.fromRGB(130, 210, 255), Words = "EchoSigils" },
 }
 
 local function refresh()
@@ -49,7 +50,7 @@ function ItemsController:Init()
 		local card = Instance.new("Frame")
 		card.Name = item.Key
 		card.LayoutOrder = order
-		card.Size = UDim2.new(1, 0, 0.3, -7)
+		card.Size = UDim2.new(1, 0, 0.25, -8)
 		Style.CardLook(card, item.Color)
 		card.Parent = list
 		local icon = Icon.new(card, item.Icon, item.Color)

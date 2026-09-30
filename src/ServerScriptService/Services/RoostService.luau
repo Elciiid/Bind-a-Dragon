@@ -22,7 +22,7 @@
 -- Dragon art: ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId> (Model), else .../<SpeciesId> (Model),
 -- else .../Placeholder, which is tinted by element (parts with a "Tint" attribute: Primary/Secondary/Accent).
 -- Evolution branch color: placeholder Accent parts, and any part in real art with attribute BranchAccent = true,
--- take the element color of the dragon's latest night branch. Starborn dragons get a gold tint + sparkles.
+-- take the element color of the dragon's latest night branch. Mutations add a lightweight, client-culled aura.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -39,7 +39,7 @@ local RoostZones = require(ReplicatedStorage.Shared.RoostZones)
 local SanctuaryLooks = require(ReplicatedStorage.Shared.SanctuaryLooks)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
-local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
@@ -187,10 +187,10 @@ end
 
 -- At the weekly rebirth cap, banked gold stops at one rebirth's cost (so a new update can't be cleared from savings).
 local function clampAtRebirthCap(player: Player, data: PlayerData)
-	if not DragonStats.IsAtRebirthCap(data) then
+	local limit = DragonStats.GetGoldBankLimit(data)
+	if limit == nil then
 		return
 	end
-	local limit = DragonStats.GetRebirthCost(data.Rebirths)
 	if data.Gold >= limit then
 		data.Gold = limit
 		if not capNotified[player] then
@@ -381,15 +381,12 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	if length > 0.1 then
 		model:ScaleTo(model:GetScale() * stage.Length / length)
 	end
-	-- Starborn look (until real art exists): colors blend toward StarbornColor, plus sparkles.
-	if dragon.Starborn then
-		for _, part in model:GetDescendants() do
-			if part:IsA("BasePart") then
-				part.Color = part.Color:Lerp(IndexConfig.StarbornColor, IndexConfig.StarbornTint)
-			end
-		end
+	-- Mutations never replace or recolor dragon art; a lightweight aura is identification only.
+	local mutation = Mutations.Get(dragon.MutationId)
+	if mutation.Id ~= Mutations.NormalId then
 		local sparkles = Instance.new("Sparkles")
-		sparkles.SparkleColor = IndexConfig.StarbornColor
+		sparkles.Name = "MutationAura"
+		sparkles.SparkleColor = mutation.Color
 		sparkles.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	end
 	for _, part in model:GetDescendants() do
@@ -420,6 +417,7 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	model:SetAttribute("MoveSpeed", stage.MoveSpeed)
 	model:SetAttribute("FlyHeight", cruiseHeight(stage, dragon.Id))
 	model:SetAttribute("SpeciesId", dragon.SpeciesId) -- clients look up the bone rig (Config/DragonRigs) by these
+	model:SetAttribute("MutationId", mutation.Id)
 	model:SetAttribute("Stage", stage.Id)
 	model:SetAttribute("Zone", stage.Zone)
 	model:SetAttribute("PerchSize", stage.PerchSize)
@@ -427,8 +425,8 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	local rarity = DragonStats.GetRarity(species.Rarity)
 	local grade = DragonStats.GetGrade(dragon)
 	local gradeText = if grade then `  [{grade.Id}]` else ""
-	local starText = if dragon.Starborn then "★ " else ""
-	makeNameplate(model, `{starText}{species.Name}  Lv {dragon.Level}{gradeText}`, if rarity then rarity.Color else Color3.new(1, 1, 1))
+	local mutationText = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} ` else ""
+	makeNameplate(model, `{mutationText}{species.Name}  Lv {dragon.Level}{gradeText}`, if mutation.Id ~= Mutations.NormalId then mutation.Color else if rarity then rarity.Color else Color3.new(1, 1, 1))
 	return model
 end
 
@@ -456,7 +454,7 @@ local function refreshPlot(player: Player, data: PlayerData)
 		end
 		wanted[dragon.Id] = true
 		-- Rebuild when anything visible changes (level/stage, branch color, trait/grade on the nameplate).
-		local key = `{dragon.SpeciesId}:{dragon.Level}:{dragon.Trait or ""}:{dragon.Grade or ""}`
+		local key = `{dragon.SpeciesId}:{dragon.MutationId or "Normal"}:{dragon.Level}:{dragon.Trait or ""}:{dragon.Grade or ""}`
 		local existing = current[dragon.Id]
 		if existing == nil or existing.Key ~= key then
 			if existing then

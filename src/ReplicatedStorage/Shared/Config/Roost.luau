@@ -1,7 +1,6 @@
 --!strict
 -- Roost and AFK income.
--- A dragon's gold/sec = rarity GoldPerSecond (Config/Rarities) x level (Config/Leveling) x stage (Config/Evolution)
---                       x evolution branches x trait x grade (Config/Traits)
+-- A dragon's gold/sec = species base (Config/Dragons) x mutation x level x stage x branches x trait x grade.
 -- Roost gold/sec = sum of roost dragons x roost income upgrade x rebirth bonus (Config/Rebirth)
 -- PLACEHOLDER numbers.
 

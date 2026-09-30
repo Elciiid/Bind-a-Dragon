@@ -9,7 +9,7 @@ return {
 	IdleSeconds = 60,
 	AltarRange = 80, -- studs: the player must be this close to an altar for the ceremony
 	FullAlways = { Legendary = true, Mythic = true }, -- rarities that always play the full (big) ceremony
-	StarbornIsBig = true, -- Starborn binds get the big ceremony too
+	PrimordialIsBig = true, -- Primordial binds get the big ceremony too
 
 	Camera = {
 		Distance = 40, -- studs from the altar's main crystal, on the player's side

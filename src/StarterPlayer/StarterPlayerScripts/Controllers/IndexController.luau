@@ -2,7 +2,7 @@
 -- Dragon Index (extends the Star Atlas): the Collection tab of the Inventory window (InventoryWindow), UI renewal part 2.
 -- A header card (the Index income bonus big, "15 / 20 found", a bar to the next milestone; the rules in its tooltip),
 -- a grid of every species by element and rarity (found = a card tinted in its rarity color with a big gem and the
--- name; not found = a dark cell with a faint gem and "?"; a gold ★ badge when the Starborn variant is found too),
+-- name; not found = a dark cell with a faint gem and "?"; compact badges track optional mutation discoveries),
 -- and the Star Atlas as chips (constellation + times bound).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +19,7 @@ local Constellations = require(ReplicatedStorage.Shared.Config.Constellations)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -30,6 +31,11 @@ local foundLabel: TextLabel
 local bar: ProgressBar.ProgressBar
 local rulesText = ""
 local list: ScrollingFrame
+
+local mutationBadgeCount = 0
+for _, mutation in Mutations.Mutations do
+	if mutation.Id ~= Mutations.NormalId then mutationBadgeCount += 1 end
+end
 
 -- Element rows in alphabetical order (stable).
 local function getElementOrder(): { string }
@@ -51,7 +57,7 @@ local function getGrid(): { [string]: { [string]: string } }
 	return grid
 end
 
-local function makeCell(row: Instance, order: number, speciesId: string?, rarity: Rarities.Rarity, found: boolean, starborn: boolean)
+local function makeCell(row: Instance, order: number, speciesId: string?, rarity: Rarities.Rarity, found: boolean, mutationNames: { string })
 	local theme = UITheme
 	local cell = Instance.new("Frame")
 	cell.Name = speciesId or "Unknown"
@@ -88,8 +94,8 @@ local function makeCell(row: Instance, order: number, speciesId: string?, rarity
 	local limit = Instance.new("UITextSizeConstraint")
 	limit.MaxTextSize = 16
 	limit.Parent = label
-	if starborn then
-		local badge = Style.Label(cell, "★", "Heavy", 16, theme.Colors.BannerStar)
+	if #mutationNames > 0 then
+		local badge = Style.Label(cell, `◆{#mutationNames}/{mutationBadgeCount}`, "Heavy", 12, theme.Colors.BannerStar)
 		badge.Font = Enum.Font.GothamBlack
 		badge.AnchorPoint = Vector2.new(0.5, 0.5)
 		badge.Position = UDim2.new(1, -8, 0, 8)
@@ -99,9 +105,11 @@ local function makeCell(row: Instance, order: number, speciesId: string?, rarity
 	end
 	Tooltip.Attach(cell, function()
 		if not found then
-			return `Undiscovered {rarity.Name} dragon`
+			return `Undiscovered {rarity.Name} dragon · home odds {rarity.UndiscoveredOddsBand}; exact odds unlock on discovery`
 		end
-		return `{name} · {rarity.Name}{if starborn then " · Starborn found" else ""}`
+		local species = speciesId and Dragons[speciesId]
+		local odds = if species then string.format("%.2f", 1000 / species.BindWeight) else "?"
+		return `{name} · {rarity.Name} · Home altar x1: 1 in {odds}{if #mutationNames > 0 then " · Mutations: " .. table.concat(mutationNames, ", ") else ""}`
 	end)
 end
 
@@ -134,7 +142,7 @@ local function redraw()
 		if all then 1 else math.clamp((entries - previous) / math.max(1, nextMilestone - previous), 0, 1),
 		if all then "All found!" else `Reward at {nextMilestone}`
 	)
-	rulesText = `{entries} entries · {#complete} element{if #complete == 1 then "" else "s"} complete · +{math.floor(IndexConfig.IncomePerEntry * 100)}% per entry · x{IndexConfig.ElementMultiplier} per complete element · x{IndexConfig.AllSpeciesMultiplier} for all {speciesCount} species · Starborn count as their own entries`
+	rulesText = `{entries} species · {#complete} element{if #complete == 1 then "" else "s"} complete · +0.5% per species · x{IndexConfig.ElementMultiplier} per complete element · x{IndexConfig.AllSpeciesMultiplier} for all {speciesCount} species · mutations are optional collection badges`
 
 	local grid = getGrid()
 	for order, elementId in getElementOrder() do
@@ -164,8 +172,13 @@ local function redraw()
 		for rarityOrder, rarity in Rarities do
 			local speciesId = grid[elementId] and grid[elementId][rarity.Id]
 			local isFound = speciesId ~= nil and data.Index[speciesId] ~= nil
-			local starborn = speciesId ~= nil and data.Index[`{speciesId}_Starborn`] ~= nil
-			makeCell(row, rarityOrder, speciesId, rarity, isFound, starborn)
+			local mutationNames = {}
+			if speciesId ~= nil then
+				for _, mutation in Mutations.Mutations do
+					if mutation.Id ~= Mutations.NormalId and data.MutationIndex[`{speciesId}:{mutation.Id}`] ~= nil then table.insert(mutationNames, mutation.Name) end
+				end
+			end
+			makeCell(row, rarityOrder, speciesId, rarity, isFound, mutationNames)
 		end
 	end
 
@@ -273,7 +286,7 @@ function IndexController:Init()
 	layout.Parent = list
 
 	window:OnOpen(redraw)
-	for _, key in { "Index", "StarAtlas", "IndexMilestones" } do
+	for _, key in { "Index", "MutationIndex", "StarAtlas", "IndexMilestones" } do
 		DataController:OnChanged(key, function()
 			if window.IsOpen then
 				redraw()

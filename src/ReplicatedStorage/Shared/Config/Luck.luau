@@ -1,9 +1,7 @@
 --!strict
 -- Bind luck. Every source is a multiplier; they're multiplied together and then capped at Cap.
--- Luck boosts rarer tiers more: a tier's weight (Config/Rarities) is multiplied by
---   luck ^ (TierScaling x tier steps above Common)
--- so with TierScaling 0.3 and luck x10: Rare x2, Epic x4, Legendary x7.9, Mythic x15.8.
--- Odds: x1 Mythic 0.5%, x10 (Cap) 4.2%, x20 (PotionCap, with a luck potion charge) 7.1%.
+-- Binding luck is applied once to each SpeciesId x MutationId outcome by Shared/BindingOdds.
+-- TierScaling remains the shared exponent for trait/grade rolls only.
 -- Area luck is in Config/Areas (BindLuck); constellation luck is in Config/Constellations (Luck).
 -- PLACEHOLDER numbers.
 

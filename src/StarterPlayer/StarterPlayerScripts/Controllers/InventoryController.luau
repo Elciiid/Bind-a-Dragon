@@ -20,6 +20,7 @@ local InventoryWindow = require(script.Parent.InventoryWindow)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
@@ -113,7 +114,8 @@ end
 local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 	local species = Dragons[dragon.SpeciesId]
 	local rarityId = if species then species.Rarity else "Common"
-	local accent = if dragon.Starborn then colors.Gold else rarityColor(rarityId)
+	local mutation = Mutations.Get(dragon.MutationId)
+	local accent = if mutation.Id ~= Mutations.NormalId then mutation.Color else rarityColor(rarityId)
 
 	-- the grid cell (sized by the grid) holds the card at its design size, scaled for phones
 	local cell = Instance.new("Frame")
@@ -272,16 +274,18 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 		DragonPicture.new(card.Picture, dragon.SpeciesId, dragon.Level)
 	end
 	local name = if species then species.Name else dragon.SpeciesId
-	setText(card.Name, if dragon.Starborn then `★ {name}` else name)
+	local mutation = Mutations.Get(dragon.MutationId)
+	setText(card.Name, if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {name}` else name)
 	setText(card.Level, `Lv {dragon.Level}`)
 	setText(card.Income, `{Format.Number(DragonStats.GetGoldPerSecond(dragon))}/s`)
 	local trait = DragonStats.GetTrait(dragon)
 	local grade = DragonStats.GetGrade(dragon)
+	local baseOneIn = if species then 1000 / (species.BindWeight * mutation.Share) else math.huge
 	card.Tooltip = Text.Format(words.Tooltip, {
 		power = Format.Number(DragonStats.GetPower(dragon)),
 		trait = if trait then trait.Name else words.NoTrait,
 		grade = if grade then `Grade {grade.Id}` else words.NoGrade,
-	}) .. ` · {stage.Name} · Lv {dragon.Level}/{cap}`
+	}) .. ` · {stage.Name} · Lv {dragon.Level}/{cap} · {mutation.Name} · Home x1 odds 1 in {math.round(baseOneIn)} · Base {Format.Number(if species then species.BaseGoldPerSecond else 0)}/s · Base power {Format.Number(if species then species.BasePower else 0)}`
 
 	local atCap = dragon.Level >= cap
 	local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)

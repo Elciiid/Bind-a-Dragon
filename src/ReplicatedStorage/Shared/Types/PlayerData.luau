@@ -10,7 +10,7 @@ export type Dragon = {
 	Evolutions: { [string]: string }?, -- stageId -> constellationId in the sky when it evolved (its branch)
 	Trait: string?, -- Config/Traits trait Id (rolled with Wyrm Runes)
 	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
-	Starborn: boolean?, -- rare variant (Config/Index): x income, x power, its own Index entry
+	MutationId: string?, -- Config/Mutations; nil is the backward-compatible Normal state
 }
 
 export type QuestState = {
@@ -53,9 +53,15 @@ export type PlayerData = {
 
 	SpireRecord: number, -- highest Dragon Spire floor cleared
 	ElevatorSkips: number, -- Single Elevator Skip developer products owned (one climb each)
+	EchoSigils: number, -- earned extra binds, capped by Config/Binding
+	EchoSigilQuestDay: number, -- UTC day the all-dailies sigil was awarded
+	EchoSigilSpireDay: number, -- UTC day the Spire sigil was awarded
+	EchoSigilSpireProgressDay: number, -- UTC day the qualifying win counter belongs to
+	EchoSigilSpireWins: number, -- qualifying non-fast wins today
 
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
-	Index: { [string]: number }, -- Dragon Index entry (SpeciesId or "<SpeciesId>_Starborn") -> os.time() found
+	Index: { [string]: number }, -- normal species discovery -> os.time() found
+	MutationIndex: { [string]: number }, -- "SpeciesId:MutationId" discovery -> os.time() found
 	IndexMilestones: number, -- MilestoneEvery rewards already given
 	IndexElementsRewarded: { [string]: boolean }, -- element -> its completion reward was given
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)

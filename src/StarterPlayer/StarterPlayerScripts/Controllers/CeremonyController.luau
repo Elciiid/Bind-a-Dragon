@@ -3,7 +3,7 @@
 -- Full: the camera eases toward the altar, tonight's stars streak down into the main crystal, a burst in the rarity
 -- color (particles, a ring, a flash of light), and the new dragon rises over the altar while a title banner in the
 -- rarity color pops up on screen with its name (UI/Banner, the window style) and a rarity/element tag, in sparkles.
--- Big (Legendary/Mythic/Starborn): a bigger burst, a second ring, a sky flash and a longer hold.
+-- Big (Legendary/Mythic/Primordial): a bigger burst, a second ring, a sky flash and a longer hold.
 -- Quick ("Quick binds" setting, never for big ones): only the burst and the reveal, about a second.
 -- Any key, click or tap skips it. Visual only: the dragon is already the player's. Settings: Config/Ceremony.
 
@@ -24,11 +24,11 @@ local Ceremony = require(ReplicatedStorage.Shared.Config.Ceremony)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
-local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
-export type Request = { SpeciesId: string, Starborn: boolean }
+export type Request = { SpeciesId: string, MutationId: string, BaseOneIn: number, EffectiveOneIn: number }
 
 local CeremonyController = {}
 
@@ -70,7 +70,7 @@ local function playSound(id: string?)
 end
 
 -- The dragon model a new bind shows (Hatchling art, else the species model, else the tinted placeholder).
-local function dragonModel(speciesId: string, starborn: boolean): Model?
+local function dragonModel(speciesId: string, mutationId: string): Model?
 	local species = Dragons[speciesId]
 	local folder = ReplicatedStorage:FindFirstChild("Assets") and ReplicatedStorage.Assets:FindFirstChild("Dragons")
 	if species == nil or folder == nil then
@@ -102,12 +102,12 @@ local function dragonModel(speciesId: string, starborn: boolean): Model?
 			end
 		end
 	end
-	if starborn then
-		for _, part in model:GetDescendants() do
-			if part:IsA("BasePart") then
-				part.Color = part.Color:Lerp(IndexConfig.StarbornColor, IndexConfig.StarbornTint)
-			end
-		end
+	local mutation = Mutations.Get(mutationId)
+	if mutation.Id ~= Mutations.NormalId and not EffectsQuality.IsLow() then
+		local aura = Instance.new("Sparkles")
+		aura.Name = "MutationAura"
+		aura.SparkleColor = mutation.Color
+		aura.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -159,8 +159,9 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 		return false
 	end
 	local rarity = rarityOf(species.Rarity)
-	local color = if request.Starborn then IndexConfig.StarbornColor elseif rarity then rarity.Color else Color3.new(1, 1, 1)
-	local big = (Ceremony.FullAlways :: any)[species.Rarity] == true or (request.Starborn and Ceremony.StarbornIsBig)
+	local mutation = Mutations.Get(request.MutationId)
+	local color = if mutation.Id ~= Mutations.NormalId then mutation.Color elseif rarity then rarity.Color else Color3.new(1, 1, 1)
+	local big = (Ceremony.FullAlways :: any)[species.Rarity] == true or (mutation.Id == "Primordial" and Ceremony.PrimordialIsBig)
 	local quick = Players.LocalPlayer:GetAttribute("QuickBinds") == true and not big
 	local low = EffectsQuality.IsLow()
 	playing = true
@@ -360,7 +361,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 
 	-- Reveal
 	if not skipped then
-		local model = dragonModel(request.SpeciesId, request.Starborn)
+		local model = dragonModel(request.SpeciesId, request.MutationId)
 		if model then
 			local size = model:GetExtentsSize()
 			local low0 = center - Vector3.new(0, size.Y / 2, 0)
@@ -380,7 +381,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			pop.Parent = reveal
 			local phone = math.min(overlay.AbsoluteSize.X, overlay.AbsoluteSize.Y) <= UITheme.PhoneMaxShortSide
 			local banner = Banner.new(reveal, {
-				Text = if request.Starborn then `★ {species.Name} ★` else species.Name,
+				Text = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {species.Name}` else species.Name,
 				Top = Style.Shade(color, 0.12),
 				Bottom = Style.Shade(color, -0.4),
 				Tail = Style.Shade(color, -0.6),
@@ -388,7 +389,10 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			banner:Layout(if phone then 42 else 64, if phone then 26 else 40, if phone then 22 else 32)
 			banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 			banner.Holder.Position = UDim2.fromScale(0.5, 0.5)
-			local tag = Style.Label(reveal, `{if request.Starborn then "STARBORN · " else ""}{species.Rarity} · {species.Element}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
+			local odds = if math.abs(request.BaseOneIn - request.EffectiveOneIn) > 0.01
+				then `Base 1 in {math.round(request.BaseOneIn)} · Current 1 in {math.round(request.EffectiveOneIn)}`
+				else `1 in {math.round(request.BaseOneIn)}`
+			local tag = Style.Label(reveal, `{if mutation.Id ~= Mutations.NormalId then mutation.Name .. " · " else ""}{species.Rarity} · {species.Element} · {odds}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
 			tag.AnchorPoint = Vector2.new(0.5, 0)
 			tag.Position = UDim2.new(0.5, 0, 0.5, (if phone then 42 else 64) / 2 + 8)
 			tag.BackgroundTransparency = 0.15

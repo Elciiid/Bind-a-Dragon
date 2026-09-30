@@ -14,17 +14,21 @@ local ServerStorage = game:GetService("ServerStorage")
 local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
+local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 
 local DevService = {}
 
-local function giveDragons(player: Player, speciesIds: { string }, level: number, placeInRoost: boolean?): { string }
+local function giveDragons(player: Player, speciesIds: { string }, level: number, placeInRoost: boolean?, mutationId: string?): { string }
 	assert(typeof(player) == "Instance" and player:IsA("Player"), "GiveDragons: player expected")
 	local data = DataService:GetData(player)
 	assert(data, "GiveDragons: player data not loaded yet")
 	local cap = DragonStats.GetLevelCap(data)
 	local ids = {}
+	local mutation = Mutations.Get(mutationId)
+	assert(mutationId == nil or Mutations.ById[mutationId] ~= nil, `GiveDragons: unknown mutation {mutationId}`)
 	for _, speciesId in speciesIds do
 		assert(Dragons[speciesId], `GiveDragons: unknown species {speciesId}`)
 		local dragonId = tostring(data.NextDragonId)
@@ -34,6 +38,7 @@ local function giveDragons(player: Player, speciesIds: { string }, level: number
 			SpeciesId = speciesId,
 			Level = math.clamp(math.floor(level), 1, cap),
 			ObtainedAt = os.time(),
+			MutationId = if mutation.Id ~= Mutations.NormalId then mutation.Id else nil,
 		}
 		table.insert(ids, dragonId)
 	end
@@ -55,6 +60,19 @@ local function giveDragons(player: Player, speciesIds: { string }, level: number
 	end
 	IndexService:Sync(player, data)
 	return ids
+end
+
+local function simulateBinding(areaId: string, element: string?, luck: number, samples: number, seed: number?): any
+	local count = math.clamp(math.floor(samples), 1, 5_000_000)
+	local rng = Random.new(seed or 12345)
+	local results: { [string]: number } = {}
+	for _ = 1, count do
+		local outcome = BindingOdds.Roll(rng, areaId, element, luck)
+		assert(outcome, "SimulateBinding: empty eligible pool")
+		local key = `{outcome.SpeciesId}:{outcome.MutationId}`
+		results[key] = (results[key] or 0) + 1
+	end
+	return { Samples = count, Counts = results, Expected = BindingOdds.GetPool(areaId, element, luck) }
 end
 
 local function setRoostSlots(player: Player, slots: number): number
@@ -79,6 +97,10 @@ function DevService:Start()
 	slots.Name = "SetRoostSlots"
 	slots.OnInvoke = setRoostSlots
 	slots.Parent = folder
+	local simulate = Instance.new("BindableFunction")
+	simulate.Name = "SimulateBinding"
+	simulate.OnInvoke = simulateBinding
+	simulate.Parent = folder
 end
 
 return DevService

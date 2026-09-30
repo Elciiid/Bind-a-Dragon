@@ -16,13 +16,14 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local ProfileStore = require(ServerScriptService.Packages.ProfileStore)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
 
 -- Bump this and add a step to MIGRATIONS whenever existing saved data needs to be reshaped
 -- (renamed/moved/removed fields). Plain new fields don't need a migration: Reconcile() fills them in.
-local CURRENT_DATA_VERSION = 2
+local CURRENT_DATA_VERSION = 3
 
 local function defaultSettings(): PlayerDataTypes.Settings
 	local defaults = DataConfig.DefaultSettings
@@ -45,6 +46,25 @@ local MIGRATIONS: { [number]: (data: any) -> () } = {
 			end
 		end
 		data.Settings = settings
+	end,
+	-- 2 -> 3: replace the dormant Starborn prototype with the approved Primordial mutation.
+	[2] = function(data)
+		data.MutationIndex = if type(data.MutationIndex) == "table" then data.MutationIndex else {}
+		for _, dragon in if type(data.Dragons) == "table" then data.Dragons else {} do
+			if dragon.Starborn == true then
+				dragon.MutationId = "Primordial"
+				if type(dragon.SpeciesId) == "string" then
+					local oldTime = if type(data.Index) == "table" then data.Index[`{dragon.SpeciesId}_Starborn`] else nil
+					data.MutationIndex[`{dragon.SpeciesId}:Primordial`] = oldTime or os.time()
+				end
+			end
+			dragon.Starborn = nil
+		end
+		if type(data.Index) == "table" then
+			for key in data.Index do
+				if type(key) == "string" and string.match(key, "_Starborn$") then data.Index[key] = nil end
+			end
+		end
 	end,
 }
 
@@ -81,9 +101,15 @@ local TEMPLATE: PlayerData = {
 
 	SpireRecord = 0,
 	ElevatorSkips = 0,
+	EchoSigils = 0,
+	EchoSigilQuestDay = -1,
+	EchoSigilSpireDay = -1,
+	EchoSigilSpireProgressDay = -1,
+	EchoSigilSpireWins = 0,
 
 	StarAtlas = {},
 	Index = {},
+	MutationIndex = {},
 	IndexMilestones = 0,
 	IndexElementsRewarded = {},
 	LastBindNight = -1,
@@ -179,6 +205,15 @@ local function migrate(data: PlayerData)
 	end
 end
 
+local function sanitizeMutations(data: PlayerData)
+	for _, dragon in data.Dragons do
+		if dragon.MutationId ~= nil and Mutations.ById[dragon.MutationId] == nil then
+			warn(`[DataService] Unknown mutation {dragon.MutationId} on dragon {dragon.Id}; using Normal`)
+			dragon.MutationId = nil
+		end
+	end
+end
+
 local function onPlayerAdded(player: Player)
 	local profile = store:StartSessionAsync(`Player_{player.UserId}`, {
 		Cancel = function()
@@ -194,6 +229,7 @@ local function onPlayerAdded(player: Player)
 	profile:AddUserId(player.UserId) -- GDPR
 	profile:Reconcile()
 	migrate(profile.Data)
+	sanitizeMutations(profile.Data)
 
 	profile.OnSave:Connect(function()
 		profile.Data.LastOnline = os.time()

@@ -18,6 +18,7 @@ local Button = require(script.Parent.UI.Button)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
+local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
@@ -127,6 +128,7 @@ local function update()
 	end
 
 	local boundTonight = data.LastBindNight == state.NightIndex
+	local canBind = not boundTonight or data.EchoSigils > 0
 	local offeringCount = Luck.GetOfferingCount(data, state.NightIndex)
 	local nextOffering = Luck.GetNextOffering(offeringCount)
 
@@ -134,7 +136,8 @@ local function update()
 	local bindPrompt = part:FindFirstChild("BindPrompt")
 	local offerPrompt = part:FindFirstChild("OfferPrompt")
 	if bindPrompt and bindPrompt:IsA("ProximityPrompt") then
-		bindPrompt.Enabled = not boundTonight
+		bindPrompt.Enabled = canBind
+		bindPrompt.ActionText = if boundTonight then `Bind · Echo Sigil ({data.EchoSigils})` else "Bind"
 	end
 	if offerPrompt and offerPrompt:IsA("ProximityPrompt") then
 		offerPrompt.Enabled = not boundTonight and nextOffering ~= nil
@@ -143,10 +146,10 @@ local function update()
 		end
 	end
 
-	armButton.Instance.Visible = not boundTonight
-	details.Visible = boundTonight
-	rowsFrame.Visible = not boundTonight
-	if boundTonight then
+	armButton.Instance.Visible = canBind
+	details.Visible = not canBind
+	rowsFrame.Visible = canBind
+	if not canBind then
 		title.Text = "Bound tonight"
 		details.Text = "Come back next night to bind again."
 		setActive(true)
@@ -161,6 +164,16 @@ local function update()
 		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
 		Luck.GetArmedPotionLuck(data)
 	)
+	local areaKey = if type(areaId) == "string" then areaId else "StarterMeadow"
+	local area = Areas[areaKey]
+	local element = if area and area.Element then area.Element else state.Constellation.Element
+	local primordialBase, primordialCurrent = 0, 0
+	for _, outcome in BindingOdds.GetPool(areaKey, element, luck.Total) do
+		if outcome.MutationId == "Primordial" then
+			primordialBase += outcome.BaseProbability
+			primordialCurrent += outcome.EffectiveProbability
+		end
+	end
 
 	local atMax = luck.Total >= (if luck.Potion > 1 then LuckConfig.PotionCap else LuckConfig.Cap)
 	title.Text = if atMax
@@ -168,6 +181,7 @@ local function update()
 		else Format.Multiplier(luck.Total)
 	-- one row per factor: the name left, the multiplier big on the right (factors at x1 are dimmed)
 	local lines: { { string } } = {
+		{ "Any Primordial", `1/{math.round(1 / primordialBase)} → 1/{math.round(1 / primordialCurrent)}` },
 		{ "Area", Format.Multiplier(luck.Area) },
 		{ luck.MoonName, Format.Multiplier(luck.Moon) },
 		{ state.Constellation.Name, Format.Multiplier(luck.Constellation) },
@@ -240,11 +254,11 @@ function LuckController:Init()
 	local rowsList = Instance.new("UIListLayout")
 	rowsList.SortOrder = Enum.SortOrder.LayoutOrder
 	rowsList.Parent = rowsFrame
-	for index = 1, 7 do
+	for index = 1, 8 do
 		local row = Instance.new("Frame")
 		row.LayoutOrder = index
 		row.BackgroundTransparency = 1
-		row.Size = UDim2.new(1, 0, 1 / 7, 0)
+		row.Size = UDim2.new(1, 0, 1 / 8, 0)
 		row.Parent = rowsFrame
 		local name = Style.Label(row, "", "Bold", 15, Theme.Colors.Text)
 		name.Size = UDim2.new(0.72, 0, 1, 0)
