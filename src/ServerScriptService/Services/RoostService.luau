@@ -313,7 +313,7 @@ local function makeNameplate(model: Model, text: string, color: Color3)
 	gui.Name = "Nameplate"
 	gui.Size = UDim2.fromOffset(WorldLabels.Nameplate.X, WorldLabels.Nameplate.Y)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, model:GetExtentsSize().Y / 2 + 1.5, 0)
-	gui.MaxDistance = WorldLabels.MaxDistance
+	gui.MaxDistance = WorldLabels.NameplateMaxDistance
 	gui.AlwaysOnTop = false
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
@@ -372,7 +372,11 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 				part.Color = tints[tint]
 			end
 		end
-		model:ScaleTo(model:GetScale() * stage.ModelScale) -- relative to the template's own scale
+	end
+	-- every model (placeholder or real art) is scaled so its nose-to-tail length is the stage's Length
+	local length = model:GetExtentsSize().Z
+	if length > 0.1 then
+		model:ScaleTo(model:GetScale() * stage.Length / length)
 	end
 	-- Starborn look (until real art exists): colors blend toward StarbornColor, plus sparkles.
 	if dragon.Starborn then

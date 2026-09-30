@@ -13,7 +13,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 
 local PLOT_TAG = "RoostPlot"
-local PROMPT_RANGE = 10
+local PROMPT_RANGE = 16 -- from the dragon's center (Elders are 28 long)
 local UPDATE_INTERVAL = 0.3
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent

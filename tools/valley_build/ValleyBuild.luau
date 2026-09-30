@@ -419,10 +419,12 @@ end
 -- Dragon Sanctuaries: the six RoostPlot models rebuilt on their terraces
 
 B.SanctuaryOrder = { RoostPlot6 = "W1", RoostPlot5 = "W2", RoostPlot4 = "W3", RoostPlot1 = "E1", RoostPlot2 = "E2", RoostPlot3 = "E3" }
-B.RoamRadius = 40
-B.NestZone = { Forward = 16, Side = -22, Radius = 13 } -- front left (seen from the gate, facing in: right)
-B.MeadowZone = { Forward = -4, Side = 8, Radius = 20 }
+local Slots = V.Slots
+B.RoamRadius = Slots.Roam
 
+-- The base sanctuary (Valley rework 2026-10): a neutral terrace with the slots every sanctuary look shares (zones,
+-- perches, upgrade stands, sign; layout in ValleyTerrain V.Slots, local x/y = right/toward the gate) plus plain
+-- "Placeholder_*" stand-ins (rim wall, gate, perch spires, nests, pond) that the look kits replace.
 function B.BuildSanctuary(plot: Model)
 	local id = B.SanctuaryOrder[plot.Name]
 	local s
@@ -435,13 +437,13 @@ function B.BuildSanctuary(plot: Model)
 	local T = s.T
 	local center = Vector3.new(s.X, T, s.Z)
 	local fwd = Vector3.new(s.AX, 0, s.AZ) -- toward the altar (the gate side)
-	local right = Vector3.new(-fwd.Z, 0, fwd.X)
-	local face = CFrame.lookAt(center, center + fwd) -- local frame: -Z = forward
-	local function at(forward: number, side: number, y: number): Vector3
-		return center + fwd * forward + right * side + Vector3.new(0, y, 0)
+	local function at(x: number, y: number, h: number?): Vector3 -- slot coordinates -> world (h above the floor)
+		local wx, wz = V.ToWorld(s, x, y)
+		return Vector3.new(wx, T + (h or 0), wz)
 	end
-	local function frame(forward: number, side: number, y: number): CFrame
-		return face.Rotation + at(forward, side, y)
+	local function frame(x: number, y: number, h: number?): CFrame -- at a slot, -Z toward the gate / the altar
+		local p = at(x, y, h)
+		return CFrame.lookAt(p, p + fwd)
 	end
 
 	-- clear the old content (keep Base, Sign, stands), rebuild in "Sanctuary"
@@ -461,7 +463,7 @@ function B.BuildSanctuary(plot: Model)
 
 	-- Base: the invisible floor disc (PrimaryPart); the ground itself is terrain grass
 	local base = plot:FindFirstChild("Base") :: Part
-	base.Size = Vector3.new(1, 96, 96)
+	base.Size = Vector3.new(1, Slots.Rim * 2, Slots.Rim * 2)
 	base.CFrame = CFrame.new(s.X, T - 0.5, s.Z) * CFrame.Angles(0, 0, math.pi / 2)
 	base.Transparency = 1
 	base.CanCollide = false
@@ -469,66 +471,71 @@ function B.BuildSanctuary(plot: Model)
 	base.CanTouch = false
 	plot.PrimaryPart = base
 	plot:SetAttribute("RoamCenter", center)
-	plot:SetAttribute("RoamRadius", B.RoamRadius)
+	plot:SetAttribute("RoamRadius", Slots.Roam)
+	plot:SetAttribute("CenterHeight", Slots.Center.MaxHeight) -- fliers keep clear of the centerpiece below this height
 
-	-- rim wall with a gap for the gate
-	local wall = model(sf, "RimWall")
-	for deg = 0, 348, 12 do
-		local a = rad(deg + 6)
-		if math.abs(math.deg(math.atan2(sin(a), cos(a)))) > 12 then
-			local fw, sd = cos(a) * 49, sin(a) * 49
-			local p = at(fw, sd, 1.1 - 0.6)
-			P(wall, "Wall", Vector3.new(2 * 49 * sin(rad(6)) + 0.9, 2.6, 2), CFrame.lookAt(p, Vector3.new(center.X, p.Y, center.Z)), M.Cobblestone, C.Stone)
+	-- rim wall with a gap for the gate (a segment every 12 degrees around from the gate)
+	local wall = model(sf, "Placeholder_RimWall")
+	for deg = 6, 354, 12 do
+		local away = math.abs(if deg > 180 then deg - 360 else deg)
+		if away > 13 then
+			local a = rad(deg)
+			local p = at(sin(a) * Slots.Rim, cos(a) * Slots.Rim, 3)
+			P(wall, "Wall", Vector3.new(2 * Slots.Rim * sin(rad(6)) + 0.9, 6, 3), CFrame.lookAt(p, Vector3.new(center.X, p.Y, center.Z)), M.Cobblestone, C.Stone)
 		end
 	end
 
-	-- the grand binder gate, the owner sign under its lintel
+	-- the gate (pillars, lintel, gold star), the owner sign under its lintel
 	local gate = model(sf, "Placeholder_SanctuaryGate")
-	for _, sd in { -9.5, 9.5 } do
-		P(gate, "Plinth", Vector3.new(5, 2, 5), frame(48.5, sd, 1), M.Slate, C.Cap)
-		P(gate, "Pillar", Vector3.new(3.6, 18, 3.6), frame(48.5, sd, 11), M.Cobblestone, C.Stone)
-		P(gate, "Capital", Vector3.new(4.6, 1.2, 4.6), frame(48.5, sd, 20.6), M.Slate, C.Cap)
-		local rune = P(gate, "Runes", Vector3.new(0.5, 11, 0.12), frame(48.5 + 1.86, sd, 10.5), M.Foil, C.Gold, { CanCollide = false })
-		glow(rune)
+	local gh, gy = Slots.GateHeight, Slots.Gate
+	for _, sd in { -Slots.GateHalf, Slots.GateHalf } do
+		P(gate, "Plinth", Vector3.new(7, 2, 7), frame(sd, gy, 1), M.Slate, C.Cap)
+		P(gate, "Pillar", Vector3.new(4.6, gh - 6, 4.6), frame(sd, gy, 2 + (gh - 6) / 2), M.Cobblestone, C.Stone)
+		P(gate, "Capital", Vector3.new(6, 1.6, 6), frame(sd, gy, gh - 3.2), M.Slate, C.Cap)
+		glow(P(gate, "Runes", Vector3.new(0.6, 14, 0.12), frame(sd, gy + 2.35, 13), M.Foil, C.Gold, { CanCollide = false }))
 	end
-	P(gate, "Lintel", Vector3.new(24, 3, 3.8), frame(48.5, 0, 22.7), M.Slate, C.StoneDark)
-	star(gate, frame(48.5 + 1.95, 0, 22.7), 3)
+	P(gate, "Lintel", Vector3.new(2 * Slots.GateHalf + 6, 3.4, 5), frame(0, gy, gh - 1.4), M.Slate, C.StoneDark)
+	star(gate, frame(0, gy + 2.6, gh - 1.4), 4.5)
 	local sign = plot:FindFirstChild("Sign") :: BasePart
-	sign.CFrame = frame(48.5, 0, 14.2)
-	P(gate, "SignChain", Vector3.new(0.25, 6.5, 0.25), frame(48.5, -4.5, 18.4), M.Metal, C.Iron, { CanCollide = false })
-	P(gate, "SignChain", Vector3.new(0.25, 6.5, 0.25), frame(48.5, 4.5, 18.4), M.Metal, C.Iron, { CanCollide = false })
-
-	-- upgrade stands flanking the forecourt path, lanterns at its front corners
-	for _, pair in { { "UpgradeSlots", -7 }, { "UpgradeIncome", 7 } } do
-		local stand = plot:FindFirstChild(pair[1]) :: BasePart
-		local cap = plot:FindFirstChild(pair[1] .. "Glow") :: BasePart
-		stand.CFrame = frame(56, pair[2], stand.Size.Y / 2)
-		cap.CFrame = frame(56, pair[2], stand.Size.Y + cap.Size.Y / 2)
+	sign.CFrame = frame(0, gy, 16)
+	for _, sd in { -5, 5 } do
+		P(gate, "SignChain", Vector3.new(0.3, 7.3, 0.3), frame(sd, gy, 21.2), M.Metal, C.Iron, { CanCollide = false })
 	end
-	lantern(sf, at(63, -12, 0), 0)
-	lantern(sf, at(63, 12, 0), 0)
+
+	-- upgrade stands in front of the gate (the parts carry the prompts; the art comes from BuildUpgradeStands),
+	-- lanterns at the forecourt's front corners
+	for i, name in { "UpgradeSlots", "UpgradeIncome" } do
+		local stand = plot:FindFirstChild(name) :: BasePart
+		local cap = plot:FindFirstChild(name .. "Glow") :: BasePart
+		local sx, sy = Slots.Stands[i][1], Slots.Stands[i][2]
+		stand.CFrame = frame(sx, sy, stand.Size.Y / 2)
+		cap.CFrame = frame(sx, sy, stand.Size.Y + cap.Size.Y / 2)
+	end
+	lantern(sf, at(-20, 95), 0)
+	lantern(sf, at(20, 95), 0)
 
 	-- steps from the forecourt down to the road: solid blocks from below the ground (y -1) up to each tread
-	-- (frame() heights are relative to the forecourt at T, so convert the absolute heights)
+	-- (h is relative to the forecourt at T, so convert the absolute heights)
 	local n = math.max(2, math.ceil((T - 0.8) / 1.5)) -- rises of at most 1.5 studs (walkable without jumping)
 	local rise, run = (T - 0.8) / n, 2.2
 	local steps = model(sf, "Steps")
 	for k = 1, n - 1 do
 		local top = T - k * rise
-		local front = 66 + (k - 1) * run
-		P(steps, "Step", Vector3.new(14, top + 1, run + 0.1), frame(front + run / 2, 0, (top - 1) / 2 - T), M.Slate, C.Cap)
+		local front = V.ApronLen + (k - 1) * run
+		P(steps, "Step", Vector3.new(16, top + 1, run + 0.1), frame(0, front + run / 2, (top - 1) / 2 - T), M.Slate, C.Cap)
 	end
 
-	-- zones (invisible discs): where dragons appear and walkers roam (Shared/RoostZones)
+	-- zones (invisible discs): where dragons appear and walkers roam (Shared/RoostZones); CenterZone / WaterZone keep
+	-- fliers and walkers off the centerpiece and the water
 	local zones = Instance.new("Folder")
 	zones.Name = "Zones"
 	zones.Parent = plot
-	for name, z in { NestZone = B.NestZone, MeadowZone = B.MeadowZone } do
-		disc(zones, name, at(z.Forward, z.Side, 0.1), z.Radius, 0.2, M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
+	for name, z in { NestZone = Slots.Nest, MeadowZone = Slots.Meadow, CenterZone = Slots.Center, WaterZone = Slots.Water } do
+		disc(zones, name, at(z.X, z.Y, 0.1), z.R, 0.2, M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
 	end
 
-	-- perches for flying dragons (RoostAnimationController): the flat tops of the four rock pillars (Size 2, fit Elders)
-	-- and two spots on the back cliff's ledge (Size 1); each faces the sanctuary center
+	-- perches for flying dragons (RoostAnimationController): the pad tops (Size 2 = Elder pads, Size 1 = Dragon pads);
+	-- each faces the sanctuary center
 	local perches = Instance.new("Folder")
 	perches.Name = "Perches"
 	perches.Parent = plot
@@ -536,47 +543,38 @@ function B.BuildSanctuary(plot: Model)
 		local p = P(perches, "Perch", Vector3.new(2, 0.4, 2), CFrame.lookAt(pos, Vector3.new(center.X, pos.Y, center.Z)), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
 		p:SetAttribute("Size", size)
 	end
-	for _, pl in s.PillarList do
-		perch(Vector3.new(pl.X, pl.Top, pl.Z), 2)
+	for _, pl in Slots.ElderPerches do
+		perch(at(pl[1], pl[2], pl[3]), 2)
 	end
-	for _, deg in { -36, 36 } do
-		local a = rad(deg)
-		local bx, bz = -fwd.X, -fwd.Z
-		local dx, dz = bx * cos(a) - bz * sin(a), bx * sin(a) + bz * cos(a)
-		local x, z = s.X + dx * 55, s.Z + dz * 55
-		perch(Vector3.new(x, ground(x, z), z), 1)
+	for _, pl in Slots.DragonPerches do
+		perch(at(pl[1], pl[2], pl[3]), 1)
 	end
 
-	-- nesting ground: three straw nests, hay, a timber shelter against the wall
-	local nz = B.NestZone
-	local nest = model(sf, "NestingGround")
-	for i, off in { { 0, 0 }, { 6, -6 }, { -6, -5 } } do
-		local c = at(nz.Forward + off[1], nz.Side + off[2], 0)
-		local nm = model(nest, "Placeholder_Nest")
-		disc(nm, "Straw", c + Vector3.new(0, 0.6, 0), 3.4, 1.2, M.Grass, C.Straw)
-		disc(nm, "Hollow", c + Vector3.new(0, 0.75, 0), 2.3, 1.2, M.Grass, C.StrawDark)
+	-- plain stand-ins for the look kits: perch spires, basking rocks, a pond and three straw nests
+	local art = model(sf, "Placeholder_Plain")
+	local function spire(pl: { number }, r: number, name: string)
+		local p = P(art, name, Vector3.new(pl[3], r * 2, r * 2), CFrame.new(at(pl[1], pl[2], pl[3] / 2)) * CFrame.Angles(0, 0, math.pi / 2), M.Slate, C.StoneDark)
+		p.Shape = Enum.PartType.Cylinder
+		disc(art, name .. "Cap", at(pl[1], pl[2], pl[3] + 0.2), r - 0.3, 0.4, M.Grass, Color3.fromRGB(96, 140, 78))
 	end
-	P(nest, "Hay", Vector3.new(3.4, 2, 2.2), frame(nz.Forward + 9, nz.Side + 6, 1) * CFrame.Angles(0, rad(20), 0), M.Grass, C.Straw)
-	P(nest, "Hay", Vector3.new(3.4, 2, 2.2), frame(nz.Forward + 11.5, nz.Side + 4, 1) * CFrame.Angles(0, rad(-15), 0), M.Grass, C.Straw)
-	local shelter = model(nest, "Placeholder_Shelter")
-	local sc = frame(14, -40, 0) * CFrame.Angles(0, rad(-90), 0) -- open side faces the sanctuary center
-	for _, px in { -6, 6 } do
-		for _, pz in { -3.5, 3.5 } do
-			P(shelter, "Post", Vector3.new(0.9, 8.6, 0.9), sc * CFrame.new(px, 4.3, pz), M.Wood, C.Wood)
-		end
+	for _, pl in Slots.ElderPerches do
+		spire(pl, V.PillarR, "Placeholder_PerchElder")
 	end
-	P(shelter, "BackWall", Vector3.new(12.8, 6, 0.5), sc * CFrame.new(0, 3, 3.9), M.WoodPlanks, C.Plank)
-	P(shelter, "Ridge", Vector3.new(13.6, 0.8, 0.8), sc * CFrame.new(0, 10.3, 0), M.Wood, C.Wood)
-	for _, sgn in { -1, 1 } do
-		P(shelter, "Roof", Vector3.new(14.4, 0.5, 6.2), sc * CFrame.new(0, 9.2, sgn * 2.6) * CFrame.Angles(sgn * rad(32), 0, 0), M.RoofShingles, C.Roof)
+	for _, pl in Slots.DragonPerches do
+		spire(pl, 7, "Placeholder_PerchDragon")
 	end
-
-	-- open meadow: a stone water trough (no boulders: the meadow stays open for dragons lying down)
-	local meadow = model(sf, "Meadow")
-	local trough = model(meadow, "Placeholder_Trough")
-	local tc = frame(24, 22, 0) * CFrame.Angles(0, rad(-30), 0)
-	P(trough, "Stone", Vector3.new(9, 2.2, 3.8), tc * CFrame.new(0, 1.1, 0), M.Slate, C.Cap)
-	P(trough, "Water", Vector3.new(8, 0.3, 2.8), tc * CFrame.new(0, 2, 0), M.Glass, C.Water, { Transparency = 0.25, CanCollide = false })
+	for _, b in Slots.Bask do
+		disc(art, "Placeholder_Bask", at(b[1], b[2], 0.8), 9, 1.6, M.Slate, C.Cap)
+	end
+	local w = Slots.Water
+	disc(art, "Placeholder_Pond", at(w.X, w.Y, 0.25), w.R, 0.5, M.Glass, C.Water, { Transparency = 0.25, CanCollide = false })
+	local nz = Slots.Nest
+	for _, off in { { 0, 0 }, { 10, -9 }, { -10, -8 } } do
+		local c = at(nz.X + off[1], nz.Y + off[2], 0)
+		local nm = model(art, "Placeholder_Nest")
+		disc(nm, "Straw", c + Vector3.new(0, 0.9, 0), 5.5, 1.8, M.Grass, C.Straw)
+		disc(nm, "Hollow", c + Vector3.new(0, 1.1, 0), 3.8, 1.8, M.Grass, C.StrawDark)
+	end
 end
 
 function B.BuildSanctuaries()
@@ -793,24 +791,25 @@ function B.BuildSanctuaryTiers()
 		-- 1 Gilded: gold trim on the rim wall (same segments as BuildSanctuary), banners on the gate pillars
 		for deg = 0, 348, 12 do
 			local a = rad(deg + 6)
-			if math.abs(math.deg(math.atan2(sin(a), cos(a)))) > 12 then
-				local p = at(cos(a) * 49, sin(a) * 49, 1.95)
-				local trim = P(tiers[1], "GoldTrim", Vector3.new(2 * 49 * sin(rad(6)) + 1, 0.3, 2.3), CFrame.lookAt(p, Vector3.new(center.X, p.Y, center.Z)), M.Foil, C.Gold, noCollide())
+			if math.abs(math.deg(math.atan2(sin(a), cos(a)))) > 13 then
+				local p = at(cos(a) * Slots.Rim, sin(a) * Slots.Rim, 6.1)
+				local trim = P(tiers[1], "GoldTrim", Vector3.new(2 * Slots.Rim * sin(rad(6)) + 1, 0.3, 3.4), CFrame.lookAt(p, Vector3.new(center.X, p.Y, center.Z)), M.Foil, C.Gold, noCollide())
 				glow(trim)
 			end
 		end
-		for _, sd in { -9.5, 9.5 } do
-			local bf = frame(48.5 + 1.95, sd, 16.6)
-			P(tiers[1], "Banner", Vector3.new(3, 6.2, 0.2), bf, M.Fabric, C.Navy, noCollide())
-			P(tiers[1], "BannerRod", Vector3.new(3.6, 0.3, 0.3), bf * CFrame.new(0, 3.2, -0.05), M.Foil, C.Gold, noCollide())
-			star(tiers[1], bf * CFrame.new(0, 0.4, -0.15), 1.8) -- -Z = the banner's front (toward the road)
+		for _, sd in { -Slots.GateHalf, Slots.GateHalf } do
+			local bf = frame(Slots.Gate + 2.6, sd, 19)
+			P(tiers[1], "Banner", Vector3.new(4.4, 9, 0.2), bf, M.Fabric, C.Navy, noCollide())
+			P(tiers[1], "BannerRod", Vector3.new(5.2, 0.4, 0.4), bf * CFrame.new(0, 4.6, -0.05), M.Foil, C.Gold, noCollide())
+			star(tiers[1], bf * CFrame.new(0, 0.6, -0.15), 2.6) -- -Z = the banner's front (toward the road)
 		end
 
 		-- 2 Runed: a double rune circle on the meadow floor, braziers flanking the gate
-		local mz = B.MeadowZone
-		local mc = at(mz.Forward, mz.Side, 0)
+		local mz = Slots.Meadow
+		local mcx, mcz = V.ToWorld(s, mz.X, mz.Y)
+		local mc = Vector3.new(mcx, T, mcz)
 		local runeY = surfaceY(mc.X, mc.Z, T) + 0.25
-		for _, ring in { { R = mz.Radius, N = 16, W = 1.1 }, { R = mz.Radius - 3.5, N = 12, W = 0.7 } } do
+		for _, ring in { { R = mz.R, N = 24, W = 1.6 }, { R = mz.R - 4.5, N = 18, W = 1 } } do
 			for k = 0, ring.N - 1 do
 				local a = (k + 0.5) / ring.N * 2 * math.pi
 				local p = Vector3.new(mc.X + cos(a) * ring.R, runeY, mc.Z + sin(a) * ring.R)
@@ -820,11 +819,11 @@ function B.BuildSanctuaryTiers()
 		end
 		for k = 0, 5 do
 			local a = k / 6 * 2 * math.pi
-			local p = Vector3.new(mc.X + cos(a) * (mz.Radius - 1.75), runeY, mc.Z + sin(a) * (mz.Radius - 1.75))
+			local p = Vector3.new(mc.X + cos(a) * (mz.R - 1.75), runeY, mc.Z + sin(a) * (mz.R - 1.75))
 			P(tiers[2], "RuneGlyph", Vector3.new(1.3, 0.14, 1.3), CFrame.new(p) * CFrame.Angles(0, a + math.pi / 4, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.2, CastShadow = false }))
 		end
-		for _, sd in { -14, 14 } do
-			local g = grounded(51.5, sd)
+		for _, sd in { -20, 20 } do
+			local g = grounded(79, sd)
 			local post = P(tiers[2], "BrazierPost", Vector3.new(3, 1.3, 1.3), CFrame.new(g + Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), M.Slate, C.Cap, noCollide({ CanCollide = true }))
 			post.Shape = Enum.PartType.Cylinder
 			disc(tiers[2], "BrazierBase", g + Vector3.new(0, 0.2, 0), 1.3, 0.4, M.Slate, C.StoneDark, noCollide({ CanCollide = true }))
@@ -858,7 +857,7 @@ function B.BuildSanctuaryTiers()
 			-- clear of the pillar (its radius wobbles up to +30%); the ground ray starts low so it can't land on the top
 			local x, z = pl.X + toCenter.X * (V.PillarR * 1.3 + 1.5), pl.Z + toCenter.Z * (V.PillarR * 1.3 + 1.5)
 			local m = KIT.AI_Ench_MagicCrystals:Clone()
-			m:ScaleTo(1.4)
+			m:ScaleTo(2.2)
 			m:PivotTo(CFrame.new(x, surfaceY(x, z, T - 56) - 0.3, z) * CFrame.Angles(0, math.atan2(toCenter.X, toCenter.Z), 0))
 			for _, d in m:GetDescendants() do
 				if d:IsA("BasePart") then
@@ -874,7 +873,7 @@ function B.BuildSanctuaryTiers()
 			m.Name = "PillarCrystals"
 			m.Parent = tiers[3]
 		end
-		local motes = P(tiers[3], "MoteVolume", Vector3.new(70, 16, 70), CFrame.new(center + Vector3.new(0, 12, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
+		local motes = P(tiers[3], "MoteVolume", Vector3.new(140, 30, 140), CFrame.new(center + Vector3.new(0, 20, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
 		local emitter = Instance.new("ParticleEmitter")
 		emitter.Name = "Motes"
 		emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
@@ -885,7 +884,7 @@ function B.BuildSanctuaryTiers()
 		emitter.Lifetime = NumberRange.new(4, 7)
 		emitter.Speed = NumberRange.new(0.3, 1)
 		emitter.SpreadAngle = Vector2.new(180, 180)
-		emitter.Rate = 10
+		emitter.Rate = 24
 		emitter.Shape = Enum.ParticleEmitterShape.Box
 		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 		emitter.Parent = motes
@@ -900,18 +899,18 @@ function B.BuildSanctuaryTiers()
 			local toCenter = (from - target).Unit
 			local surface = if hit then hit.Position else target + toCenter * V.PillarR
 			local strip = CFrame.lookAt(surface + toCenter * 0.35, surface + toCenter * 2)
-			P(tiers[4], "PillarRunes", Vector3.new(1.2, height * 0.7, 0.2), strip, M.Neon, TC.Rune, noCollide({ CastShadow = false }))
+			P(tiers[4], "PillarRunes", Vector3.new(1.8, height * 0.7, 0.2), strip, M.Neon, TC.Rune, noCollide({ CastShadow = false }))
 			for _, dy in { height * 0.42, -height * 0.42 } do
 				P(tiers[4], "PillarGlyph", Vector3.new(2, 2, 0.2), strip * CFrame.new(0, dy, 0) * CFrame.Angles(0, 0, math.pi / 4), M.Neon, TC.Rune, noCollide({ CastShadow = false }))
 			end
 		end
-		local sky = P(tiers[4], "AuroraAnchor", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 55, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
+		local sky = P(tiers[4], "AuroraAnchor", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 75, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
 		-- three thin, curving ribbons (a beam's side edges are hard, so wide ones read as a glass panel)
-		for i, spec in { { Side = -12, Width = 9, Curve = 26 }, { Side = 0, Width = 6, Curve = -22 }, { Side = 12, Width = 7, Curve = 18 } } do
+		for i, spec in { { Side = -24, Width = 14, Curve = 40 }, { Side = 0, Width = 10, Curve = -34 }, { Side = 24, Width = 11, Curve = 28 } } do
 			local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
 			a0.Parent, a1.Parent = sky, sky -- parent first: WorldPosition is relative to the parent
-			a0.WorldPosition = center + right * -55 + fwd * spec.Side + Vector3.new(0, 55 + i * 6, 0)
-			a1.WorldPosition = center + right * 55 + fwd * spec.Side + Vector3.new(0, 55 + i * 6, 0)
+			a0.WorldPosition = center + right * -110 + fwd * spec.Side + Vector3.new(0, 75 + i * 8, 0)
+			a1.WorldPosition = center + right * 110 + fwd * spec.Side + Vector3.new(0, 75 + i * 8, 0)
 			local beam = Instance.new("Beam")
 			beam.Name = "Aurora"
 			beam.Attachment0, beam.Attachment1 = a0, a1
@@ -946,7 +945,7 @@ function B.BuildSanctuaryTiers()
 		local template = assets.Dragons:FindFirstChild(B.TierStatueSpecies)
 		template = template and template:FindFirstChild("Elder")
 		-- golden guardians standing on the gate's lintel over each pillar, facing the road
-		for _, sd in { -9.5, 9.5 } do
+		for _, sd in { -Slots.GateHalf, Slots.GateHalf } do
 			if template then
 				local statue = template:Clone()
 				statue.Name = "GoldenGuardian"
@@ -964,8 +963,8 @@ function B.BuildSanctuaryTiers()
 					end
 				end
 				local _, size = statue:GetBoundingBox()
-				statue:ScaleTo(statue:GetScale() * 6.5 / math.max(size.X, size.Z))
-				local top = at(48.5, sd, 24.2) -- the lintel's top (it covers the pillar capitals)
+				statue:ScaleTo(statue:GetScale() * 11 / math.max(size.X, size.Z))
+				local top = at(Slots.Gate, sd, Slots.GateHeight + 0.4) -- the lintel's top (it covers the pillar capitals)
 				statue:PivotTo(CFrame.lookAt(top, top + fwd))
 				statue.Parent = tiers[5]
 			end
@@ -1072,7 +1071,7 @@ function B.BuildTravelPoints()
 		local center = plot:GetAttribute("RoamCenter")
 		if plot:IsA("Model") and typeof(center) == "Vector3" then
 			local out = Vector3.new(-center.X, 0, -center.Z).Unit -- toward the altar
-			local at = center + out * 64 -- forecourt, in front of the upgrade stands
+			local at = center + out * 95 -- forecourt, in front of the upgrade stands
 			point(plot.Name, at.X, at.Z, center.X, center.Z)
 		end
 	end

@@ -403,6 +403,7 @@ return {
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
 	WorldLabels = {
 		MaxDistance = 40, -- studs: roost owner signs, dragon nameplates, portal names, upgrade stands, area signs
+		NameplateMaxDistance = 70, -- studs: dragon nameplates (big dragons fly high in the 150-stud sanctuaries)
 		BadgeMaxDistance = 80, -- studs: the ★ rebirth badge over players (a status symbol, seen from further)
 		RoostSign = Vector2.new(180, 34),
 		Nameplate = Vector2.new(130, 28),

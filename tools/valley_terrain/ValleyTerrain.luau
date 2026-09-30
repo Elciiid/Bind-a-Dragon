@@ -23,31 +23,50 @@ end
 V.Smooth, V.Lerp = smooth, lerp
 
 V.Sanct = {
-	{ Name = "W1", X = -186.6, Z = -116.6, T = 10 },
-	{ Name = "W2", X = -220, Z = 0, T = 8 },
-	{ Name = "W3", X = -186.6, Z = 116.6, T = 6 },
-	{ Name = "E1", X = 186.6, Z = -116.6, T = 10 },
-	{ Name = "E2", X = 220, Z = 0, T = 8 },
-	{ Name = "E3", X = 186.6, Z = 116.6, T = 6 },
+	-- 150-stud sanctuaries (rim radius 75). W1/E1 sit past the portal terrace, W2/E2 close to the altar, W3/E3 south of
+	-- the river beside the market ponds. Old (96 studs): (+-186.6, -+116.6), (+-220, 0), (+-186.6, 116.6).
+	{ Name = "W1", X = -208, Z = -184, T = 10 },
+	{ Name = "W2", X = -174, Z = -30, T = 8 },
+	{ Name = "W3", X = -158, Z = 150, T = 6 },
+	{ Name = "E1", X = 208, Z = -184, T = 10 },
+	{ Name = "E2", X = 174, Z = -30, T = 8 },
+	{ Name = "E3", X = 158, Z = 150, T = 6 },
 }
 for _, s in V.Sanct do
 	local len = sqrt(s.X * s.X + s.Z * s.Z)
 	s.AX, s.AZ = -s.X / len, -s.Z / len -- unit vector toward the altar
 end
-V.FlatR = 52 -- flat terrace radius (sanctuary 48 + wall)
-V.ApronLen, V.ApronHalf = 66, 17 -- forecourt toward the altar
+V.FlatR = 80 -- flat terrace radius (rim wall at 75, footing to 80)
+V.ApronLen, V.ApronHalf = 97, 24 -- forecourt toward the altar (gate at 75, forecourt to 97)
 V.MesaSlope = 1.4
--- Rock pillars in each sanctuary's flight zone (future perches): angle from straight back (degrees), height above
--- the floor. They stand 43 studs out, outside the flight circle (fliers roam up to 34 studs out).
-V.PillarR, V.PillarDist = 6, 43
-V.Pillars = { { -55, 18 }, { -20, 28 }, { 20, 24 }, { 55, 20 } }
+-- Sanctuary slots (Valley rework): the gameplay layout every sanctuary look shares (gate, perches, zones, stands). Local
+-- coordinates (x, y): a player standing in the sanctuary and looking at the far wall has +x on their right, and +y runs
+-- toward the gate (and the altar). V.ToWorld(s, x, y) converts to world X, Z. Heights are above the terrace floor.
+V.Slots = {
+	Rim = 75, -- rim wall radius
+	Roam = 64, -- fliers stay inside this radius (plot attribute RoamRadius)
+	Gate = 75, -- the gate stands this far from the center toward the altar
+	Forecourt = 22, -- paved forecourt beyond the gate
+	GateHalf = 13, GateHeight = 28, -- the gate's pillars stand 13 studs off the center line; lintel top 28 up
+	Stands = { { -14, 88 }, { 14, 88 } }, -- upgrade stands (Slots, Income), in front of the gate
+	Nest = { X = -36, Y = 30, R = 19 },
+	Meadow = { X = 14, Y = 16, R = 28 }, -- clear of the centerpiece zone (radius 24 at y -34)
+	Center = { X = 0, Y = -34, R = 24, MaxHeight = 48 }, -- the hero piece
+	Water = { X = -34, Y = -22, R = 17 },
+	-- Elder-size perch pads (19 across) and Dragon-size pads (14 across): { x, y, height above the floor }
+	ElderPerches = { { -58, -18, 26 }, { -42, -48, 32 }, { 0, -66, 38 }, { 42, -48, 32 }, { 58, -18, 26 } },
+	DragonPerches = { { -62, 12, 12 }, { 62, 14, 16 }, { 30, -30, 20 } },
+	Bask = { { 46, 40 }, { -8, 44 } }, -- basking rocks (18 across)
+}
+V.PillarR = 9.5 -- Elder perch pad radius
+function V.ToWorld(s, x: number, y: number): (number, number)
+	return s.X + s.AX * y + s.AZ * x, s.Z + s.AZ * y - s.AX * x
+end
 for _, s in V.Sanct do
-	s.PillarList = {}
-	local bx, bz = -s.AX, -s.AZ
-	for _, pl in V.Pillars do
-		local a = math.rad(pl[1])
-		local dx, dz = bx * math.cos(a) - bz * math.sin(a), bx * math.sin(a) + bz * math.cos(a)
-		table.insert(s.PillarList, { X = s.X + dx * V.PillarDist, Z = s.Z + dz * V.PillarDist, Top = s.T + pl[2] })
+	s.PillarList = {} -- the Elder perch spires (world X, Z, top height), for the tier art
+	for _, pl in V.Slots.ElderPerches do
+		local wx, wz = V.ToWorld(s, pl[1], pl[2])
+		table.insert(s.PillarList, { X = wx, Z = wz, Top = s.T + pl[3] })
 	end
 end
 
@@ -63,14 +82,14 @@ V.Roads = {
 	{ W = 8, { 0, 205 }, { 0, 140 } }, -- valley mouth, entrance gate, into the market square
 	{ W = 8, { 0, 84 }, { 0, 72 } }, -- square to the grand bridge
 	{ W = 7, { 0, -54 }, { 0, -124 } }, -- plaza to the grand stairs of the portal terrace
-	{ W = 5, { -56, 0 }, { -142, 0 } }, -- W2
-	{ W = 5, { 56, 0 }, { 142, 0 } }, -- E2
-	{ W = 5, { -47.5, -29.7 }, { -120.4, -75.2 } }, -- W1
-	{ W = 5, { 47.5, -29.7 }, { 120.4, -75.2 } }, -- E1
+	{ W = 5, { -56, -9.6 }, { -80, -13.9 } }, -- W2: plaza to the forecourt
+	{ W = 5, { 56, -9.6 }, { 80, -13.9 } }, -- E2
+	{ W = 5, { -38, -30 }, { -76, -54 }, { -106, -80 }, { -127, -113 } }, -- W1: bends out around the portal terrace corner
+	{ W = 5, { 38, -30 }, { 76, -54 }, { 106, -80 }, { 127, -113 } }, -- E1
 	{ W = 5, { -47.5, 29.7 }, { -102, 46 } }, -- W3: plaza to the west side bridge
-	{ W = 5, { -98, 74 }, { -123.8, 77.4 } }, -- W3: side bridge to the sanctuary stairs
-	{ W = 5, { 47.5, 29.7 }, { 97.7, 46 } }, -- E3
-	{ W = 5, { 102.3, 74 }, { 123.8, 77.4 } },
+	{ W = 5, { -99, 72 }, { -90, 80 }, { -84, 82 } }, -- W3: side bridge to the forecourt
+	{ W = 5, { 47.5, 29.7 }, { 102, 46 } }, -- E3
+	{ W = 5, { 99, 72 }, { 90, 80 }, { 84, 82 } },
 }
 V.SpawnPlaza = { X = 0, Z = 160, R = 12 }
 V.Walkway = { R0 = 142, R1 = 158, Half = 42 } -- paved promenade on the portal terrace, in front of the gates
@@ -82,7 +101,7 @@ V.WaterLevel = -1
 local EDGE_W = { { 0, 300 }, { 30, 300 }, { 45, 286 }, { 60, 272 }, { 90, 274 }, { 95, 276 }, { 99, 304 }, { 110, 304 }, { 114, 272 }, { 130, 262 }, { 140, 238 }, { 150, 208 }, { 165, 188 }, { 180, 184 } }
 local EDGE_E = { { 0, 300 }, { 30, 300 }, { 45, 286 }, { 60, 272 }, { 90, 274 }, { 95, 276 }, { 99, 318 }, { 110, 318 }, { 114, 272 }, { 130, 262 }, { 140, 238 }, { 150, 208 }, { 165, 188 }, { 180, 184 } }
 
-local function edgeAt(th: number): number
+local function tableEdgeAt(th: number): number
 	local tbl = if th < 0 then EDGE_W else EDGE_E
 	local a = abs(th)
 	for i = 2, #tbl do
@@ -92,6 +111,24 @@ local function edgeAt(th: number): number
 		end
 	end
 	return tbl[#tbl][2]
+end
+-- Distance along the ray at bearing th to the far side of a disc around each sanctuary: the mountains start behind it.
+local function bulgeAt(th: number): number
+	local t = math.rad(th)
+	local dx, dz = math.sin(t), -math.cos(t)
+	local best = 0
+	for _, s in V.Sanct do
+		local b = s.X * dx + s.Z * dz
+		local disc = b * b - (s.X * s.X + s.Z * s.Z - (V.FlatR + 16) ^ 2)
+		if b > 0 and disc > 0 then
+			best = max(best, b + sqrt(disc))
+		end
+	end
+	return best
+end
+
+local function edgeAt(th: number): number
+	return max(tableEdgeAt(th), bulgeAt(th))
 end
 V.EdgeAt = edgeAt
 
@@ -150,11 +187,11 @@ end
 -- Water: river centerline (x, z, half-width), ponds, pools, the channel on top of the waterfall cliff.
 -- (winds between fixed points: the W2/W3 gap, the side bridges at x = -100 / 100, the grand bridge at x = 0, the E2/E3 gap)
 V.River = {
-	{ -281, 60, 9 }, { -264, 67, 9 }, { -246, 66, 7 }, { -228, 61, 6 }, { -205, 58, 6 }, { -186, 51, 8 },
-	{ -168, 46, 11 }, { -148, 50, 10 }, { -128, 57, 7 }, { -112, 61, 6 }, { -100, 60, 6 }, { -88, 57, 7 },
+	{ -281, 60, 9 }, { -264, 67, 9 }, { -246, 66, 7 }, { -228, 61, 6 }, { -205, 58, 6 }, { -186, 57, 7 },
+	{ -168, 58, 8 }, { -148, 58, 8 }, { -128, 57, 7 }, { -112, 61, 6 }, { -100, 60, 6 }, { -88, 57, 7 },
 	{ -72, 53, 10 }, { -54, 58, 11 }, { -36, 63, 9 }, { -18, 64, 8 }, { 0, 63, 8 }, { 18, 62, 8 }, { 36, 59, 9 },
-	{ 54, 57, 11 }, { 72, 59, 10 }, { 88, 62, 7 }, { 100, 60, 6 }, { 114, 57, 7 }, { 132, 51, 10 }, { 152, 47, 11 },
-	{ 172, 50, 8 }, { 190, 55, 6 }, { 205, 58, 6 }, { 224, 62, 7 }, { 243, 67, 10 }, { 258, 65, 8 }, { 270, 61, 7 },
+	{ 54, 57, 11 }, { 72, 59, 10 }, { 88, 62, 7 }, { 100, 60, 6 }, { 114, 57, 7 }, { 132, 57, 8 }, { 152, 58, 8 },
+	{ 172, 58, 8 }, { 190, 55, 6 }, { 205, 58, 6 }, { 224, 62, 7 }, { 243, 67, 10 }, { 258, 65, 8 }, { 270, 61, 7 },
 }
 -- round the bends: Catmull-Rom through the points above, 4 steps per segment
 do
@@ -174,8 +211,8 @@ do
 	V.River = out
 end
 -- rocks in the river: x, z, radius (tops a little above the water)
-V.RiverRocks = { { -262, 69, 4.5 }, { -166, 43, 4 }, { -70, 50, 4 }, { 56, 53, 4 }, { 150, 44, 4.5 }, { 244, 70, 4 } }
-V.Ponds = { { X = -61, Z = 84, A = 31, B = 16 }, { X = 61, Z = 84, A = 31, B = 16 } }
+V.RiverRocks = { { -262, 69, 4.5 }, { -166, 58, 4 }, { -70, 50, 4 }, { 56, 53, 4 }, { 152, 58, 4.5 }, { 244, 70, 4 } }
+V.Ponds = { { X = -50, Z = 84, A = 25, B = 15 }, { X = 50, Z = 84, A = 25, B = 15 } } -- moved in 11 studs: W3/E3 forecourts
 V.FallPool = { X = -281, Z = 60, R = 14 }
 V.LowPool = { X = 294, Z = 62, R = 14, Level = -7 }
 V.TopChannel = { X0 = -304, Z0 = 58, X1 = -352, Z1 = 56, W = 5, Level = 60.5 }
@@ -277,17 +314,11 @@ function V.Height(x: number, z: number): (number, number?, string?)
 		end
 	end
 
-	-- sanctuary terraces (flat top overrides everything), their rock pillars and the cliff behind them
+	-- sanctuary terraces (flat top overrides everything; the valley edge bulges out behind them, see edgeAt)
 	for _, s in V.Sanct do
 		local vx, vz = x - s.X, z - s.Z
 		local r = sqrt(vx * vx + vz * vz)
 		if r < V.FlatR + 40 then
-			for _, pl in s.PillarList do
-				local dp = sqrt((x - pl.X) ^ 2 + (z - pl.Z) ^ 2)
-				if dp < V.PillarR * (1 + noise(x / 7, z / 7, 3.9) * 0.3) then
-					return pl.Top, nil, "rock"
-				end
-			end
 			local along = vx * s.AX + vz * s.AZ
 			local lateral = abs(vx * s.AZ - vz * s.AX)
 			local apron = math.huge
@@ -296,7 +327,7 @@ function V.Height(x: number, z: number): (number, number?, string?)
 			end
 			local e = min(max(0, r - V.FlatR), apron)
 			if e <= 0 then
-				return s.T, nil, if r <= 48 then "flat" else "paved"
+				return s.T, nil, if r <= V.Slots.Rim - 1 then "flat" else "paved"
 			end
 			local mh = s.T - e * V.MesaSlope
 			if along > V.ApronLen - 1 and lateral < 7.5 then
@@ -305,15 +336,6 @@ function V.Height(x: number, z: number): (number, number?, string?)
 			if mh > h then
 				h = mh
 				rocky = mh > 1.5
-			end
-			-- behind the back half: a ledge 13 studs up, then the cliff rises to 22 (ledges for perching later)
-			local back = -along
-			if back > 5 then
-				local cliff = s.T + 13 + smooth((r - 58) / 6) * 9 + noise(x / 12, z / 12, 6.1) * 2
-				local ch = lerp(h, cliff, smooth((back - 5) / 25))
-				if ch > h then
-					h = ch
-				end
 			end
 		end
 	end

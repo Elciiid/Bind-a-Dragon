@@ -23,6 +23,7 @@ D.MaxTrees = 260
 D.ClearZones = {
 	Plaza = 82, -- radius around the altar (the plaza base is 57)
 	PortalFront = { R0 = 82, R1 = 136, Half = 56 }, -- from the plaza ring to the terrace wall (R 133), bearings within +/-Half
+	Sanctuaries = 108, -- radius around each sanctuary center (terrace 80 + forecourt to 97): nothing grows here (Valley rework)
 }
 D.FlowerPatches = 14 -- wildflower patches of 9-13 flowers, toward the valley edges (the middle of each field stays open)
 D.MaxBoulders = 18 -- boulders on the lower slopes only (none in the open meadows)
@@ -106,8 +107,8 @@ local function open(x: number, z: number, margin: number): boolean
 		return false -- market
 	end
 	for _, s in V.Sanct do
-		if sqrt((x - s.X) ^ 2 + (z - s.Z) ^ 2) < 64 then
-			return false -- sanctuaries and their back cliffs
+		if sqrt((x - s.X) ^ 2 + (z - s.Z) ^ 2) < V.FlatR + 30 then
+			return false -- sanctuary terraces and their forecourts
 		end
 	end
 	if R > 120 and R < 190 and abs(th) < 50 then
@@ -132,7 +133,15 @@ local function clear(x: number, z: number): boolean
 	local R = sqrt(x * x + z * z)
 	local th = math.deg(math.atan2(x, -z))
 	local pf = D.ClearZones.PortalFront
-	return R < D.ClearZones.Plaza or (R > pf.R0 and R < pf.R1 and abs(th) < pf.Half)
+	if R < D.ClearZones.Plaza or (R > pf.R0 and R < pf.R1 and abs(th) < pf.Half) then
+		return true
+	end
+	for _, s in V.Sanct do
+		if sqrt((x - s.X) ^ 2 + (z - s.Z) ^ 2) < D.ClearZones.Sanctuaries then
+			return true
+		end
+	end
+	return false
 end
 D.Clear = clear
 
@@ -609,7 +618,7 @@ D.RuinSites = {
 	{ "Ruin_LowPool", Vector3.new(280, 0, 38), -100, { "stump", "fallen", "rune" }, true },
 	{ "Ruin_TerraceWest", Vector3.new(-115, 0, -128), 48, { "rune", "step" }, false },
 	{ "Ruin_TerraceEast", Vector3.new(115, 0, -128), -48, { "step", "rune" }, false },
-	{ "Ruin_MeadowWest", Vector3.new(-100, 0, -30), 70, { "stump", "step", "fallen" }, true },
+	{ "Ruin_MeadowWest", Vector3.new(-100, 0, -30), 70, { "stump", "step", "fallen" }, false }, -- W2 forecourt (Valley rework)
 	{ "Ruin_MeadowEast", Vector3.new(105, 0, 22), -70, { "fallen", "column" }, false },
 	{ "Ruin_SpireWest", Vector3.new(-52, 0, -262), 90, { "column", "stump" }, true },
 	{ "Ruin_SpireEast", Vector3.new(52, 0, -262), -90, { "stump", "column" }, true },
@@ -623,19 +632,7 @@ function D.BuildRuins()
 			site(f, s[1], s[2], rad(s[3]), s[4])
 		end
 	end
-	-- each sanctuary: a rune stone (its broken arch was removed: it read as a second gate)
-	for plotName, id in B.SanctuaryOrder do
-		for _, s in V.Sanct do
-			if s.Name == id then
-				local center = Vector3.new(s.X, s.T, s.Z)
-				local fwd = Vector3.new(s.AX, 0, s.AZ)
-				local right = Vector3.new(-fwd.Z, 0, fwd.X)
-				local yaw = math.atan2(-fwd.X, -fwd.Z)
-				local m = B.Model(f, "Sanctuary_" .. id)
-				runeStone(m, center - fwd * 36 - right * 26, yaw, 1.6)
-			end
-		end
-	end
+	-- (the sanctuaries' own ruins come with their looks: ValleyBuild.BuildSanctuaryLooks)
 end
 
 ---------------------------------------------------------------------------------------------------------------

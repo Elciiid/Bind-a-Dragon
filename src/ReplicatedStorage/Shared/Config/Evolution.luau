@@ -6,6 +6,7 @@
 -- (dragon.Evolutions[stageId]). Each night-time branch gives an income bonus, bigger when the constellation's
 -- element matches the dragon's. Evolving during the day gives a plain branch (DayBranchId) with no bonus.
 -- The latest branch also tints the dragon's accent color in that constellation's element.
+-- Sizes (Valley rework 2026-10): Length 10 / 15 / 21 / 28 studs; speeds and heights scaled to match the 150-stud sanctuaries.
 -- PLACEHOLDER numbers.
 
 export type Movement = "Hop" | "Walk" | "Fly"
@@ -16,7 +17,7 @@ export type Stage = {
 	MinLevel: number,
 	IncomeMultiplier: number, -- multiplies roost gold/sec
 	PowerMultiplier: number, -- multiplies Spire battle power
-	ModelScale: number, -- size of the placeholder model (real art can ignore this)
+	Length: number, -- studs, nose to tail tip: RoostService scales every dragon model (placeholder or art) to this
 	-- How it roams around the roost pen:
 	Movement: Movement, -- Hop = walks with little jumps, Walk = walks, Fly = flies around at FlyHeight
 	MoveSpeed: number, -- studs per second
@@ -33,10 +34,10 @@ export type Stage = {
 }
 
 local Stages: { Stage } = {
-	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, PowerMultiplier = 1, ModelScale = 1, Movement = "Hop", MoveSpeed = 4, FlyHeight = 0, Zone = "Nest", PerchSize = 0 },
-	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, PowerMultiplier = 2.5, ModelScale = 1.4, Movement = "Walk", MoveSpeed = 5, FlyHeight = 0, Zone = "Meadow", PerchSize = 0 },
-	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, PowerMultiplier = 6, ModelScale = 1.9, Movement = "Fly", MoveSpeed = 8, FlyHeight = 8, Zone = "Meadow", PerchSize = 1 },
-	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, ModelScale = 2.5, Movement = "Fly", MoveSpeed = 10, FlyHeight = 30, FlyHeightRange = NumberRange.new(24, 36), Zone = "Meadow", PerchSize = 2 }, -- above the pillars (up to ~27) and the back cliff
+	{ Id = "Hatchling", Name = "Hatchling", MinLevel = 1, IncomeMultiplier = 1, PowerMultiplier = 1, Length = 10, Movement = "Hop", MoveSpeed = 6, FlyHeight = 0, Zone = "Nest", PerchSize = 0 },
+	{ Id = "Drake", Name = "Drake", MinLevel = 10, IncomeMultiplier = 3, PowerMultiplier = 2.5, Length = 15, Movement = "Walk", MoveSpeed = 8, FlyHeight = 0, Zone = "Meadow", PerchSize = 0 },
+	{ Id = "Dragon", Name = "Dragon", MinLevel = 25, IncomeMultiplier = 8, PowerMultiplier = 6, Length = 21, Movement = "Fly", MoveSpeed = 12, FlyHeight = 26, FlyHeightRange = NumberRange.new(20, 32), Zone = "Meadow", PerchSize = 1 },
+	{ Id = "Elder", Name = "Elder", MinLevel = 50, IncomeMultiplier = 20, PowerMultiplier = 15, Length = 28, Movement = "Fly", MoveSpeed = 15, FlyHeight = 56, FlyHeightRange = NumberRange.new(44, 68), Zone = "Meadow", PerchSize = 2 }, -- above the tallest perch (38) and the centerpiece (48)
 }
 
 return {

@@ -24,11 +24,12 @@ return {
 	-- "too close" when their footprints (half their width/length, wings included) plus Margin overlap and they are at
 	-- about the same height; each then turns away and drifts apart.
 	Separation = {
-		Margin = 2, -- studs of extra space between footprints
+		Margin = 4, -- studs of extra space between footprints
 		TurnWeight = 1.6, -- how strongly the heading turns away (1 = as much as toward its target)
 		Push = 0.6, -- share of its speed a flier drifts sideways while too close
-		Climb = 10, -- studs the higher of two crowded fliers may climb above its cruise height to pass over
-		ClimbRate = 4, -- studs per second it climbs (and settles back afterwards)
+		Climb = 16, -- studs the higher of two crowded fliers may climb above its cruise height to pass over
+		ClimbRate = 6, -- studs per second it climbs (and settles back afterwards)
+		CenterWeight = 2.2, -- how strongly fliers below the centerpiece's height steer around its zone (plot CenterZone)
 	},
 
 	-- Fliers take turns (client-side): at most MaxAirborne fliers of one pen are in the air at once; the others rest
@@ -41,13 +42,13 @@ return {
 		RestSeconds = NumberRange.new(15, 30),
 		RetrySeconds = NumberRange.new(2, 5),
 		PerchShare = 0.5,
-		RestSpacing = 3, -- studs between resting dragons (on top of their footprints)
+		RestSpacing = 5, -- studs between resting dragons (on top of their footprints)
 		RestRadius = 0.7, -- ground spots are within this share of the pen radius (when the plot has no meadow zone)
 	},
 
 	-- Landing on a perch or on the ground (a flier's rest turn, see Turns).
 	Perch = {
-		ApproachHeight = 6, -- studs above the perch/spot while flying in
-		GlideDistance = 14, -- starts gliding down this far (horizontally) from the perch/spot
+		ApproachHeight = 10, -- studs above the perch/spot while flying in
+		GlideDistance = 24, -- starts gliding down this far (horizontally) from the perch/spot
 	},
 }

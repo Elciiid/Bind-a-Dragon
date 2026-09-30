@@ -48,6 +48,7 @@ local CLIMB_FOR_FULL_PITCH = 8 -- studs/s of climb (or dive) that tilt the body 
 type Roamer = {
 	Model: Model,
 	Plot: Model,
+	Avoid: { Center: Vector3, Radius: number, Height: number }?, -- the centerpiece: fliers below Height steer around it
 	Parts: { BasePart },
 	Offsets: { CFrame },
 	Center: Vector3,
@@ -299,6 +300,11 @@ local function register(model: Model, plot: Model)
 	local roamer: Roamer = {
 		Model = model,
 		Plot = plot,
+		Avoid = (function()
+			local avoidCenter, avoidRadius = RoostZones.Get(plot, "Center", center.Y)
+			local avoidHeight = plot:GetAttribute("CenterHeight")
+			return if avoidCenter and type(avoidHeight) == "number" then { Center = avoidCenter, Radius = avoidRadius, Height = avoidHeight } else nil
+		end)(),
 		Parts = parts,
 		Offsets = offsets,
 		Center = zoneCenter or center,
@@ -437,6 +443,16 @@ local function separation(roamer: Roamer): Vector3
 					roamer.Crowded = true
 				end
 			end
+		end
+	end
+	local avoid = roamer.Avoid
+	if avoid and roamer.Altitude < avoid.Height + roamer.BodyHeight / 2 then
+		local dx = flat(roamer.Position - avoid.Center)
+		local distance = dx.Magnitude
+		local reach = avoid.Radius + roamer.Footprint * 0.5
+		if distance < reach * 1.4 then
+			local away = if distance > 0.01 then dx / distance else Vector3.new(math.cos(roamer.Phase), 0, math.sin(roamer.Phase))
+			push += away * (1.4 - distance / reach) * Separation.CenterWeight
 		end
 	end
 	return push
