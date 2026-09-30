@@ -92,10 +92,10 @@ local function glow(p: BasePart, color: Color3?)
 end
 
 -- Gold 8-point star (two squares at 45°), flat in the cf's XY plane; glows at night.
-local function star(parent: Instance, cf: CFrame, s: number)
+local function star(parent: Instance, cf: CFrame, s: number, glowColor: Color3?)
 	for i = 0, 1 do
 		local p = P(parent, "GoldStar", Vector3.new(s, s, 0.2), cf * CFrame.Angles(0, 0, rad(45 * i)), M.Foil, C.Gold, { CanCollide = false, CastShadow = false })
-		glow(p)
+		glow(p, glowColor)
 	end
 end
 
@@ -612,7 +612,7 @@ B.StandColors = {
 	Jade = Color3.fromRGB(96, 214, 150),
 	Coin = Color3.fromRGB(196, 132, 50), -- deeper amber, so its gold stars stand out
 }
-B.StandScale = 1.6 -- the stand is modelled ~7.5 studs tall, then scaled
+B.StandScale = 2.4 -- the stand is modelled ~7.5 studs tall, then scaled (bigger for the 150-stud sanctuaries)
 
 local terrainOnly = RaycastParams.new()
 terrainOnly.FilterType = Enum.RaycastFilterType.Include
@@ -636,6 +636,9 @@ end
 
 local function buildStand(parent: Instance, anchor: BasePart, kind: string, out: Vector3): Model
 	local S = B.StandColors
+	local function softGlow(p: BasePart) -- gold glows at night softly (night glow toned down)
+		glow(p, B.TierColors.TrimGlow)
+	end
 	local m = model(parent, kind .. "Stand")
 	-- on the real forecourt ground (it is not at the terrace height everywhere), sunk a hair so it never floats
 	local ground = surfaceY(anchor.Position.X, anchor.Position.Z, anchor.Position.Y - anchor.Size.Y / 2)
@@ -649,23 +652,23 @@ local function buildStand(parent: Instance, anchor: BasePart, kind: string, out:
 
 	-- stepped plinth with gold trim, column with gold bands and a star, capital
 	disc(m, "Plinth", y(0.3), 2.3, 0.6, M.Slate, S.SlateLow)
-	glow(disc(m, "PlinthTrim", y(0.64), 2.36, 0.12, M.Foil, C.Gold, noCollide))
+	softGlow(disc(m, "PlinthTrim", y(0.64), 2.36, 0.12, M.Foil, C.Gold, noCollide))
 	disc(m, "Step", y(0.95), 1.8, 0.6, M.Slate, S.Slate)
 	local shaft = P(m, "Column", Vector3.new(2.9, 1.7, 1.7), CFrame.new(y(2.7)) * CFrame.Angles(0, 0, math.pi / 2), M.Slate, S.Slate)
 	shaft.Shape = Enum.PartType.Cylinder
 	for _, h in { 1.55, 3.9 } do
-		glow(disc(m, "GoldBand", y(h), 0.94, 0.2, M.Foil, C.Gold, noCollide))
+		softGlow(disc(m, "GoldBand", y(h), 0.94, 0.2, M.Foil, C.Gold, noCollide))
 	end
 	disc(m, "Capital", y(4.35), 1.45, 0.45, M.Slate, S.SlateLow)
-	glow(disc(m, "CapitalTrim", y(4.6), 1.5, 0.1, M.Foil, C.Gold, noCollide))
-	star(m, face * CFrame.new(0, 2.75, -0.87), 1.1)
+	softGlow(disc(m, "CapitalTrim", y(4.6), 1.5, 0.1, M.Foil, C.Gold, noCollide))
+	star(m, face * CFrame.new(0, 2.75, -0.87), 1.1, B.TierColors.TrimGlow)
 
 	local floater = model(m, "Floater")
 	if kind == "Slots" then
 		disc(m, "Cup", y(4.78), 1.15, 0.3, M.Foil, C.Gold, noCollide)
 		ellipsoid(floater, "Egg", Vector3.new(1.55, 2.1, 1.55), CFrame.new(y(6.25)), M.Glass, S.Egg, { CanCollide = false, Transparency = 0.15, CastShadow = false })
 		P(floater, "EggCore", Vector3.new(0.85, 0.85, 0.85), CFrame.new(y(6.2)), M.Neon, S.EggCore, { CanCollide = false, CastShadow = false, Shape = Enum.PartType.Ball })
-		star(floater, CFrame.lookAt(y(6.3), y(6.3) + out) * CFrame.new(0, 0, -0.78), 0.55)
+		star(floater, CFrame.lookAt(y(6.3), y(6.3) + out) * CFrame.new(0, 0, -0.78), 0.55, B.TierColors.TrimGlow)
 		local orbit = model(m, "Orbit")
 		for i = 1, 6 do
 			local a = rad(i * 60)
@@ -697,7 +700,7 @@ local function buildStand(parent: Instance, anchor: BasePart, kind: string, out:
 		local big = P(floater, "StarCoin", Vector3.new(0.22, 1.9, 1.9), coinFace * CFrame.Angles(0, math.pi / 2, 0), M.Foil, S.Coin, { CanCollide = false, CastShadow = false })
 		big.Shape = Enum.PartType.Cylinder -- no NightGlow: a whole neon coin blooms too much (the client adds a light)
 		for _, side in { -1, 1 } do
-			star(floater, coinFace * CFrame.new(0, 0, side * -0.13), 0.95)
+			star(floater, coinFace * CFrame.new(0, 0, side * -0.13), 0.95, B.TierColors.TrimGlow)
 		end
 		for i = 1, 5 do
 			local a = rad((i - 1) * 72 + 36)
@@ -745,7 +748,8 @@ end
 -- Lights ("TierLight"), the aurora ("Aurora" beams) and the motes ("Motes" emitter) are switched by the client.
 
 B.TierColors = {
-	Rune = Color3.fromRGB(120, 200, 255),
+	Rune = Color3.fromRGB(86, 150, 210), -- softer than before (night glow toned down)
+	TrimGlow = Color3.fromRGB(104, 80, 38), -- night glow of the gold trim, banner stars and braziers
 	Crystal = Color3.fromRGB(130, 190, 255),
 	Fire = Color3.fromRGB(255, 170, 70),
 	Beam = Color3.fromRGB(255, 226, 150),
@@ -801,14 +805,14 @@ function B.BuildSanctuaryTiers()
 			if math.abs(math.deg(math.atan2(sin(a), cos(a)))) > 13 then
 				local p = at(cos(a) * Slots.Rim, sin(a) * Slots.Rim, 6.1)
 				local trim = P(tiers[1], "GoldTrim", Vector3.new(2 * Slots.Rim * sin(rad(6)) + 1, 0.3, 3.4), CFrame.lookAt(p, Vector3.new(center.X, p.Y, center.Z)), M.Foil, C.Gold, noCollide())
-				glow(trim)
+				glow(trim, TC.TrimGlow)
 			end
 		end
 		for _, sd in { -Slots.GateHalf, Slots.GateHalf } do
 			local bf = frame(Slots.Gate + 2.6, sd, 19)
 			P(tiers[1], "Banner", Vector3.new(4.4, 9, 0.2), bf, M.Fabric, C.Navy, noCollide())
 			P(tiers[1], "BannerRod", Vector3.new(5.2, 0.4, 0.4), bf * CFrame.new(0, 4.6, -0.05), M.Foil, C.Gold, noCollide())
-			star(tiers[1], bf * CFrame.new(0, 0.6, -0.15), 2.6) -- -Z = the banner's front (toward the road)
+			star(tiers[1], bf * CFrame.new(0, 0.6, -0.15), 2.6, TC.TrimGlow) -- -Z = the banner's front (toward the road)
 		end
 
 		-- 2 Runed: a double rune circle on the meadow floor, braziers flanking the gate
@@ -821,13 +825,13 @@ function B.BuildSanctuaryTiers()
 				local a = (k + 0.5) / ring.N * 2 * math.pi
 				local p = Vector3.new(mc.X + cos(a) * ring.R, runeY, mc.Z + sin(a) * ring.R)
 				local len = 2 * ring.R * sin(math.pi / ring.N) * 0.92
-				P(tiers[2], "RuneRing", Vector3.new(ring.W, 0.12, len), CFrame.lookAt(p, Vector3.new(mc.X, runeY, mc.Z)) * CFrame.Angles(0, math.pi / 2, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.3, CastShadow = false }))
+				P(tiers[2], "RuneRing", Vector3.new(ring.W, 0.12, len), CFrame.lookAt(p, Vector3.new(mc.X, runeY, mc.Z)) * CFrame.Angles(0, math.pi / 2, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.62, CastShadow = false }))
 			end
 		end
 		for k = 0, 5 do
 			local a = k / 6 * 2 * math.pi
 			local p = Vector3.new(mc.X + cos(a) * (mz.R - 1.75), runeY, mc.Z + sin(a) * (mz.R - 1.75))
-			P(tiers[2], "RuneGlyph", Vector3.new(1.3, 0.14, 1.3), CFrame.new(p) * CFrame.Angles(0, a + math.pi / 4, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.2, CastShadow = false }))
+			P(tiers[2], "RuneGlyph", Vector3.new(1.3, 0.14, 1.3), CFrame.new(p) * CFrame.Angles(0, a + math.pi / 4, 0), M.Neon, TC.Rune, noCollide({ Transparency = 0.5, CastShadow = false }))
 		end
 		for _, sd in { -20, 20 } do
 			local g = grounded(79, sd)
@@ -835,7 +839,7 @@ function B.BuildSanctuaryTiers()
 			post.Shape = Enum.PartType.Cylinder
 			disc(tiers[2], "BrazierBase", g + Vector3.new(0, 0.2, 0), 1.3, 0.4, M.Slate, C.StoneDark, noCollide({ CanCollide = true }))
 			local bowl = disc(tiers[2], "BrazierBowl", g + Vector3.new(0, 3.2, 0), 1.5, 0.5, M.Foil, C.Gold, noCollide())
-			glow(bowl)
+			glow(bowl, TC.TrimGlow)
 			local fire = Instance.new("ParticleEmitter")
 			fire.Name = "Fire"
 			fire.Texture = "rbxasset://textures/particles/fire_main.dds"
@@ -906,9 +910,9 @@ function B.BuildSanctuaryTiers()
 			local toCenter = (from - target).Unit
 			local surface = if hit then hit.Position else target + toCenter * V.PillarR
 			local strip = CFrame.lookAt(surface + toCenter * 0.35, surface + toCenter * 2)
-			P(tiers[4], "PillarRunes", Vector3.new(1.8, height * 0.7, 0.2), strip, M.Neon, TC.Rune, noCollide({ CastShadow = false }))
+			P(tiers[4], "PillarRunes", Vector3.new(1.8, height * 0.7, 0.2), strip, M.Neon, TC.Rune, noCollide({ Transparency = 0.5, CastShadow = false }))
 			for _, dy in { height * 0.42, -height * 0.42 } do
-				P(tiers[4], "PillarGlyph", Vector3.new(2, 2, 0.2), strip * CFrame.new(0, dy, 0) * CFrame.Angles(0, 0, math.pi / 4), M.Neon, TC.Rune, noCollide({ CastShadow = false }))
+				P(tiers[4], "PillarGlyph", Vector3.new(2, 2, 0.2), strip * CFrame.new(0, dy, 0) * CFrame.Angles(0, 0, math.pi / 4), M.Neon, TC.Rune, noCollide({ Transparency = 0.5, CastShadow = false }))
 			end
 		end
 		local sky = P(tiers[4], "AuroraAnchor", Vector3.new(1, 1, 1), CFrame.new(center + Vector3.new(0, 75, 0)), M.SmoothPlastic, Color3.new(1, 1, 1), noCollide({ Transparency = 1, CastShadow = false }))
@@ -924,7 +928,7 @@ function B.BuildSanctuaryTiers()
 			beam.Width0, beam.Width1 = spec.Width, spec.Width * 0.7
 			beam.CurveSize0, beam.CurveSize1 = spec.Curve, -spec.Curve
 			beam.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, TC.AuroraA), ColorSequenceKeypoint.new(0.5, TC.AuroraB), ColorSequenceKeypoint.new(1, TC.AuroraA) })
-			beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.55), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1) })
+			beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.72), NumberSequenceKeypoint.new(0.7, 0.72), NumberSequenceKeypoint.new(1, 1) })
 			beam.LightEmission = 1
 			beam.LightInfluence = 0
 			beam.Segments = 20
@@ -937,14 +941,14 @@ function B.BuildSanctuaryTiers()
 		b0.Parent, b1.Parent = beamBase, beamBase
 		b0.WorldPosition = center + Vector3.new(0, 1, 0)
 		b1.WorldPosition = center + Vector3.new(0, 420, 0)
-		for _, spec in { { Width = 7, T0 = 0.35 }, { Width = 2.5, T0 = 0 } } do
+		for _, spec in { { Width = 5, T0 = 0.7 }, { Width = 1.8, T0 = 0.45 } } do
 			local beam = Instance.new("Beam")
 			beam.Name = "SkyBeam"
 			beam.Attachment0, beam.Attachment1 = b0, b1
 			beam.Width0, beam.Width1 = spec.Width, spec.Width * 2.2
 			beam.FaceCamera = true
 			beam.Color = ColorSequence.new(Color3.new(1, 1, 1), TC.Beam)
-			beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.03, spec.T0), NumberSequenceKeypoint.new(0.6, 0.6), NumberSequenceKeypoint.new(1, 1) })
+			beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.03, spec.T0), NumberSequenceKeypoint.new(0.6, 0.78), NumberSequenceKeypoint.new(1, 1) })
 			beam.LightEmission = 1
 			beam.LightInfluence = 0
 			beam.Parent = beamBase

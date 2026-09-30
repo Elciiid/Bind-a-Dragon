@@ -18,7 +18,9 @@ local EffectsQuality = require(script.Parent.EffectsQuality)
 local NotificationController = require(script.Parent.NotificationController)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
-local Settings = require(ReplicatedStorage.Shared.Config.WorldUI).SanctuaryTiers
+local WorldUI = require(ReplicatedStorage.Shared.Config.WorldUI)
+local Settings = WorldUI.SanctuaryTiers
+local LooksSettings = WorldUI.SanctuaryLooks
 
 local PLOT_TAG = "RoostPlot"
 local SCAN_INTERVAL = 1
@@ -38,6 +40,11 @@ local SanctuaryTierController = {}
 
 local sanctuaries: { [Model]: Sanctuary } = {}
 local localFolder: Folder? = nil
+
+local function lookOf(plot: Model): string
+	local look = plot:GetAttribute("SanctuaryLook")
+	return if type(look) == "string" then look else LooksSettings.Default
+end
 
 local function tierOf(plot: Model): number
 	if plot:GetAttribute("OwnerUserId") == nil then
@@ -119,6 +126,14 @@ local function refresh(sanctuary: Sanctuary)
 			local source = sanctuary.Art:FindFirstChild("Tier" .. i)
 			if source then
 				local clone = source:Clone()
+				local hidden = LooksSettings.HideTierArt[lookOf(sanctuary.Plot)]
+				if hidden then -- art that clashes with the sanctuary's current look
+					for _, d in clone:GetDescendants() do
+						if table.find(hidden, d.Name) then
+							d:Destroy()
+						end
+					end
+				end
 				clone.Name = `{sanctuary.Plot.Name}_Tier{i}`
 				clone.Parent = localFolder
 				sanctuary.Shown[i] = clone
@@ -149,6 +164,13 @@ local function register(plot: Model)
 			refresh(sanctuary)
 		end)
 	end
+	plot:GetAttributeChangedSignal("SanctuaryLook"):Connect(function() -- a new look may hide some tier art: rebuild the clones
+		for i, shown in sanctuary.Shown do
+			shown:Destroy()
+			sanctuary.Shown[i] = nil
+		end
+		refresh(sanctuary)
+	end)
 	refresh(sanctuary)
 end
 

@@ -75,13 +75,13 @@ return {
 		SlotGemColor = Color3.fromRGB(140, 205, 255),
 		IncomeGemColor = Color3.fromRGB(96, 224, 150),
 		MaxedColor = Color3.fromRGB(255, 214, 110), -- egg core / coin glow once that upgrade is maxed
-		LightRange = 12,
-		LightBrightness = 1.2,
+		LightRange = 14,
+		LightBrightness = 0.9,
 		SparkleRate = 3, -- per second (more as the upgrade fills up, x2 when maxed; Low effects: none)
 		BurstParticles = 40, -- on every upgrade bought
-		BoardSize = Vector2.new(190, 50), -- pixels
-		BoardHeight = 14.5, -- studs above the stand's floor (just over the floating egg / coin)
-		BoardSideOffset = 6, -- studs outward from the gate's center line (clear of the owner banner)
+		BoardSize = Vector2.new(230, 60), -- pixels
+		BoardHeight = 23, -- studs above the stand's floor (just over the floating egg / coin; stands are 2.4x: ValleyBuild.StandScale)
+		BoardSideOffset = 8, -- studs outward from the gate's center line (clear of the owner banner)
 	},
 
 	-- Sanctuary looks (Valley rework, SanctuaryLookController): each sanctuary shows one look, a kit of set pieces built in
@@ -106,6 +106,11 @@ return {
 		PieceSeconds = 0.9, -- each piece takes this long to grow
 		StartScale = 0.04, -- pieces grow from / shrink to this scale
 		BurstParticles = 70, -- sparkles at the gate on a look change (Low effects: none); sound = SanctuaryTiers.BurstSound
+		-- Sanctuary tier art (SanctuaryTiers) that clashes with a look is left out while that look is shown: the names of
+		-- the tier parts/models (ValleyBuild.BuildSanctuaryTiers) to remove from the local tier clones.
+		HideTierArt = {
+			CrystalGarden = { "PillarCrystals", "GoldenGuardian" }, -- it has its own crystals and no dragon statues
+		} :: { [string]: { string } },
 	},
 
 	-- Sanctuaries look grander as their owner upgrades the roost (SanctuaryTierController; the art is built in Studio by

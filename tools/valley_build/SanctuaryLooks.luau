@@ -32,6 +32,7 @@ local WH = {
 	StoneMoss = Color3.fromRGB(148, 150, 128),
 	Teal = Color3.fromRGB(120, 232, 200),
 	Petal = Color3.fromRGB(255, 226, 150),
+	RuneGlow = Color3.fromRGB(104, 80, 38), -- soft gold night glow (gate runes, star)
 }
 L.Colors = WH
 
@@ -126,6 +127,9 @@ local function light(parent: Instance, pos: Vector3, color: Color3, brightness: 
 	l.Parent = p
 end
 
+-- Helpers shared with the other look modules (SanctuaryLooksCrystal, ...): each look is its own module file.
+L.H = { kitFolder = kitFolder, context = context, piece = piece, prop = prop, stretched = stretched, light = light, anchor = anchor, B = B, V = V }
+
 ---------------------------------------------------------------------------------------------------------------
 -- Wild Hollow: cozy, mossy, natural. A giant nest tree with a glowing hollow at the center, mossy spires and log
 -- stumps to perch on, a mossy rim wall, a wooden gate, a stepping-stone path, a spring pond, nests and wildflowers.
@@ -145,14 +149,14 @@ function L.BuildWildHollowPlot(plot: Model, kitRoot: Folder)
 			P(m, "Foot", Vector3.new(7.4, 1.6, 7.4), frame(sd, gy, 0.6), M.Cobblestone, WH.StoneMoss)
 			P(m, "FootMoss", Vector3.new(7.6, 0.5, 7.6), frame(sd, gy, 1.6), M.Grass, WH.Moss, { CanCollide = false })
 			P(m, "Cap", Vector3.new(6.2, 1.2, 6.2), frame(sd, gy, gh - 2.6), M.Wood, WH.BarkDark)
-			Glow(P(m, "Runes", Vector3.new(0.6, 12, 0.12), frame(sd, gy + 2.35, 12), M.Foil, Colors.Gold, { CanCollide = false }))
+			Glow(P(m, "Runes", Vector3.new(0.6, 12, 0.12), frame(sd, gy + 2.35, 12), M.Foil, Colors.Gold, { CanCollide = false }), WH.RuneGlow)
 		end
 		P(m, "Beam", Vector3.new(2 * gx + 8, 3.2, 4.4), frame(0, gy, gh - 1.4), M.Wood, WH.Bark)
 		P(m, "BeamMoss", Vector3.new(2 * gx + 8.4, 1, 5), frame(0, gy, gh + 0.6), M.Grass, WH.Moss)
 		for i = -2, 2 do -- moss tufts hanging over the beam's front
 			P(m, "Tuft", Vector3.new(2.2, 2.6, 1), frame(i * 6.4, gy + 2.4, gh - 2.4), M.Grass, WH.MossDark, { CanCollide = false })
 		end
-		Star(m, frame(0, gy + 2.6, gh - 1.4), 4.5)
+		Star(m, frame(0, gy + 2.6, gh - 1.4), 4.5, WH.RuneGlow)
 		for _, sd in { -5, 5 } do
 			P(m, "SignChain", Vector3.new(0.3, 7.3, 0.3), frame(sd, gy, 21.2), M.Metal, Colors.Iron, { CanCollide = false })
 		end
@@ -276,8 +280,8 @@ function L.BuildWildHollowPlot(plot: Model, kitRoot: Folder)
 				P(m, "RockMoss", Vector3.new(rock.Size.X * 0.7, 0.5, rock.Size.Z * 0.7), CFrame.new(rp + Vector3.new(0, rock.Size.Y * 0.36, 0)) * CFrame.Angles(0, -a, 0), M.Grass, WH.Moss, { CanCollide = false })
 			end
 		end
-		for k = 0, 3 do
-			local a = k * 1.6 + 0.6
+		for k = 0, 1 do
+			local a = k * 2.6 + 0.6
 			prop(m, MEADOW.AI_Meadow_Reeds, CFrame.new(at(w.X + cos(a) * (w.R - 2.5), w.Y + sin(a) * (w.R - 2.5), 0)) * CFrame.Angles(0, a, 0), 1.6, false)
 		end
 		for k = 1, 6 do
@@ -299,14 +303,13 @@ function L.BuildWildHollowPlot(plot: Model, kitRoot: Folder)
 		end)
 	end
 
-	-- nests (three straw nests, two hay bales)
+	-- nests (two straw nests, a hay bale)
 	local nz = Slots.Nest
 	piece(kit, "Nests", CFrame.new(at(nz.X, nz.Y, 0)), function(m)
-		for _, off in { { 0, 0 }, { 10, -9 }, { -10, -8 } } do
+		for _, off in { { 0, 0 }, { 10, -9 } } do
 			prop(m, MEADOW.AI_Meadow_Nest, CFrame.new(at(nz.X + off[1], nz.Y + off[2], 0)) * CFrame.Angles(0, off[1] * 0.3, 0), 1.3, false)
 		end
 		prop(m, MEADOW.AI_Meadow_HayBales, CFrame.new(at(nz.X + 14, nz.Y + 5, 0)) * CFrame.Angles(0, 0.6, 0), 1.7, false)
-		prop(m, MEADOW.AI_Meadow_HayBales, CFrame.new(at(nz.X - 13, nz.Y + 8, 0)) * CFrame.Angles(0, -0.5, 0), 1.5, false)
 	end)
 
 	-- wildflower patches and bushes on open ground (rejection-sampled away from zones, perches, path, pond)
@@ -334,15 +337,15 @@ function L.BuildWildHollowPlot(plot: Model, kitRoot: Folder)
 		end
 		return true
 	end
-	local flowerKinds = { ENCH.Store_WildFlower, ENCH.Store_WildFlower, ENCH.Store_WildFlower, ENCH.AI_Ench_Daisies }
+	local flowerKinds = { ENCH.Store_WildFlower } -- the cheap one (121 faces): the kit stays near 45k faces
 	local patches, tries = 0, 0
-	while patches < 9 and tries < 400 do
+	while patches < 7 and tries < 400 do
 		tries += 1
 		local x, yy = rng:NextNumber(-66, 66), rng:NextNumber(-66, 66)
 		if free(x, yy) then
 			patches += 1
 			piece(kit, "Patch" .. patches, CFrame.new(at(x, yy, 0)), function(m)
-				for k = 1, 4 do
+				for k = 1, 3 do
 					local px, py = x + rng:NextNumber(-4, 4), yy + rng:NextNumber(-4, 4)
 					if free(px, py) then
 						local kind = flowerKinds[rng:NextInteger(1, #flowerKinds)]
@@ -358,12 +361,6 @@ function L.BuildWildHollowPlot(plot: Model, kitRoot: Folder)
 		end
 	end
 
-	-- two iron lanterns just inside the gate (tag Lantern: lit at dusk)
-	piece(kit, "Lanterns", frame(0, gy - 10, 0), function(m)
-		for _, sd in { -12, 12 } do
-			B.Lantern(m, at(sd, gy - 9, 0), 0)
-		end
-	end)
 	return kit
 end
 
