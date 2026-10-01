@@ -23,14 +23,17 @@ end
 V.Smooth, V.Lerp = smooth, lerp
 
 V.Sanct = {
-	-- 150-stud sanctuaries (rim radius 75). W1/E1 sit past the portal terrace, W2/E2 close to the altar, W3/E3 south of
-	-- the river beside the market ponds. Old (96 studs): (+-186.6, -+116.6), (+-220, 0), (+-186.6, 116.6).
-	{ Name = "W1", X = -208, Z = -184, T = 10 },
-	{ Name = "W2", X = -174, Z = -30, T = 8 },
-	{ Name = "W3", X = -158, Z = 150, T = 6 },
-	{ Name = "E1", X = 208, Z = -184, T = 10 },
-	{ Name = "E2", X = 174, Z = -30, T = 8 },
-	{ Name = "E3", X = 158, Z = 150, T = 6 },
+	-- 150-stud sanctuaries (rim radius 75) on one horseshoe around the altar (layout A-N, 2026-10-02): centers 256 from
+	-- the altar at bearings 50 / 90 / 130 (gate distance 181 for all six, 25 studs between neighbours). The W2/W3 and
+	-- E2/E3 gaps carry the river. Before: (+-208, -184), (+-174, -30), (+-158, 150).
+	-- Terrace heights T are multiples of 4 (12 / 8 / 8; before 10 / 8 / 6): the terrain voxels are 4 studs, and other values
+	-- round the last 7 studs of the rim off, so the six plots came out with different flat areas.
+	{ Name = "W1", X = -196, Z = -165, T = 12 },
+	{ Name = "W2", X = -256, Z = 0, T = 8 },
+	{ Name = "W3", X = -196, Z = 165, T = 8 },
+	{ Name = "E1", X = 196, Z = -165, T = 12 },
+	{ Name = "E2", X = 256, Z = 0, T = 8 },
+	{ Name = "E3", X = 196, Z = 165, T = 8 },
 }
 for _, s in V.Sanct do
 	local len = sqrt(s.X * s.X + s.Z * s.Z)
@@ -81,25 +84,30 @@ V.RoadMaterial = Enum.Material.Brick
 V.Roads = {
 	{ W = 8, { 0, 205 }, { 0, 140 } }, -- valley mouth, entrance gate, into the market square
 	{ W = 8, { 0, 84 }, { 0, 72 } }, -- square to the grand bridge
-	{ W = 7, { 0, -54 }, { 0, -124 } }, -- plaza to the grand stairs of the portal terrace
-	{ W = 5, { -56, -9.6 }, { -80, -13.9 } }, -- W2: plaza to the forecourt
-	{ W = 5, { 56, -9.6 }, { 80, -13.9 } }, -- E2
-	{ W = 5, { -38, -30 }, { -76, -54 }, { -106, -80 }, { -127, -113 } }, -- W1: bends out around the portal terrace corner
-	{ W = 5, { 38, -30 }, { 76, -54 }, { 106, -80 }, { 127, -113 } }, -- E1
+	{ W = 7, { 0, -54 }, { 0, -154 } }, -- plaza to the grand stairs of the portal terrace (north road)
+	{ W = 5, { -56, 0 }, { -160, 0 } }, -- W2: plaza to the forecourt (straight spoke)
+	{ W = 5, { 56, 0 }, { 160, 0 } }, -- E2
+	{ W = 5, { -38.3, -32.1 }, { -121.7, -102.6 } }, -- W1: straight spoke
+	{ W = 5, { 38.3, -32.1 }, { 121.7, -102.6 } }, -- E1
 	{ W = 5, { -47.5, 29.7 }, { -102, 46 } }, -- W3: plaza to the west side bridge
-	{ W = 5, { -99, 72 }, { -90, 80 }, { -84, 82 } }, -- W3: side bridge to the forecourt
+	{ W = 5, { -99, 72 }, { -110, 87 }, { -121.7, 102.6 } }, -- W3: side bridge to the forecourt
 	{ W = 5, { 47.5, 29.7 }, { 102, 46 } }, -- E3
-	{ W = 5, { 99, 72 }, { 90, 80 }, { 84, 82 } },
+	{ W = 5, { 99, 72 }, { 110, 87 }, { 121.7, 102.6 } },
 }
 V.SpawnPlaza = { X = 0, Z = 160, R = 12 }
-V.Walkway = { R0 = 142, R1 = 158, Half = 42 } -- paved promenade on the portal terrace, in front of the gates
-V.Terrace = { R0 = 133, R1 = 180, Half = 44, Top = 12 } -- front face at R0 is steep: the retaining wall (parts) stands there
+-- Portal terrace (layout A-N): a flat polygon (top y 12) wrapping the Spire's south foot; the portals stand on its back
+-- edge (z -262 / -286), the grand stairs climb to its front bay at (0, -176). The sides fall away steeply (retaining wall).
+V.Terrace = { Top = 12, Slope = 3, Poly = { { -12, -176 }, { 12, -176 }, { 30, -185 }, { 60, -206 }, { 100, -224 }, { 140, -240 }, { 166, -300 }, { -166, -300 }, { -140, -240 }, { -100, -224 }, { -60, -206 }, { -30, -185 } } }
+-- paved promenade in front of the portals, joining the pads and the Spire stairs (polylines, half-width W)
+V.Walkway = { W = 7, Lines = { { { -139, -265 }, { -82, -239 }, { -30, -212 }, { 0, -200 }, { 0, -178 } }, { { 139, -265 }, { 82, -239 }, { 30, -212 }, { 0, -200 } } } }
 V.SpireCourt = { X = 0, Z = -214, R = 16 } -- paved court at the Spire entrance
 V.WaterLevel = -1
 
 -- Valley edge radius by |bearing| (degrees clockwise from north). The river gaps (W2/W3, E2/E3) reach further out.
-local EDGE_W = { { 0, 300 }, { 30, 300 }, { 45, 286 }, { 60, 272 }, { 90, 274 }, { 95, 276 }, { 99, 304 }, { 110, 304 }, { 114, 272 }, { 130, 262 }, { 140, 238 }, { 150, 208 }, { 165, 188 }, { 180, 184 } }
-local EDGE_E = { { 0, 300 }, { 30, 300 }, { 45, 286 }, { 60, 272 }, { 90, 274 }, { 95, 276 }, { 99, 318 }, { 110, 318 }, { 114, 272 }, { 130, 262 }, { 140, 238 }, { 150, 208 }, { 165, 188 }, { 180, 184 } }
+-- (layout A-N: the north reaches ~330-358 for the portal terrace behind the Spire; the plots' own bulge sets the flanks; the
+-- 100-122 bump is the waterfall cliff / river outlet behind the W2/W3 and E2/E3 gaps)
+local EDGE_W = { { 0, 325 }, { 20, 335 }, { 30, 358 }, { 38, 350 }, { 45, 290 }, { 60, 272 }, { 90, 274 }, { 95, 276 }, { 100, 330 }, { 104, 366 }, { 118, 366 }, { 122, 330 }, { 130, 262 }, { 140, 238 }, { 150, 208 }, { 165, 188 }, { 180, 184 } }
+local EDGE_E = EDGE_W
 
 local function tableEdgeAt(th: number): number
 	local tbl = if th < 0 then EDGE_W else EDGE_E
@@ -166,32 +174,50 @@ local function mountain(x: number, z: number, u: number, th: number): number
 	return h
 end
 
--- North: portal terrace (crescent), the slope behind it, and the Spire hill.
-local function northH(x: number, z: number, R: number, th: number): number
-	local T = V.Terrace
-	local a = abs(th)
-	local sideOut = max(0, math.rad(a - T.Half) * R)
-	local frontOut = max(0, T.R0 - R)
-	local out = sqrt((sideOut * 1.35) ^ 2 + (frontOut * 4) ^ 2)
-	local top = T.Top
-	if R > T.R1 then
-		top = T.Top + smooth((R - T.R1) / 120) * 26 + noise(x / 50, z / 50, 3.3) * 3 * smooth((R - T.R1) / 40)
+-- North (layout A-N): the portal terrace polygon (flat top, steep sides), the rise behind it and the Spire hill.
+local function polyOut(poly, x: number, z: number): number
+	-- 0 inside the polygon, else the distance to its outline
+	local inside, best = false, math.huge
+	local n = #poly
+	local j = n
+	for i = 1, n do
+		local a, b = poly[i], poly[j]
+		if (a[2] > z) ~= (b[2] > z) and x < (b[1] - a[1]) * (z - a[2]) / (b[2] - a[2]) + a[1] then
+			inside = not inside
+		end
+		local vx, vz = b[1] - a[1], b[2] - a[2]
+		local t = clamp(((x - a[1]) * vx + (z - a[2]) * vz) / (vx * vx + vz * vz), 0, 1)
+		local dx, dz = x - (a[1] + vx * t), z - (a[2] + vz * t)
+		best = min(best, sqrt(dx * dx + dz * dz))
+		j = i
 	end
-	local h = top - out
+	return if inside then 0 else best
+end
+V.PolyOut = polyOut
+
+-- returns the height and the distance outside the terrace polygon
+local function northH(x: number, z: number): (number, number)
+	local T = V.Terrace
+	local out = polyOut(T.Poly, x, z)
+	local top = T.Top
+	local back = max(0, -z - 295)
+	if back > 0 then
+		top = T.Top + smooth(back / 120) * 26 + noise(x / 50, z / 50, 3.3) * 3 * smooth(back / 40)
+	end
+	local h = top - out * T.Slope
 	local S = V.Spire
 	local dx, dz = x - S.X, z - S.Z
 	local d = sqrt(dx * dx + dz * dz)
-	return max(h, S.Top - max(0, d - S.R) * 0.5)
+	return max(h, S.Top - max(0, d - S.R) * 1.0), out
 end
 
 -- Water: river centerline (x, z, half-width), ponds, pools, the channel on top of the waterfall cliff.
--- (winds between fixed points: the W2/W3 gap, the side bridges at x = -100 / 100, the grand bridge at x = 0, the E2/E3 gap)
+-- (layout A-N: from the waterfall pool through the W2/W3 gap, past the plaza's south side under the side bridges at x = -100 / 100 and the grand bridge at x = 0, through the E2/E3 gap to the lower pool)
 V.River = {
-	{ -281, 60, 9 }, { -264, 67, 9 }, { -246, 66, 7 }, { -228, 61, 6 }, { -205, 58, 6 }, { -186, 57, 7 },
-	{ -168, 58, 8 }, { -148, 58, 8 }, { -128, 57, 7 }, { -112, 61, 6 }, { -100, 60, 6 }, { -88, 57, 7 },
-	{ -72, 53, 10 }, { -54, 58, 11 }, { -36, 63, 9 }, { -18, 64, 8 }, { 0, 63, 8 }, { 18, 62, 8 }, { 36, 59, 9 },
-	{ 54, 57, 11 }, { 72, 59, 10 }, { 88, 62, 7 }, { 100, 60, 6 }, { 114, 57, 7 }, { 132, 57, 8 }, { 152, 58, 8 },
-	{ 172, 58, 8 }, { 190, 55, 6 }, { 205, 58, 6 }, { 224, 62, 7 }, { 243, 67, 10 }, { 258, 65, 8 }, { 270, 61, 7 },
+	{ -322, 118, 9 }, { -296, 106, 8 }, { -262, 95, 6 }, { -226, 82, 4.5 }, { -190, 69, 6 }, { -160, 61, 7 }, { -128, 57, 7 },
+	{ -112, 61, 6 }, { -100, 60, 6 }, { -88, 57, 7 }, { -72, 53, 10 }, { -54, 58, 11 }, { -36, 63, 9 }, { -18, 64, 8 },
+	{ 0, 63, 8 }, { 18, 62, 8 }, { 36, 59, 9 }, { 54, 57, 11 }, { 72, 59, 10 }, { 88, 62, 7 }, { 100, 60, 6 }, { 114, 57, 7 },
+	{ 132, 57, 8 }, { 160, 61, 7 }, { 190, 69, 6 }, { 226, 82, 4.5 }, { 262, 95, 6 }, { 296, 106, 8 }, { 309, 113, 8 },
 }
 -- round the bends: Catmull-Rom through the points above, 4 steps per segment
 do
@@ -211,13 +237,13 @@ do
 	V.River = out
 end
 -- rocks in the river: x, z, radius (tops a little above the water)
-V.RiverRocks = { { -262, 69, 4.5 }, { -166, 58, 4 }, { -70, 50, 4 }, { 56, 53, 4 }, { 152, 58, 4.5 }, { 244, 70, 4 } }
+V.RiverRocks = { { -280, 100, 4.5 }, { -170, 64, 4 }, { -70, 50, 4 }, { 56, 53, 4 }, { 170, 64, 4.5 }, { 280, 100, 4 } }
 V.Ponds = { { X = -50, Z = 84, A = 25, B = 15 }, { X = 50, Z = 84, A = 25, B = 15 } } -- moved in 11 studs: W3/E3 forecourts
-V.FallPool = { X = -281, Z = 60, R = 14 }
-V.LowPool = { X = 294, Z = 62, R = 14, Level = -7 }
-V.TopChannel = { X0 = -304, Z0 = 58, X1 = -352, Z1 = 56, W = 5, Level = 60.5 }
+V.FallPool = { X = -322, Z = 118, R = 14 }
+V.LowPool = { X = 332, Z = 121, R = 14, Level = -7 }
+V.TopChannel = { X0 = -344, Z0 = 125, X1 = -389, Z1 = 139, W = 5, Level = 60.5 }
 V.CliffTop = 62
-V.CliffSector = { -112, -96 }
+V.CliffSector = { -117, -103 }
 
 local function segDist(px, pz, ax, az, bx, bz): (number, number)
 	local vx, vz = bx - ax, bz - az
@@ -270,7 +296,7 @@ function V.Height(x: number, z: number): (number, number?, string?)
 	if dm < 42 then
 		h = lerp(0.8, h, smooth((dm - 34) / 8))
 	end
-	if abs(x) < 16 and z > -135 and z < 175 then
+	if abs(x) < 16 and z > -150 and z < 175 then
 		h = lerp(0.8, h, smooth((abs(x) - 10) / 6))
 	end
 	local rd, rw = roadDist(x, z)
@@ -281,11 +307,11 @@ function V.Height(x: number, z: number): (number, number?, string?)
 
 	-- north: portal terrace, slope, Spire hill
 	local rocky = false
-	if abs(th) < 64 then
-		local nh = northH(x, z, R, th)
+	if abs(th) < 64 and z < -120 then
+		local nh, out = northH(x, z)
 		if nh > h then
 			h = nh
-			rocky = R < 190 and (R < V.Terrace.R0 or abs(th) > V.Terrace.Half) and nh > 1.5
+			rocky = out > 0.5 and nh > 1.5 and R < 340
 		end
 	end
 
@@ -296,7 +322,7 @@ function V.Height(x: number, z: number): (number, number?, string?)
 	if th > c0 - 4 and th < c1 + 4 then
 		cliffFade = smooth((th - (c0 - 4)) / 4) * smooth(((c1 + 4) - th) / 4)
 	end
-	local calm = max(cliffFade, if th > 94 and th < 116 then 1 - smooth((abs(th - 105) - 7) / 4) else 0)
+	local calm = max(cliffFade, if th > 98 and th < 122 then 1 - smooth((abs(th - 110) - 7) / 4) else 0)
 	local edge = edgeAt(th) + noise(x / max(R, 1) * 2.2, z / max(R, 1) * 2.2, 9.1) * 10 * (1 - calm)
 	local u = R - edge
 	if u > 0 then
@@ -416,8 +442,16 @@ function V.Height(x: number, z: number): (number, number?, string?)
 		end
 	end
 	if hint == nil then
-		local W = V.Walkway
-		local onWalkway = R > W.R0 and R < W.R1 and abs(th) < W.Half and h > V.Terrace.Top - 0.5
+		local onWalkway = false
+		if z < -170 and h > V.Terrace.Top - 0.5 then
+			for _, line in V.Walkway.Lines do
+				for i = 1, #line - 1 do
+					if segDist(x, z, line[i][1], line[i][2], line[i + 1][1], line[i + 1][2]) < V.Walkway.W then
+						onWalkway = true
+					end
+				end
+			end
+		end
 		local SC = V.SpireCourt
 		local onCourt = sqrt((x - SC.X) ^ 2 + (z - SC.Z) ^ 2) < SC.R and h > V.Spire.Top - 0.5
 		if R < 57 or dm < 34 or paved or onWalkway or onCourt then
