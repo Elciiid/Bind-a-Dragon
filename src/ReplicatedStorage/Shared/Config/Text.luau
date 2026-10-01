@@ -189,6 +189,67 @@ local Text = {
 		CapInfo = "More rebirths arrive in the next update. Your gold is saved up to one rebirth's cost until then.",
 		CapButton = "Cap reached",
 	},
+
+	-- Rebirth Milestone Ladder (Config/RebirthMilestones, MilestoneService, the track in the Rebirth window). Ids match the config.
+	Milestones = {
+		TrackHeading = "Milestones",
+		Next = "Next: {name} at ★{n}",
+		AllDone = "Every milestone reached!",
+		Reached = "Unlocked",
+		Level = "★{n}",
+		ChampionTitle = "Rebirth Champion",
+		YourTitle = "Your title: {title}",
+		PopupTitle = "Milestone!",
+		PopupTag = "Rebirth {n}",
+		Titles = {
+			StarApprentice = "Star Apprentice",
+			Binder = "Binder",
+			Warden = "Warden",
+			Sage = "Sage",
+			Celestial = "Celestial",
+		} :: { [string]: string },
+		Items = {
+			AutoUpgrade = { Name = "Auto-Upgrade", Info = "Spare gold levels up your roost dragons by itself." },
+			FarTravel = { Name = "Far Travel", Info = "+1 Echo Sigil cap, and travel to any unlocked area's altar." },
+			Ascended = { Name = "Ascended Altars", Info = "+25% bind luck for you, and altars glow gold for everyone when you bind." },
+			Champion = { Name = "Rebirth Champion", Info = "A champion dragon joins you, and you earn the gold title." },
+		} :: { [string]: { Name: string, Info: string } },
+		AutoUpgradeLabel = "Auto-Upgrade",
+		AutoUpgradeOn = "On",
+		AutoUpgradeOff = "Off",
+		AutoUpgradeInfo = "Spends gold above half of your next rebirth cost on the best level-ups.",
+		ChampionPrefix = "Champion",
+		Altars = {
+			Button = "Altars",
+			Heading = "Altars",
+			Arrived = "Traveled to the {place} altar.",
+			Unavailable = "The {place} altar isn't available right now.",
+			Locked = "Rebirth {n} to unlock",
+		},
+	},
+
+	-- Odds shown to players (Shared/OddsText, Config/Odds). {n} = the N of "1 in N".
+	Odds = {
+		OneIn = "1 in {n}",
+		Unknown = "super rare",
+		Only = "Only {oneIn} binds!",
+		Plain = "{oneIn} binds",
+		Tags = {
+			Legendary = "LEGENDARY LUCK!",
+			Epic = "Super rare!",
+			Rare = "Rare find!",
+			Nice = "Nice one!",
+		} :: { [string]: string },
+		Details = "Tap for details",
+		DetailsTitle = "How lucky was that?",
+		RowSpecies = "This dragon",
+		RowMutation = "This mutation",
+		RowTogether = "Both together",
+		RowBase = "Normal odds",
+		RowLuck = "Your luck",
+		Chance = "Chance: {oneIn}",
+		Undiscovered = "Chance: {band}",
+	},
 }
 
 -- Replaces {key} with values[key]; unknown keys are left as they are.

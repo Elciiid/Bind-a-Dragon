@@ -45,34 +45,11 @@ local lastRoll: { [Player]: number } = {}
 
 local DragonService = {}
 
-local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
-	-- Validate the request shape before touching any data.
-	if typeof(dragonId) ~= "string" or #dragonId > MAX_ID_LENGTH then
-		return
-	end
-	local wanted = 1
-	if typeof(count) == "number" and count == count then -- count == count rejects NaN
-		wanted = math.clamp(math.floor(count), 1, Leveling.MaxLevelsPerRequest)
-	end
-
-	local now = os.clock()
-	if now - (lastRequest[player] or 0) < MIN_REQUEST_INTERVAL then
-		return
-	end
-	lastRequest[player] = now
-
-	local data = DataService:GetData(player)
-	local dragon = data and data.Dragons[dragonId]
-	if data == nil or dragon == nil then
-		return
-	end
-
+-- Buys up to `wanted` levels for a dragon the caller already validated (owner, below the cap); stops when gold runs out.
+-- Evolves it (one toast for the final stage; quiet = a plain toast, no pop-up), counts the Levels quest. Returns how many levels were bought.
+-- Used by the LevelUpDragon remote and by Auto-Upgrade (MilestoneService).
+function DragonService:BuyLevels(player: Player, data: PlayerDataTypes.PlayerData, dragon: PlayerDataTypes.Dragon, wanted: number, quiet: boolean?): number
 	local cap = DragonStats.GetLevelCap(data)
-	if dragon.Level >= cap then
-		notify:FireClient(player, `Level cap reached ({cap}). Rebirth to raise it!`, "error")
-		return
-	end
-
 	local species = Dragons[dragon.SpeciesId]
 	local leveled = 0
 	local evolvedTo: Evolution.Stage? = nil -- final stage reached this request (one toast, not one per stage)
@@ -102,7 +79,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 		local name = if species then species.Name else "Your dragon"
 		local article = if evolvedTo.Name:match("^[AEIOUaeiou]") then "an" else "a"
 		local state = Cycle.GetState()
-		notify:FireClient(player, `{name} evolved into {article} {evolvedTo.Name}{evolvedUnder}!`, "moment", {
+		notify:FireClient(player, `{name} evolved into {article} {evolvedTo.Name}{evolvedUnder}!`, if quiet then "success" else "moment", if quiet then nil else {
 			Moment = "Evolve",
 			SpeciesId = dragon.SpeciesId,
 			MutationId = dragon.MutationId,
@@ -113,6 +90,38 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 	end
 
 	QuestService:Progress(player, "Levels", leveled)
+	return leveled
+end
+
+local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
+	-- Validate the request shape before touching any data.
+	if typeof(dragonId) ~= "string" or #dragonId > MAX_ID_LENGTH then
+		return
+	end
+	local wanted = 1
+	if typeof(count) == "number" and count == count then -- count == count rejects NaN
+		wanted = math.clamp(math.floor(count), 1, Leveling.MaxLevelsPerRequest)
+	end
+
+	local now = os.clock()
+	if now - (lastRequest[player] or 0) < MIN_REQUEST_INTERVAL then
+		return
+	end
+	lastRequest[player] = now
+
+	local data = DataService:GetData(player)
+	local dragon = data and data.Dragons[dragonId]
+	if data == nil or dragon == nil then
+		return
+	end
+
+	local cap = DragonStats.GetLevelCap(data)
+	if dragon.Level >= cap then
+		notify:FireClient(player, `Level cap reached ({cap}). Rebirth to raise it!`, "error")
+		return
+	end
+
+	local leveled = DragonService:BuyLevels(player, data, dragon, wanted)
 	if leveled == 0 then
 		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 		notify:FireClient(player, `Not enough gold. You need {Format.Number(cost)}.`, "error")

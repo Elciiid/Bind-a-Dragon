@@ -23,6 +23,9 @@ local IndexService = {}
 function IndexService:Sync(player: Player, data: PlayerDataTypes.PlayerData)
 	local now = os.time()
 	for _, dragon in data.Dragons do
+		if dragon.Champion then
+			continue -- the rebirth champion is a reward, not an Index discovery
+		end
 		local entryId = DragonStats.GetIndexEntryId(dragon)
 		if data.Index[entryId] == nil and Dragons[dragon.SpeciesId] then
 			data.Index[entryId] = now

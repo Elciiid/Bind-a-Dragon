@@ -40,6 +40,7 @@ local SanctuaryLooks = require(ReplicatedStorage.Shared.SanctuaryLooks)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
+local MilestoneConfig = require(ReplicatedStorage.Shared.Config.RebirthMilestones)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
@@ -389,6 +390,19 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 		sparkles.SparkleColor = mutation.Color
 		sparkles.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	end
+	-- The rebirth champion (R30 milestone): placeholder look until real art = the model's colors blend toward gold, plus
+	-- golden sparkles (named MutationAura so clients cull it with the mutation auras).
+	if dragon.Champion then
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.Color = part.Color:Lerp(MilestoneConfig.Champion.Color, MilestoneConfig.Champion.TintStrength)
+			end
+		end
+		local sparkles = Instance.new("Sparkles")
+		sparkles.Name = "MutationAura"
+		sparkles.SparkleColor = MilestoneConfig.Champion.Color
+		sparkles.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Anchored = true
@@ -426,7 +440,9 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	local grade = DragonStats.GetGrade(dragon)
 	local gradeText = if grade then `  [{grade.Id}]` else ""
 	local mutationText = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} ` else ""
-	makeNameplate(model, `{mutationText}{species.Name}  Lv {dragon.Level}{gradeText}`, if mutation.Id ~= Mutations.NormalId then mutation.Color else if rarity then rarity.Color else Color3.new(1, 1, 1))
+	local championText = if dragon.Champion then `{Text.Milestones.ChampionPrefix} ` else ""
+	local plateColor = if dragon.Champion then MilestoneConfig.Champion.Color elseif mutation.Id ~= Mutations.NormalId then mutation.Color elseif rarity then rarity.Color else Color3.new(1, 1, 1)
+	makeNameplate(model, `{championText}{mutationText}{species.Name}  Lv {dragon.Level}{gradeText}`, plateColor)
 	return model
 end
 
@@ -454,7 +470,7 @@ local function refreshPlot(player: Player, data: PlayerData)
 		end
 		wanted[dragon.Id] = true
 		-- Rebuild when anything visible changes (level/stage, branch color, trait/grade on the nameplate).
-		local key = `{dragon.SpeciesId}:{dragon.MutationId or "Normal"}:{dragon.Level}:{dragon.Trait or ""}:{dragon.Grade or ""}`
+		local key = `{dragon.SpeciesId}:{dragon.MutationId or "Normal"}:{if dragon.Champion then "C" else ""}:{dragon.Level}:{dragon.Trait or ""}:{dragon.Grade or ""}`
 		local existing = current[dragon.Id]
 		if existing == nil or existing.Key ~= key then
 			if existing then

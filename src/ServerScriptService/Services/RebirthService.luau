@@ -8,6 +8,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataService = require(script.Parent.DataService)
+local MilestoneService = require(script.Parent.MilestoneService)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -20,6 +22,7 @@ local announcement = ReplicatedStorage.Remotes.Announcement :: RemoteEvent
 
 local MIN_REQUEST_INTERVAL = 1 -- seconds between rebirth requests per player
 local BADGE_COLOR = Color3.fromRGB(255, 220, 120)
+local TITLE_COLOR = Color3.fromRGB(190, 200, 255) -- rank titles; the Champion title is gold (BADGE_COLOR)
 
 local lastRequest: { [Player]: number } = {}
 
@@ -42,13 +45,26 @@ local function updateBadge(player: Player)
 	if badge == nil then
 		local newBadge = Instance.new("BillboardGui")
 		newBadge.Name = "RebirthBadge"
-		newBadge.Size = UDim2.fromOffset(WorldLabels.RebirthBadge.X, WorldLabels.RebirthBadge.Y)
-		newBadge.StudsOffset = Vector3.new(0, 2.4, 0)
+		newBadge.Size = UDim2.fromOffset(WorldLabels.RebirthBadge.X, math.floor(WorldLabels.RebirthBadge.Y * 1.8))
+		newBadge.StudsOffset = Vector3.new(0, 2.8, 0)
 		newBadge.MaxDistance = WorldLabels.BadgeMaxDistance
 		newBadge.AlwaysOnTop = false
+		local title = Instance.new("TextLabel") -- the rank title (RebirthMilestones.GetTitle) above the ★ count
+		title.Name = "Title"
+		title.Size = UDim2.fromScale(1, 0.42)
+		title.BackgroundTransparency = 1
+		title.Font = Enum.Font.LuckiestGuy
+		title.TextScaled = true
+		title.TextStrokeTransparency = 1
+		title.Parent = newBadge
+		local titleOutline = Instance.new("UIStroke")
+		titleOutline.Color = Color3.fromRGB(24, 16, 48)
+		titleOutline.Thickness = 1.2
+		titleOutline.Parent = title
 		local label = Instance.new("TextLabel")
 		label.Name = "Label"
-		label.Size = UDim2.fromScale(1, 1)
+		label.Position = UDim2.fromScale(0, 0.45)
+		label.Size = UDim2.fromScale(1, 0.55)
 		label.BackgroundTransparency = 1
 		label.Font = Enum.Font.LuckiestGuy -- UITheme.Fonts.Title
 		label.TextScaled = true
@@ -63,6 +79,10 @@ local function updateBadge(player: Player)
 		badge = newBadge
 	end
 	((badge :: BillboardGui):FindFirstChild("Label") :: TextLabel).Text = `★ {data.Rebirths}`
+	local titleLabel = (badge :: BillboardGui):FindFirstChild("Title") :: TextLabel
+	local titleText, gold = RebirthMilestones.GetTitle(data.Rebirths)
+	titleLabel.Text = titleText or ""
+	titleLabel.TextColor3 = if gold then BADGE_COLOR else TITLE_COLOR
 end
 
 -- Areas unlocked by exactly this many rebirths, for the celebration message.
@@ -132,6 +152,7 @@ local function onRequestRebirth(player: Player)
 	})
 	announcement:FireAllClients(`{player.DisplayName} reached Rebirth {data.Rebirths}!`)
 	updateBadge(player)
+	MilestoneService:OnRebirth(player, data)
 end
 
 function RebirthService:Start()

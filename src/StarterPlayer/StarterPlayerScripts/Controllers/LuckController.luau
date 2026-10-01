@@ -18,6 +18,7 @@ local Button = require(script.Parent.UI.Button)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Luck = require(ReplicatedStorage.Shared.Luck)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
@@ -162,7 +163,8 @@ local function update()
 		state.NightIndex,
 		offeringCount,
 		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
-		Luck.GetArmedPotionLuck(data)
+		Luck.GetArmedPotionLuck(data),
+		RebirthMilestones.GetAscendedLuck(data.Rebirths)
 	)
 	local areaKey = if type(areaId) == "string" then areaId else "StarterMeadow"
 	local area = Areas[areaKey]
@@ -189,6 +191,9 @@ local function update()
 		{ `Stardust {offeringCount}/{#LuckConfig.Offerings}`, Format.Multiplier(luck.Stardust) },
 		{ `Group ({luck.GroupSize})`, Format.Multiplier(luck.Group) },
 	}
+	if luck.Ascended > 1 then
+		table.insert(lines, { Text.Milestones.Items.Ascended.Name, Format.Multiplier(luck.Ascended) })
+	end
 	local armed = Boosts.ById[data.ArmedLuckPotion]
 	if luck.Potion > 1 and armed then
 		table.insert(lines, { armed.Name, Format.Multiplier(luck.Potion) })
@@ -254,11 +259,11 @@ function LuckController:Init()
 	local rowsList = Instance.new("UIListLayout")
 	rowsList.SortOrder = Enum.SortOrder.LayoutOrder
 	rowsList.Parent = rowsFrame
-	for index = 1, 8 do
+	for index = 1, 9 do
 		local row = Instance.new("Frame")
 		row.LayoutOrder = index
 		row.BackgroundTransparency = 1
-		row.Size = UDim2.new(1, 0, 1 / 8, 0)
+		row.Size = UDim2.new(1, 0, 1 / 9, 0)
 		row.Parent = rowsFrame
 		local name = Style.Label(row, "", "Bold", 15, Theme.Colors.Text)
 		name.Size = UDim2.new(0.72, 0, 1, 0)

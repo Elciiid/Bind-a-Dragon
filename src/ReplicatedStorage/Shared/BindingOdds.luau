@@ -107,4 +107,46 @@ function BindingOdds.ValidatePool(pool: { Outcome }): (boolean, string?)
 	return true, nil
 end
 
+-- The pieces of one outcome's odds (for the "tap for details" breakdown): the species on its own, the mutation share
+-- inside that species, and both together, all as "1 in N" at this luck; plus the combined odds at luck 1 (Base).
+export type Breakdown = { SpeciesOneIn: number, MutationOneIn: number, OneIn: number, BaseOneIn: number }
+
+function BindingOdds.Breakdown(areaId: string, element: string?, luck: number, speciesId: string, mutationId: string?): Breakdown?
+	local wanted = mutationId or Mutations.NormalId
+	local speciesProbability, outcomeProbability, baseOneIn = 0, 0, math.huge
+	for _, outcome in BindingOdds.GetPool(areaId, element, luck) do
+		if outcome.SpeciesId == speciesId then
+			speciesProbability += outcome.EffectiveProbability
+			if outcome.MutationId == wanted then
+				outcomeProbability = outcome.EffectiveProbability
+				baseOneIn = outcome.BaseOneIn
+			end
+		end
+	end
+	if outcomeProbability <= 0 then
+		return nil
+	end
+	return {
+		SpeciesOneIn = 1 / speciesProbability,
+		MutationOneIn = speciesProbability / outcomeProbability,
+		OneIn = 1 / outcomeProbability,
+		BaseOneIn = baseOneIn,
+	}
+end
+
+-- "1 in N" of an outcome at its home altar (the species' element area) with no luck, for the Index and dragon tooltips.
+function BindingOdds.GetHomeOneIn(speciesId: string, mutationId: string?): number?
+	local species = Dragons[speciesId]
+	if species == nil then
+		return nil
+	end
+	for areaId, area in Areas do
+		if area.Element == species.Element and table.find(area.Species, speciesId) then
+			local outcome = BindingOdds.GetOutcome(areaId, species.Element, 1, speciesId, mutationId)
+			return if outcome then outcome.BaseOneIn else nil
+		end
+	end
+	return nil
+end
+
 return BindingOdds

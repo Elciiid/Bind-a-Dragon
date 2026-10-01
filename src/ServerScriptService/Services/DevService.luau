@@ -13,13 +13,14 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
+local MilestoneService = require(script.Parent.MilestoneService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 
-local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 
 local DevService = {}
@@ -85,19 +86,20 @@ local function setRoostSlots(player: Player, slots: number): number
 	return DragonStats.GetRoostSlots(data)
 end
 
--- GiveItems:Invoke(player, { Sigils = n, Gold = n, Rebirths = n, Potions = { GildedDraught = 2 }, WyrmRunes = n, Dragonstones = n, Stardust = n })
+-- GiveItems:Invoke(player, { Sigils = n, Gold = n, Rebirths = n (adds; also celebrates milestones), Potions = { GildedDraught = 2 }, WyrmRunes = n, Dragonstones = n, Stardust = n })
 -- adds test items to a player's data (Sigils respect the Config/Binding cap).
 local function giveItems(player: Player, items: any): any
 	local data = DataService:GetData(player)
 	assert(data, "GiveItems: player data not loaded yet")
-	if items.Sigils then
-		data.EchoSigils = math.clamp(data.EchoSigils + math.floor(items.Sigils), 0, BindingConfig.EchoSigilCap)
-	end
 	if items.Gold then
 		data.Gold = math.max(0, data.Gold + items.Gold)
 	end
 	if items.Rebirths then
 		data.Rebirths = math.max(0, data.Rebirths + math.floor(items.Rebirths))
+		MilestoneService:OnRebirth(player, data) -- celebrate milestones like a real rebirth would (no gold cost)
+	end
+	if items.Sigils then
+		data.EchoSigils = math.clamp(data.EchoSigils + math.floor(items.Sigils), 0, RebirthMilestones.GetEchoSigilCap(data.Rebirths))
 	end
 	Rewards.Apply(data, { Potions = items.Potions, WyrmRunes = items.WyrmRunes, Dragonstones = items.Dragonstones, Stardust = items.Stardust })
 	return { EchoSigils = data.EchoSigils, Gold = data.Gold, Rebirths = data.Rebirths }

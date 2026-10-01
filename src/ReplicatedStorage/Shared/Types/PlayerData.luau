@@ -11,6 +11,7 @@ export type Dragon = {
 	Trait: string?, -- Config/Traits trait Id (rolled with Wyrm Runes)
 	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
 	MutationId: string?, -- Config/Mutations; nil is the backward-compatible Normal state
+	Champion: boolean?, -- the rebirth champion dragon (Config/RebirthMilestones Champion)
 }
 
 export type QuestState = {
@@ -62,6 +63,8 @@ export type PlayerData = {
 	StarAtlas: { [string]: number }, -- constellationId -> times bound
 	Index: { [string]: number }, -- normal species discovery -> os.time() found
 	MutationIndex: { [string]: number }, -- "SpeciesId:MutationId" discovery -> os.time() found
+	MilestonesSeen: { [string]: boolean }, -- Config/RebirthMilestones Ids already celebrated (pop-up, grants)
+	AutoUpgrade: boolean, -- the R12 Auto-Upgrade toggle
 	IndexMilestones: number, -- MilestoneEvery rewards already given
 	IndexElementsRewarded: { [string]: boolean }, -- element -> its completion reward was given
 	LastBindNight: number, -- Cycle NightIndex of the last bind (one bind per night)

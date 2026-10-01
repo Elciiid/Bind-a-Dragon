@@ -22,6 +22,7 @@ export type Breakdown = {
 	MoonName: string,
 	Constellation: number,
 	Favored: number, -- FavoredAreaLuck if tonight's constellation favors this area, else 1
+	Ascended: number, -- the Ascended altars milestone luck (Config/RebirthMilestones), 1 = none
 	Stardust: number,
 	Group: number,
 	GroupSize: number,
@@ -125,8 +126,9 @@ function Luck.GetArmedPotionLuck(data: { ArmedLuckPotion: string, Potions: { [st
 	return potion.Multiplier
 end
 
--- potionLuck (an armed luck charge) applies after the normal Cap, up to PotionCap.
-function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number, groupSize: number, potionLuck: number?): Breakdown
+-- potionLuck (an armed luck charge) applies after the normal Cap, up to PotionCap. ascendedLuck (the R20 milestone) is a
+-- normal source, inside the Cap.
+function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number, groupSize: number, potionLuck: number?, ascendedLuck: number?): Breakdown
 	local area = Areas[areaId]
 	local areaLuck = if area then area.BindLuck else 1
 
@@ -143,7 +145,8 @@ function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number,
 	local counted = math.clamp(groupSize, 1, LuckConfig.GroupMaxPlayers)
 	local groupLuck = 1 + LuckConfig.GroupLuckPerExtraPlayer * (counted - 1)
 
-	local raw = areaLuck * moon.Luck * constellationLuck * favoredLuck * stardustLuck * groupLuck
+	local ascended = ascendedLuck or 1
+	local raw = areaLuck * moon.Luck * constellationLuck * favoredLuck * stardustLuck * groupLuck * ascended
 	local potion = potionLuck or 1
 	return {
 		Total = math.min(math.min(raw, LuckConfig.Cap) * potion, LuckConfig.PotionCap),
@@ -154,6 +157,7 @@ function Luck.Compute(areaId: string, nightIndex: number, offeringCount: number,
 		MoonName = moon.Name,
 		Constellation = constellationLuck,
 		Favored = favoredLuck,
+		Ascended = ascended,
 		Stardust = stardustLuck,
 		Group = groupLuck,
 		GroupSize = groupSize,

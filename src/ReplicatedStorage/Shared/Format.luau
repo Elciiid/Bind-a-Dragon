@@ -39,4 +39,11 @@ function Format.Multiplier(n: number): string
 	return "x" .. text
 end
 
+-- 8400 -> "8,400" (whole numbers with thousands separators, for odds like "1 in 8,400")
+function Format.Commas(n: number): string
+	local text = tostring(math.floor(n + 0.5))
+	local out = text:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return (out:gsub("^,", ""))
+end
+
 return Format

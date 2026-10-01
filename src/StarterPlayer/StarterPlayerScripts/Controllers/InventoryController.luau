@@ -22,6 +22,8 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
+local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
+local OddsText = require(ReplicatedStorage.Shared.OddsText)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -275,17 +277,18 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 	end
 	local name = if species then species.Name else dragon.SpeciesId
 	local mutation = Mutations.Get(dragon.MutationId)
-	setText(card.Name, if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {name}` else name)
+	local champion = if dragon.Champion then `{Text.Milestones.ChampionPrefix} ` else ""
+	setText(card.Name, champion .. (if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {name}` else name))
 	setText(card.Level, `Lv {dragon.Level}`)
 	setText(card.Income, `{Format.Number(DragonStats.GetGoldPerSecond(dragon))}/s`)
 	local trait = DragonStats.GetTrait(dragon)
 	local grade = DragonStats.GetGrade(dragon)
-	local baseOneIn = if species then 1000 / (species.BindWeight * mutation.Share) else math.huge
+	local baseOneIn = if species then BindingOdds.GetHomeOneIn(dragon.SpeciesId, dragon.MutationId) else nil
 	card.Tooltip = Text.Format(words.Tooltip, {
 		power = Format.Number(DragonStats.GetPower(dragon)),
 		trait = if trait then trait.Name else words.NoTrait,
 		grade = if grade then `Grade {grade.Id}` else words.NoGrade,
-	}) .. ` · {stage.Name} · Lv {dragon.Level}/{cap} · {mutation.Name} · Home x1 odds 1 in {math.round(baseOneIn)} · Base {Format.Number(if species then species.BaseGoldPerSecond else 0)}/s · Base power {Format.Number(if species then species.BasePower else 0)}`
+	}) .. ` · {stage.Name} · Lv {dragon.Level}/{cap} · {mutation.Name} · {Text.Format(Text.Odds.Chance, { oneIn = if baseOneIn then OddsText.OneIn(baseOneIn) else "?" })} · Base {Format.Number(if species then species.BaseGoldPerSecond else 0)}/s · Base power {Format.Number(if species then species.BasePower else 0)}`
 
 	local atCap = dragon.Level >= cap
 	local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)

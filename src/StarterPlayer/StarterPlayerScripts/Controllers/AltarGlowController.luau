@@ -5,6 +5,7 @@
 -- tonight's constellation favors the altar's area. Off far from the camera. Settings: Config/AltarGlow.
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -15,6 +16,7 @@ local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Glow = require(ReplicatedStorage.Shared.Config.AltarGlow)
+local MilestoneConfig = require(ReplicatedStorage.Shared.Config.RebirthMilestones)
 
 type Tip = { Part: BasePart, Gui: BillboardGui, Image: ImageLabel, Size: number, Light: PointLight? }
 type Altar = {
@@ -27,6 +29,10 @@ type Altar = {
 	SparkleVolume: Part,
 	Highlight: Highlight?,
 	Effects: { Instance },
+	Color: Color3, -- the element color
+	Gold: number, -- 0..1: how far the glow has turned gold (an Ascended player is binding nearby)
+	AscendedNear: boolean,
+	Lights: { PointLight },
 }
 
 local AltarGlowController = {}
@@ -192,6 +198,10 @@ local function setup(model: Instance)
 		SparkleVolume = volume,
 		Highlight = highlight,
 		Effects = effects,
+		Color = color,
+		Gold = 0,
+		AscendedNear = false,
+		Lights = {},
 	}
 end
 
@@ -226,7 +236,32 @@ function AltarGlowController:Start()
 		task.spawn(setup, model)
 	end
 
-	RunService.RenderStepped:Connect(function()
+	-- Ascended altars (R20 milestone): every 0.5 s, which altars have an Ascended player (player attribute "Ascended",
+	-- set by MilestoneService) within GlowRange; they fade toward gold for everyone who sees them.
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			local positions: { Vector3 } = {}
+			for _, player in Players:GetPlayers() do
+				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+				if player:GetAttribute("Ascended") == true and root and root:IsA("BasePart") then
+					table.insert(positions, root.Position)
+				end
+			end
+			for _, altar in altars do
+				local near = false
+				for _, position in positions do
+					if (position - altar.Center).Magnitude <= MilestoneConfig.Ascended.GlowRange then
+						near = true
+						break
+					end
+				end
+				altar.AscendedNear = near
+			end
+		end
+	end)
+
+	RunService.RenderStepped:Connect(function(dt)
 		local camera = workspace.CurrentCamera
 		if camera == nil then
 			return
@@ -244,7 +279,23 @@ function AltarGlowController:Start()
 			local distance = (altar.Center - eye).Magnitude
 			local active = night > 0.01 and distance <= Glow.FarDistance
 			local favored = altar.AreaId ~= "" and Luck.IsFavored(altar.AreaId, constellation)
-			local strength = night * (if favored then Glow.FavoredBoost else 1) * breath
+			local goldTarget = if altar.AscendedNear then 1 else 0
+			if altar.Gold ~= goldTarget then
+				altar.Gold += math.clamp(goldTarget - altar.Gold, -dt * 1.5, dt * 1.5)
+				local gold = MilestoneConfig.Ascended.GlowColor
+				local shown = altar.Color:Lerp(gold, altar.Gold)
+				for _, entry in altar.Beams do
+					entry.Beam.Color = ColorSequence.new(shown:Lerp(Color3.new(1, 1, 1), 0.25))
+				end
+				for _, tip in altar.Tips do
+					tip.Image.ImageColor3 = shown:Lerp(Color3.new(1, 1, 1), 0.3)
+					if tip.Light then
+						tip.Light.Color = shown
+					end
+				end
+				altar.Sparkles.Color = ColorSequence.new(shown:Lerp(Color3.new(1, 1, 1), 0.4))
+			end
+			local strength = night * (if favored then Glow.FavoredBoost else 1) * breath * (1 + 0.5 * altar.Gold)
 			local fade = math.min(strength, 1)
 
 			for _, entry in altar.Beams do

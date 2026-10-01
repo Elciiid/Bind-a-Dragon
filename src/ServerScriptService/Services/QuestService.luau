@@ -14,7 +14,7 @@ local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local QuestConfig = require(ReplicatedStorage.Shared.Config.Quests)
-local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
@@ -124,9 +124,10 @@ function QuestService:Progress(player: Player, kind: string, amount: number)
 	end
 	if allDailyDone and data.EchoSigilQuestDay ~= data.QuestDay then
 		data.EchoSigilQuestDay = data.QuestDay
-		if data.EchoSigils < BindingConfig.EchoSigilCap then
+		local sigilCap = RebirthMilestones.GetEchoSigilCap(data.Rebirths)
+		if data.EchoSigils < sigilCap then
 			data.EchoSigils += 1
-			notify:FireClient(player, `All daily quests complete: +1 Echo Sigil ({data.EchoSigils}/{BindingConfig.EchoSigilCap})`, "success")
+			notify:FireClient(player, `All daily quests complete: +1 Echo Sigil ({data.EchoSigils}/{sigilCap})`, "success")
 		end
 	end
 end

@@ -8,14 +8,14 @@
 --   EarlyUntil < r <= CurveEnd: ... x LateGrowth ^ (r - EarlyUntil)
 --   r > CurveEnd: each three-rebirth weekly band starts with WeeklyJump, then uses WeeklyGrowth twice
 -- WeeklyGrowth = IncomeBonusPerRebirth x Leveling.IncomePerLevel ^ Leveling.CapPerRebirth x WeeklyGrowthStep,
--- i.e. the same as income growth per rebirth, so each post-launch rebirth takes about the same play time.
+-- scaled by WeeklyGrowthStep. Retuned with tools/sim (docs/Economy_Retune_Proposal.md).
 -- PLACEHOLDER numbers.
 
 return {
 	FirstCost = 50e6, -- R1: a new player rebirths ~5 min into their first session
-	EarlyGrowth = 3.71, -- R2..R10: fast early rebirths (R5 ~20 min, R10 ~35 min)
+	EarlyGrowth = 5.0, -- R2..R10: quick early rebirths (R10 within the first day)
 	EarlyUntil = 10,
-	LateGrowth = 2.95, -- R11..R30: tuned for a ~10-day dedicated launch curve
+	LateGrowth = 2.55, -- R11..R30: tuned with tools/sim for ~8 days to R30 for a Dedicated player (very sensitive: +0.05 = +2-3 days)
 
 	-- The launch curve ends here. NEVER change this after launch: weekly updates raise RebirthCap instead.
 	CurveEnd = 30,
@@ -23,10 +23,10 @@ return {
 	RebirthCap = 30,
 	WeeklyRebirths = 3, -- each weekly release adds exactly three rebirths
 	-- Past CurveEnd: a one-time extra step, then growth equal to income growth.
-	WeeklyJump = 3.0,
-	-- Extra 2% per post-launch rebirth. Offsets slow income growth that doesn't come from rebirths (traits, grades,
-	-- Dragon Index), so post-launch rebirths don't get shorter week after week.
-	WeeklyGrowthStep = 1.02,
+	WeeklyJump = 4.8, -- the first rebirth of each weekly block costs this much more (then WeeklyGrowth twice)
+	-- Multiplies the weekly growth of the two cheaper rebirths in each block. Below 1 because the big jump carries most of
+	-- the block (sim: each weekly +3 takes a Dedicated player ~5-6 days).
+	WeeklyGrowthStep = 0.72,
 
 	IncomeBonusPerRebirth = 1.59, -- permanent roost income x1.59 per rebirth, multiplying (R10 ≈ x103, R50 ≈ x11.6B)
 }

@@ -1,6 +1,6 @@
 # Economy retune proposal (after the mutation branch)
 
-Status: **proposal, not applied.** Live Config = Kyle's numbers. Everything below was simulated with
+Status: **approved and applied (2026-10-02); the sim on the applied Config reproduces the table.** Everything below was simulated with
 `tools/sim/CohortSim.luau` (see `tools/sim/README.md`) against the live Config plus in-memory overrides.
 
 ## How to read the numbers

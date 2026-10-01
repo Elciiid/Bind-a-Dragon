@@ -9,6 +9,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HudLayout = require(script.Parent.HudLayout)
 local HudIcon = require(script.Parent.UI.HudIcon)
+local Button = require(script.Parent.UI.Button)
+local Window = require(script.Parent.UI.Window)
+local DataController = require(script.Parent.DataController)
+local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
+local Areas = require(ReplicatedStorage.Shared.Config.Areas)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Travel = require(ReplicatedStorage.Shared.Config.Travel)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -16,6 +23,7 @@ local ARRIVAL_WAIT = 6 -- seconds to watch for the teleport after asking (the se
 local ARRIVAL_JUMP = 20 -- studs: a move this big in one step is the teleport
 
 local travelTo = ReplicatedStorage.Remotes.TravelTo :: RemoteEvent
+local travelToAltar = ReplicatedStorage.Remotes.TravelToAltar :: RemoteEvent
 
 local TravelController = {}
 
@@ -71,6 +79,68 @@ function TravelController:Init()
 		end)
 		icons[destination.Id] = icon
 	end
+
+	-- Altars (R18 milestone, Altar Travel): a fourth icon that opens a short list of the areas whose altar you can go to.
+	local altarLook = UITheme.Travel.Altars
+	local altarIcon = HudIcon.new(row, { Image = altarLook.Icon, Glyph = altarLook.Glyph, Label = Text.Milestones.Altars.Button, Color = altarLook.Color })
+	altarIcon.Instance.Name = "Altars"
+	altarIcon.Instance.LayoutOrder = altarLook.Order
+	altarIcon.Instance.Visible = false
+	icons.Altars = altarIcon
+	local altarWindow = Window.new({
+		Name = "Altars",
+		Title = Text.Milestones.Altars.Heading,
+		Icon = "Travel_Portals",
+		Size = UDim2.new(0.8, 0, 0.8, 0),
+		MaxSize = Vector2.new(360, 400),
+	})
+	local altarList = Instance.new("UIListLayout")
+	altarList.Padding = UDim.new(0, 8)
+	altarList.SortOrder = Enum.SortOrder.LayoutOrder
+	altarList.Parent = altarWindow.Content
+	local function fillAltars()
+		for _, child in altarWindow.Content:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		local data = DataController:Get()
+		local ordered = {}
+		for id, area in Areas do
+			table.insert(ordered, { Id = id, Area = area })
+		end
+		table.sort(ordered, function(a, b)
+			return a.Area.Order < b.Area.Order
+		end)
+		for index, entry in ordered do
+			local unlocked = data ~= nil and DragonStats.IsAreaUnlocked(data, entry.Id)
+			local altarButton = Button.new(altarWindow.Content, {
+				Text = if unlocked then entry.Area.Name else Text.Format(Text.Milestones.Altars.Locked, { n = entry.Area.RebirthsRequired }),
+				Kind = if unlocked then "Confirm" else "Cancel",
+				TextSize = 20,
+				OnClick = function()
+					if unlocked then
+						travelToAltar:FireServer(entry.Id) -- the server checks the milestone, the area and the altar
+						altarWindow:Close()
+						task.spawn(faceOnArrival)
+					end
+				end,
+			})
+			altarButton.Instance.LayoutOrder = index
+			altarButton.Instance.Size = UDim2.new(1, 0, 0, 46)
+			altarButton:SetEnabled(unlocked)
+		end
+	end
+	altarIcon.Instance.Activated:Connect(function()
+		fillAltars()
+		altarWindow:Toggle()
+	end)
+	local function refreshAltars()
+		local data = DataController:Get()
+		altarIcon.Instance.Visible = data ~= nil and RebirthMilestones.Has(data.Rebirths, "AltarTravel")
+	end
+	DataController:OnChanged("Rebirths", refreshAltars)
+	task.defer(refreshAltars)
 
 	HudLayout.OnLayoutChanged(function(phone)
 		local sizes = UITheme.Sizes

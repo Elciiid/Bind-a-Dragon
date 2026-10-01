@@ -1,7 +1,8 @@
 --!strict
 -- Rebirth HUD icon (HudLayout: gold glow + READY! when the player can afford it, else a progress ring toward the
 -- next rebirth) and a confirm window (UI/Window): a big "★ Rebirth N" heading, a cost card with the gold icon (and a
--- bar toward the cost while it's not affordable), reward chips (income bonus, level cap, a new area when this rebirth
+-- bar toward the cost while it's not affordable), the milestone track (Rebirth Milestone Ladder: a node per milestone,
+-- reached ones lit, your title, the R12 Auto-Upgrade switch), reward chips (income bonus, level cap, a new area when this rebirth
 -- unlocks one), one short line on what is kept, and big Rebirth! / Not yet buttons. Wording in Config/Text.Rebirth.
 -- The server decides.
 
@@ -14,6 +15,8 @@ local Icon = require(script.Parent.UI.Icon)
 local Button = require(script.Parent.UI.Button)
 local ProgressBar = require(script.Parent.UI.ProgressBar)
 local Window = require(script.Parent.UI.Window)
+local Tooltip = require(script.Parent.UI.Tooltip)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -22,6 +25,7 @@ local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local requestRebirth = ReplicatedStorage.Remotes.RequestRebirth :: RemoteEvent
+local setAutoUpgrade = ReplicatedStorage.Remotes.SetAutoUpgrade :: RemoteEvent
 
 local RebirthController = {}
 
@@ -38,6 +42,11 @@ local costBar: ProgressBar.ProgressBar
 local chips: Frame
 local keeps: TextLabel
 local confirm: Button.Button
+local track: Frame
+local nodeRow: ScrollingFrame
+local titleLabel: TextLabel
+local autoButton: Button.Button
+local nodes: { [string]: { Circle: Frame, Mark: TextLabel, Name: TextLabel, Level: TextLabel } } = {}
 
 type Chip = { Frame: Frame, Value: TextLabel }
 local chipByKey: { [string]: Chip } = {}
@@ -73,11 +82,38 @@ local function makeChip(key: string, order: number, icon: string, title: string,
 	return entry
 end
 
+-- Milestone track: reached nodes are gold, the next one is outlined, the rest grey; the title and the Auto-Upgrade switch.
+local function refreshTrack(data: any)
+	local words = Text.Milestones
+	local nextMilestone = RebirthMilestones.Next(data.Rebirths)
+	for _, milestone in RebirthMilestones.All do
+		local node = nodes[milestone.Id]
+		if node then
+			local reached = data.Rebirths >= milestone.Rebirths
+			local isNext = nextMilestone ~= nil and nextMilestone.Id == milestone.Id
+			node.Circle.BackgroundColor3 = if reached then colors.Gold elseif isNext then Style.Shade(colors.Gold, -0.55) else Color3.fromRGB(60, 56, 84)
+			node.Mark.Text = if reached then "★" else ""
+			node.Mark.TextColor3 = if reached then Color3.fromRGB(70, 40, 10) else colors.TextMuted
+			node.Name.TextColor3 = if reached then colors.Text else colors.TextMuted
+			node.Level.TextColor3 = if reached then colors.Gold else colors.TextMuted
+		end
+	end
+	local title, gold = RebirthMilestones.GetTitle(data.Rebirths)
+	titleLabel.Text = if title then Text.Format(words.YourTitle, { title = title }) elseif nextMilestone then Text.Format(words.Next, { name = RebirthMilestones.NameOf(nextMilestone), n = nextMilestone.Rebirths }) else words.AllDone
+	titleLabel.TextColor3 = if gold then colors.Gold else colors.TextMuted
+	local hasAuto = RebirthMilestones.Has(data.Rebirths, "AutoUpgrade")
+	autoButton.Instance.Visible = hasAuto
+	if hasAuto then
+		autoButton:SetText(`{words.AutoUpgradeLabel}: {if data.AutoUpgrade then words.AutoUpgradeOn else words.AutoUpgradeOff}`)
+	end
+end
+
 local function refresh()
 	local data = DataController:Get()
 	if data == nil then
 		return
 	end
+	refreshTrack(data)
 	local cost = DragonStats.GetRebirthCost(data.Rebirths)
 	local next = data.Rebirths + 1
 	if data.Rebirths > 0 then
@@ -140,7 +176,7 @@ function RebirthController:Init()
 		Title = "Rebirth",
 		Icon = "Menu_Rebirth",
 		Size = UDim2.new(0.9, 0, 0.9, 0), -- height scales with the screen, up to MaxSize
-		MaxSize = Vector2.new(520, 420),
+		MaxSize = Vector2.new(540, 570),
 	})
 	local content = window.Content
 
@@ -150,7 +186,7 @@ function RebirthController:Init()
 	column.Size = UDim2.new(1, 0, 1, -60)
 	column.Parent = content
 	local list = Instance.new("UIListLayout")
-	list.Padding = UDim.new(0, 8)
+	list.Padding = UDim.new(0, 6)
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	list.Parent = column
@@ -200,9 +236,90 @@ function RebirthController:Init()
 	makeChip("LevelCap", 2, "Menu_Dragons", words.LevelCap, colors.Info)
 	makeChip("Unlocks", 3, "Travel_Portals", words.Unlocks, colors.Title)
 
-	keeps = Style.Label(column, "", "Bold", 15, colors.TextMuted)
-	keeps.LayoutOrder = 4
-	keeps.Size = UDim2.new(1, -20, 0, 40)
+	track = Instance.new("Frame")
+	track.Name = "Milestones"
+	track.LayoutOrder = 4
+	track.Size = UDim2.new(1, 0, 0, 92)
+	Style.CardLook(track)
+	track.Parent = column
+	local trackHeading = Style.Label(track, Text.Milestones.TrackHeading, "Title", 18, colors.Title)
+	trackHeading.Position = UDim2.fromOffset(10, 2)
+	trackHeading.Size = UDim2.new(0.3, 0, 0, 22)
+	trackHeading.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel = Style.Label(track, "", "Bold", 14, colors.TextMuted)
+	titleLabel.Position = UDim2.new(0.3, 0, 0, 4)
+	titleLabel.Size = UDim2.new(0.36, 0, 0, 20)
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nodeRow = Instance.new("ScrollingFrame")
+	nodeRow.Name = "Nodes"
+	nodeRow.BackgroundTransparency = 1
+	nodeRow.BorderSizePixel = 0
+	nodeRow.Position = UDim2.fromOffset(6, 28)
+	nodeRow.Size = UDim2.new(1, -12, 0, 60)
+	nodeRow.AutomaticCanvasSize = Enum.AutomaticSize.X
+	nodeRow.CanvasSize = UDim2.new()
+	nodeRow.ScrollingDirection = Enum.ScrollingDirection.X
+	nodeRow.ScrollBarThickness = 3
+	nodeRow.Parent = track
+	local nodeList = Instance.new("UIListLayout")
+	nodeList.FillDirection = Enum.FillDirection.Horizontal
+	nodeList.Padding = UDim.new(0, 8)
+	nodeList.SortOrder = Enum.SortOrder.LayoutOrder
+	nodeList.Parent = nodeRow
+	for index, milestone in RebirthMilestones.All do
+		local node = Instance.new("Frame")
+		node.Name = milestone.Id
+		node.LayoutOrder = index
+		node.BackgroundTransparency = 1
+		node.Size = UDim2.fromOffset(104, 60)
+		node.Parent = nodeRow
+		local circle = Instance.new("Frame")
+		circle.AnchorPoint = Vector2.new(0.5, 0)
+		circle.Position = UDim2.fromScale(0.5, 0)
+		circle.Size = UDim2.fromOffset(28, 28)
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = circle
+		Style.GoldBorder(circle, 1.5)
+		circle.Parent = node
+		local mark = Style.Label(circle, "", "Title", 16, colors.TextMuted)
+		mark.Size = UDim2.fromScale(1, 1)
+		local name = Style.Label(node, RebirthMilestones.NameOf(milestone), "Bold", 13, colors.TextMuted)
+		name.Position = UDim2.fromOffset(0, 29)
+		name.Size = UDim2.new(1, 0, 0, 16)
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		local level = Style.Label(node, Text.Format(Text.Milestones.Level, { n = milestone.Rebirths }), "Title", 14, colors.TextMuted)
+		level.Position = UDim2.fromOffset(0, 44)
+		level.Size = UDim2.new(1, 0, 0, 16)
+		nodes[milestone.Id] = { Circle = circle, Mark = mark, Name = name, Level = level }
+		local info = RebirthMilestones.InfoOf(milestone)
+		Tooltip.Attach(node, function()
+			return info
+		end)
+	end
+	autoButton = Button.new(track, {
+		Text = Text.Milestones.AutoUpgradeLabel,
+		Kind = "Confirm",
+		TextSize = 15,
+		OnClick = function()
+			local data = DataController:Get()
+			if data then
+				setAutoUpgrade:FireServer(not data.AutoUpgrade)
+			end
+		end,
+	})
+	autoButton.Instance.AnchorPoint = Vector2.new(1, 0)
+	autoButton.Instance.Position = UDim2.new(1, -8, 0, 3)
+	autoButton.Instance.Size = UDim2.fromOffset(170, 24)
+	autoButton.Instance.Visible = false
+	Tooltip.Attach(autoButton.Instance, function()
+		return Text.Milestones.AutoUpgradeInfo
+	end)
+
+	keeps = Style.Label(column, "", "Bold", 13, colors.TextMuted)
+	keeps.LayoutOrder = 5
+	keeps.Size = UDim2.new(1, -20, 0, 32)
 	keeps.TextWrapped = true
 
 	confirm = Button.new(content, {
@@ -252,6 +369,7 @@ function RebirthController:Init()
 
 	DataController:OnChanged("Gold", refresh)
 	DataController:OnChanged("Rebirths", refresh)
+	DataController:OnChanged("AutoUpgrade", refresh)
 end
 
 return RebirthController

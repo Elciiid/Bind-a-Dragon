@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local NotificationController = require(script.Parent.NotificationController)
 local CeremonyController = require(script.Parent.CeremonyController)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local OddsText = require(ReplicatedStorage.Shared.OddsText)
 
 type BindResult = {
 	DragonId: string,
@@ -17,6 +18,8 @@ type BindResult = {
 	MutationId: string,
 	BaseOneIn: number,
 	EffectiveOneIn: number,
+	SpeciesOneIn: number,
+	MutationOneIn: number,
 	Auto: boolean, -- bound by the Auto-bind pass
 }
 
@@ -39,7 +42,10 @@ function BindingController:Start()
 				Auto = result.Auto,
 				BaseOneIn = result.BaseOneIn,
 				EffectiveOneIn = result.EffectiveOneIn,
-			}, `You bound {species.Name}! Base 1 in {math.round(result.BaseOneIn)} · Current 1 in {math.round(result.EffectiveOneIn)}`)
+				SpeciesOneIn = result.SpeciesOneIn,
+				MutationOneIn = result.MutationOneIn,
+				Luck = result.Luck,
+			}, `You bound {species.Name}! {OddsText.Line(result.EffectiveOneIn)}`)
 		end
 		if result.Auto or CeremonyController.IsIdle() then
 			toast()

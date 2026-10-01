@@ -26,7 +26,7 @@ export type Drop = {
 return {
 	MaxFloors = 150, -- +10 each weekly update
 	EnemyBase = 10,
-	EnemyGrowth = 1.215, -- re-simulated with the built game: Dedicated week-1 floor median ~115, p90 ~119
+	EnemyGrowth = 1.15, -- retuned with tools/sim after the mutation economy: Dedicated week-1 floor median ~98
 	BossEvery = 10,
 	BossMultiplier = 1.5,
 

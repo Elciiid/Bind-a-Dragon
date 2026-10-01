@@ -17,7 +17,12 @@ local RewardPopup = require(script.Parent.UI.RewardPopup)
 local DragonPicture = require(script.Parent.UI.DragonPicture)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
+local OddsConfig = require(ReplicatedStorage.Shared.Config.Odds)
+local OddsText = require(ReplicatedStorage.Shared.OddsText)
+local Format = require(ReplicatedStorage.Shared.Format)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -146,7 +151,7 @@ local function rarityColor(rarityId: string): Color3
 	return if rarity then rarity.Color else UITheme.Colors.Gold
 end
 
--- payload.Moment: "NewDragon" { SpeciesId, Level?, MutationId?, Auto?, BaseOneIn?, EffectiveOneIn? } | "Evolve" { SpeciesId, Level, Stage, Under? }
+-- payload.Moment: "NewDragon" { SpeciesId, Level?, MutationId?, Auto?, BaseOneIn?, EffectiveOneIn?, SpeciesOneIn?, MutationOneIn?, Luck? } | "Milestone" { Id, Name, Info, Rebirths } | "Evolve" { SpeciesId, Level, Stage, Under? }
 -- | "Rebirth" { Rebirths, Income, CapTo, Unlocked? } | "Tier" { Tier, Name } | "Look" { Name } | "Constellation" { Name, Luck }.
 -- fallback = the toast text if the payload can't be shown.
 function NotificationController:Moment(payload: any, fallback: string?)
@@ -162,26 +167,68 @@ function NotificationController:Moment(payload: any, fallback: string?)
 		end
 		local mutation = Mutations.Get(payload.MutationId)
 		local tag
+		local odds = Text.Odds
+		local hasOdds = moment == "NewDragon" and type(payload.EffectiveOneIn) == "number"
+		local line, lineColor, chips, details, hint, excitement
 		if moment == "Evolve" then
 			local under = if payload.Under then Text.Format(words.EvolveUnder, { constellation = payload.Under }) else ""
 			tag = Text.Format(words.EvolveTag, { stage = payload.Stage or "", under = under })
+		elseif hasOdds then
+			-- kid-friendly odds: an excitement banner, "Only 1 in N binds!", rarity / element / mutation chips, tap for details
+			local n = payload.EffectiveOneIn :: number
+			excitement = OddsText.Tag(n)
+			line, lineColor = OddsText.Line(n), OddsText.Color(n)
+			chips = {
+				{ Text = species.Rarity, Color = rarityColor(species.Rarity) },
+				{ Text = species.Element, Color = (Elements[species.Element] or Elements.Fire).Color },
+			}
+			if mutation.Id ~= Mutations.NormalId then
+				table.insert(chips, { Text = mutation.Name, Color = mutation.Color })
+			end
+			if payload.Auto then
+				table.insert(chips, { Text = "Auto-bind", Color = UITheme.Colors.TextMuted })
+			end
+			local rows = { { odds.RowSpecies, OddsText.OneIn(payload.SpeciesOneIn or n) } }
+			if mutation.Id ~= Mutations.NormalId then
+				table.insert(rows, { odds.RowMutation, OddsText.OneIn(payload.MutationOneIn or 1) })
+			end
+			table.insert(rows, { odds.RowTogether, OddsText.OneIn(n) })
+			if type(payload.BaseOneIn) == "number" and math.abs(payload.BaseOneIn - n) > 0.01 then
+				table.insert(rows, { odds.RowBase, OddsText.OneIn(payload.BaseOneIn) })
+			end
+			if type(payload.Luck) == "number" then
+				table.insert(rows, { odds.RowLuck, Format.Multiplier(payload.Luck) })
+			end
+			details = { Title = odds.DetailsTitle, Rows = rows }
+			hint = odds.Details
 		else
 			tag = Text.Format(if payload.Auto then words.AutoTag else words.NewDragonTag, { rarity = species.Rarity, element = species.Element })
-			if type(payload.BaseOneIn) == "number" and type(payload.EffectiveOneIn) == "number" then
-				local odds = if math.abs(payload.BaseOneIn - payload.EffectiveOneIn) > 0.01
-					then `Base 1 in {math.round(payload.BaseOneIn)} · Current 1 in {math.round(payload.EffectiveOneIn)}`
-					else `1 in {math.round(payload.BaseOneIn)}`
-				tag ..= ` · {odds}`
-			end
 		end
 		RewardPopup.Show({
-			Title = if moment == "Evolve" then words.Evolve elseif mutation.Id ~= Mutations.NormalId then words.Mutation else words.NewDragon,
+			Title = if moment == "Evolve" then words.Evolve elseif excitement then excitement elseif mutation.Id ~= Mutations.NormalId then words.Mutation else words.NewDragon,
 			Name = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {species.Name}` else species.Name,
 			Tag = tag,
+			Line = line,
+			LineColor = lineColor,
+			Chips = chips,
+			Details = details,
+			Hint = hint,
+			Seconds = if details then OddsConfig.PopupDetailSeconds else nil,
 			Color = if mutation.Id ~= Mutations.NormalId then mutation.Color else rarityColor(species.Rarity),
 			Picture = function(frame)
 				DragonPicture.new(frame, payload.SpeciesId, payload.Level)
 			end,
+			Button = words.Button,
+		})
+	elseif moment == "Milestone" then
+		RewardPopup.Show({
+			Title = Text.Milestones.PopupTitle,
+			Name = payload.Name,
+			Chips = if type(payload.Rebirths) == "number" then { { Text = Text.Format(Text.Milestones.PopupTag, { n = payload.Rebirths }), Color = UITheme.Colors.Gold } } else nil,
+			Line = payload.Info,
+			LineColor = UITheme.Colors.Text,
+			Color = UITheme.Colors.Gold,
+			Icon = if payload.Champion then "Rarity_Mythic" else "Menu_Rebirth",
 			Button = words.Button,
 		})
 	elseif moment == "Rebirth" then

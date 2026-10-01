@@ -110,6 +110,8 @@ local TEMPLATE: PlayerData = {
 	StarAtlas = {},
 	Index = {},
 	MutationIndex = {},
+	MilestonesSeen = {},
+	AutoUpgrade = false,
 	IndexMilestones = 0,
 	IndexElementsRewarded = {},
 	LastBindNight = -1,
@@ -214,8 +216,15 @@ local function sanitizeMutations(data: PlayerData)
 	end
 end
 
+-- Studio only: set the ServerStorage attribute "TestProfileKey" (a string, in Edit mode before Play) to play on a brand-new
+-- profile (key Player_<UserId>_<TestProfileKey> in the Studio store) without touching the usual test profile.
+local function profileKey(player: Player): string
+	local suffix = if RunService:IsStudio() then game:GetService("ServerStorage"):GetAttribute("TestProfileKey") else nil
+	return if type(suffix) == "string" and suffix ~= "" then `Player_{player.UserId}_{suffix}` else `Player_{player.UserId}`
+end
+
 local function onPlayerAdded(player: Player)
-	local profile = store:StartSessionAsync(`Player_{player.UserId}`, {
+	local profile = store:StartSessionAsync(profileKey(player), {
 		Cancel = function()
 			return player.Parent ~= Players
 		end,

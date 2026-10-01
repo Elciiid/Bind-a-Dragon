@@ -26,7 +26,16 @@ export type Props = {
 	Picture: ((parent: Frame) -> ())?, -- draws a picture (e.g. a ViewportFrame of the dragon) into the given frame
 	Button: string?, -- button text (default "Awesome!")
 	Sound: string?, -- UITheme.Sounds key
+	-- Odds layout (a new dragon): a big excitement line, chips instead of the tag, and a tap-for-details breakdown.
+	Line: string?, -- e.g. "Only 1 in 8,400 binds!"
+	LineColor: Color3?,
+	Chips: { { Text: string, Color: Color3 } }?, -- small colored chips (rarity, element, mutation)
+	Details: { Title: string, Rows: { { string } } }?, -- tap the card: rows of { name, value }
+	Hint: string?, -- small text under the chips ("Tap for details")
+	Seconds: number?, -- how long it stays before closing itself (default 8)
 }
+
+local EXTRA_HEIGHT = 56 -- the card grows by this much when it has a Line / Chips
 
 local RewardPopup = {}
 
@@ -62,6 +71,9 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 	local sizes = theme.Sizes
 	local color = props.Color or theme.Colors.Gold
 	local card = sizes.RewardCard
+	if props.Line or props.Chips then
+		card = Vector2.new(card.X, card.Y + EXTRA_HEIGHT)
+	end
 
 	local root = Instance.new("Frame")
 	root.Name = "Reward"
@@ -124,7 +136,56 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 	name.ZIndex = 3
 	Style.Outline(name, 2.5)
 
-	if props.Tag and props.Tag ~= "" then
+	if props.Line then
+		local line = Style.Label(panel, props.Line, "Title", 24, props.LineColor or theme.Colors.Gold)
+		line.Name = "OddsLine"
+		line.AnchorPoint = Vector2.new(0.5, 0)
+		line.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 76)
+		line.Size = UDim2.new(1, -30, 0, 30)
+		line.TextScaled = true
+		line.ZIndex = 3
+		Style.Outline(line, 2)
+	end
+	if props.Chips and #props.Chips > 0 then
+		local row = Instance.new("Frame")
+		row.Name = "Chips"
+		row.AnchorPoint = Vector2.new(0.5, 0)
+		row.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 112)
+		row.Size = UDim2.new(1, -20, 0, 26)
+		row.BackgroundTransparency = 1
+		row.ZIndex = 3
+		row.Parent = panel
+		local list = Instance.new("UIListLayout")
+		list.FillDirection = Enum.FillDirection.Horizontal
+		list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		list.Padding = UDim.new(0, 6)
+		list.Parent = row
+		for _, chip in props.Chips do
+			local label = Style.Label(row, chip.Text, "Title", 15, theme.Colors.Text)
+			label.Size = UDim2.fromOffset(0, 24)
+			label.AutomaticSize = Enum.AutomaticSize.X
+			label.TextWrapped = false
+			label.BackgroundTransparency = 0.1
+			label.BackgroundColor3 = Style.Shade(chip.Color, -0.5)
+			label.ZIndex = 3
+			Style.Round(label)
+			Style.Pad(label, 10, 0)
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = chip.Color
+			stroke.Thickness = 1.5
+			stroke.Parent = label
+			Style.Outline(label, 1.2)
+		end
+	end
+	if props.Hint then
+		local hint = Style.Label(panel, props.Hint, "Bold", 14, theme.Colors.TextMuted)
+		hint.Name = "Hint"
+		hint.AnchorPoint = Vector2.new(0.5, 0)
+		hint.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 144)
+		hint.Size = UDim2.new(1, -20, 0, 18)
+		hint.ZIndex = 3
+	end
+	if props.Tag and props.Tag ~= "" and not props.Line then
 		local tag = Style.Label(panel, props.Tag, "Title", 17, theme.Colors.Text)
 		tag.Name = "Tag"
 		tag.AnchorPoint = Vector2.new(0.5, 0)
@@ -146,6 +207,61 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 	button.Instance.Position = UDim2.new(0.5, 0, 1, -16)
 	button.Instance.Size = UDim2.fromOffset(200, 54)
 	button.Instance.ZIndex = 3
+
+	-- tap anywhere on the card (except the button) to flip between the card and the odds breakdown
+	if props.Details then
+		local details = Instance.new("Frame")
+		details.Name = "Details"
+		details.Position = UDim2.fromOffset(12, 30)
+		details.Size = UDim2.new(1, -24, 1, -110)
+		details.BackgroundColor3 = theme.Colors.GlassBottom
+		details.BackgroundTransparency = 0
+		details.Visible = false
+		details.ZIndex = 6
+		local detailsCorner = Instance.new("UICorner")
+		detailsCorner.CornerRadius = UDim.new(0, 14)
+		detailsCorner.Parent = details
+		Style.GoldBorder(details, 2)
+		details.Parent = panel
+		local heading = Style.Label(details, props.Details.Title, "Title", 22, color)
+		heading.Position = UDim2.fromOffset(8, 6)
+		heading.Size = UDim2.new(1, -16, 0, 30)
+		heading.ZIndex = 7
+		Style.Outline(heading, 1.5)
+		local rows = Instance.new("Frame")
+		rows.BackgroundTransparency = 1
+		rows.Position = UDim2.fromOffset(12, 42)
+		rows.Size = UDim2.new(1, -24, 1, -48)
+		rows.ZIndex = 7
+		rows.Parent = details
+		local list = Instance.new("UIListLayout")
+		list.Padding = UDim.new(0, 4)
+		list.Parent = rows
+		for _, pair in props.Details.Rows do
+			local row = Instance.new("Frame")
+			row.BackgroundTransparency = 1
+			row.Size = UDim2.new(1, 0, 0, 26)
+			row.ZIndex = 7
+			row.Parent = rows
+			local left = Style.Label(row, pair[1], "Bold", 16, theme.Colors.TextMuted)
+			left.Size = UDim2.new(0.55, 0, 1, 0)
+			left.TextXAlignment = Enum.TextXAlignment.Left
+			left.ZIndex = 7
+			local right = Style.Label(row, pair[2], "Title", 18, theme.Colors.Text)
+			right.AnchorPoint = Vector2.new(1, 0)
+			right.Position = UDim2.fromScale(1, 0)
+			right.Size = UDim2.new(0.45, 0, 1, 0)
+			right.TextXAlignment = Enum.TextXAlignment.Right
+			right.ZIndex = 7
+			Style.Outline(right, 1.2)
+		end
+		panel.Active = true
+		panel.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				details.Visible = not details.Visible
+			end
+		end)
+	end
 	return root, scale, button
 end
 
@@ -174,7 +290,7 @@ local function showNext()
 	root.Position = UDim2.fromScale(0.5, 0.5)
 	local camera = workspace.CurrentCamera
 	local short = if camera then math.min(camera.ViewportSize.X, camera.ViewportSize.Y) else 1080
-	local fit = math.min(1, (short - TopReserved() - 30) / (theme.Sizes.RewardCard.Y + 40)) -- phones: shrink to fit
+	local fit = math.min(1, (short - TopReserved() - 30) / (theme.Sizes.RewardCard.Y + (if props.Line or props.Chips then EXTRA_HEIGHT else 0) + 40)) -- phones: shrink to fit
 	scale.Scale = 0.2 * fit
 	TweenService:Create(dim, TweenInfo.new(0.25), { BackgroundTransparency = 0.45 }):Play()
 	TweenService:Create(scale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = fit }):Play()
@@ -200,7 +316,7 @@ local function showNext()
 		out:Play()
 	end
 	button.Instance.Activated:Connect(close)
-	task.delay(8, close) -- goes away by itself too
+	task.delay(props.Seconds or 8, close) -- goes away by itself too
 end
 
 -- Queues a reward pop-up (one shows at a time).

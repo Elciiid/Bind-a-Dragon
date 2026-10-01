@@ -31,6 +31,7 @@ local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local bindResult = ReplicatedStorage.Remotes.BindResult :: RemoteEvent
@@ -142,6 +143,7 @@ local function performBind(
 	local constellationId = state.Constellation.Id
 	data.StarAtlas[constellationId] = (data.StarAtlas[constellationId] or 0) + 1
 
+	local breakdown = BindingOdds.Breakdown(areaId, element, luck, speciesId, mutationId)
 	bindResult:FireClient(player, {
 		DragonId = dragonId,
 		SpeciesId = speciesId,
@@ -150,6 +152,8 @@ local function performBind(
 		MutationId = mutationId,
 		BaseOneIn = outcome.BaseOneIn,
 		EffectiveOneIn = outcome.EffectiveOneIn,
+		SpeciesOneIn = if breakdown then breakdown.SpeciesOneIn else outcome.EffectiveOneIn, -- the dragon alone, at this luck
+		MutationOneIn = if breakdown then breakdown.MutationOneIn else 1, -- its mutation inside that species
 		UsedEchoSigil = usedSigil,
 		Auto = not usePotion,
 	})
@@ -176,7 +180,8 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		state.NightIndex,
 		Luck.GetOfferingCount(data, state.NightIndex),
 		Luck.CountPlayersNear(part.Position, LuckConfig.GroupRadius),
-		Luck.GetArmedPotionLuck(data)
+		Luck.GetArmedPotionLuck(data),
+		RebirthMilestones.GetAscendedLuck(data.Rebirths)
 	)
 	performBind(player, data, state, getAreaId(altar), luck.Total, true)
 end

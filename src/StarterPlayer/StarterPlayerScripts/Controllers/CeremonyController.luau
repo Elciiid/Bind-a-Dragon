@@ -25,6 +25,7 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
+local OddsText = require(ReplicatedStorage.Shared.OddsText)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -389,9 +390,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			banner:Layout(if phone then 42 else 64, if phone then 26 else 40, if phone then 22 else 32)
 			banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 			banner.Holder.Position = UDim2.fromScale(0.5, 0.5)
-			local odds = if math.abs(request.BaseOneIn - request.EffectiveOneIn) > 0.01
-				then `Base 1 in {math.round(request.BaseOneIn)} · Current 1 in {math.round(request.EffectiveOneIn)}`
-				else `1 in {math.round(request.BaseOneIn)}`
+			local odds = OddsText.Line(request.EffectiveOneIn)
 			local tag = Style.Label(reveal, `{if mutation.Id ~= Mutations.NormalId then mutation.Name .. " · " else ""}{species.Rarity} · {species.Element} · {odds}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
 			tag.AnchorPoint = Vector2.new(0.5, 0)
 			tag.Position = UDim2.new(0.5, 0, 0.5, (if phone then 42 else 64) / 2 + 8)

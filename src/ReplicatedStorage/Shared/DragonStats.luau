@@ -12,6 +12,7 @@ local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
+local MilestoneConfig = require(ReplicatedStorage.Shared.Config.RebirthMilestones)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local RebirthConfig = require(ReplicatedStorage.Shared.Config.Rebirth)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
@@ -113,6 +114,7 @@ function DragonStats.GetGoldPerSecond(dragon: Dragon): number
 		* (if trait then trait.Income else 1)
 		* (if grade then grade.Multiplier else 1)
 		* mutation.IncomeMultiplier
+		* (if dragon.Champion then MilestoneConfig.Champion.IncomeMultiplier else 1)
 end
 
 -- Spire battle power: rarity base x level x stage x trait x grade.
@@ -130,6 +132,7 @@ function DragonStats.GetPower(dragon: Dragon): number
 		* (if trait then trait.Power else 1)
 		* (if grade then grade.Multiplier else 1)
 		* mutation.PowerMultiplier
+		* (if dragon.Champion then MilestoneConfig.Champion.PowerMultiplier else 1)
 end
 
 -- The player's most powerful dragon (fights in the Spire), or nil if they have none.

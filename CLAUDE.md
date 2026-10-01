@@ -465,9 +465,26 @@ Game passes and developer products in `Config/Products` (IDs are 0 until created
   (extra binds, `Config/Binding`), server bind distance/alive check, Spire gold clamp, strongest gold potion only
   (`Config/Boosts.GoldPotionCap`), mutation Index with 1-in-N odds. Luck exponents are in `Config/Luck.RarityExponent`
   (binding) and `TierScaling` (trait/grade rolls only). `docs/Mutation_Economy_Implementation.md` is its spec.
-- **The live Config is Kyle's numbers, which the sim finds ~3x too slow** (Dedicated ~22 real days to R30). The proposed
-  retune (not applied, awaiting approval) is in `docs/Economy_Retune_Proposal.md`; the Rebirth Milestone Ladder
-  (R12 Auto-Upgrade ... R30 Champion) is in `docs/Rebirth_Milestones_Proposal.md` (not built).
+- **Retune applied (2026-10-02, `docs/Economy_Retune_Proposal.md`, tuned with the sim):** `Rebirth` EarlyGrowth 5.0, LateGrowth
+  2.55, WeeklyJump 4.8, WeeklyGrowthStep 0.72 (cap 30, +3 per weekly update); Mythic ~30x Common gold/s (Common 700-900, Rare
+  1.5-2k, Epic 3.5-4.6k, Legendary 8.5-12k, Mythic 20-30k); best trait x15 / best grade x15; `Spire.EnemyGrowth` 1.15; offline
+  rule unchanged (50%). Sim (calibrated real days): Dedicated 8.1 median (fastest 10% 5.9), Casual 22, AFK-only 33, paid AFK
+  11, weekly +3 about 5-6 days, Spire week-1 floor ~98. Re-run `tools/sim` after any economy change.
+- **Rebirth Milestone Ladder (wave 1 built):** `Config/RebirthMilestones` (Titles, Milestones with Perks, AutoUpgrade, Ascended,
+  Champion, AltarTravel), wording `Text.Milestones`, helpers `Shared/RebirthMilestones`, server `MilestoneService` (celebrates
+  each milestone once in `data.MilestonesSeen` with a reward pop-up, champion grant, `Ascended` player attribute, Auto-Upgrade
+  toggle `SetAutoUpgrade` + a 1 s loop using `DragonService:BuyLevels`), track + Auto-Upgrade switch in the Rebirth window
+  (`RebirthController`), rank title above the badge (`RebirthService`): R12 Auto-Upgrade (spends gold above 50% of the next
+  rebirth cost), R18 +1 Echo Sigil cap and Altar Travel (Travel row "Altars", `TravelToAltar`), R20 Ascended altars (x1.25 bind
+  luck as a normal source in `Luck.Compute`, gold altar glow for everyone in `AltarGlowController`), R30 champion dragon (Solflare
+  art in gold with sparkles, x1.25 income/power, not an Index discovery) and the gold "Rebirth Champion" title. Wave 2 (weekly
+  updates, not built): R15 Star Throne, R25 Astral Throne look (`docs/Rebirth_Milestones_Proposal.md`).
+- **Odds display:** bind pop-up = excitement banner ("LEGENDARY LUCK!"), "Only 1 in N binds!", rarity/element/mutation chips,
+  tap the card for the breakdown (`Shared/OddsText`, `Config/Odds`, `Text.Odds`); the server sends N (`BindResult` BaseOneIn,
+  EffectiveOneIn, SpeciesOneIn, MutationOneIn via `BindingOdds.Breakdown`); Index/dragon tooltips say "Chance: 1 in N"
+  (`BindingOdds.GetHomeOneIn`).
+- Studio test profile: set the ServerStorage attribute `TestProfileKey` (Edit mode) to play on a fresh profile (`Player_<id>_<key>`).
+  The "no access to asset 114302219876492" Studio warning is the test avatar's own `Animate.mood` animation, not ours.
 - `tools/sim/CohortSim.luau` (+ README): cohort simulation (Dedicated / Casual / AFK-only / paid AFK, weekly
   updates, Spire floor) against the live Config; runs in Studio. Calibrated: sim-days x 0.476 = real days of the
   approved v5 sim. Re-run it after any economy Config change.
@@ -482,13 +499,13 @@ Doc and PDF last revised 2026-09-25. Changes since then (economy rebalance, appr
   (Starlight ×1.5, Moonfire ×2), armed by the player for the next bind.
 - **Offline income:** 100% → **50%** of online, still capped at 8 h/day; idling in game >20 min counts as offline.
   The 2x AFK Income pass doubles it.
-- **Rebirth cost:** first 50M, ×3.71 per rebirth to R10, ×2.95 to the R30 launch cap; weekly updates add 3 rebirths,
-  with a ×3 first step then approximately ×2.17. At the cap, banked gold stops at one rebirth's cost.
+- **Rebirth cost:** first 50M, ×5.0 per rebirth to R10, ×2.55 to the R30 launch cap; weekly updates add 3 rebirths (a ×4.8
+  first step, then two cheaper ones). At the cap, banked gold stops at one rebirth's cost.
 - **Rebirth reward:** new permanent income bonus **×1.59 per rebirth** (multiplying), plus +5 level cap per rebirth.
 - **Level cap:** per-area caps (50/60/70/80/100) → **50 + 5 per rebirth**. Areas keep luck bonus + unlocks.
 - **Levels:** income ×1.06 and power ×1.05 per level; each level costs 0.20–0.40% of the next rebirth cost by tier.
-- **Base income/power:** species-specific values in `Config/Dragons`, not broad rarity.
-- **Traits and grades:** maximum 3x each (9x combined).
+- **Base income/power:** species-specific values in `Config/Dragons` (Mythic ~30x Common gold/s), not broad rarity.
+- **Traits and grades:** maximum x15 each (x225 combined; Config/Traits).
 - **Roost upgrades:** slots unchanged; income +4% × 25 levels (2x maximum).
 - **Star Merchant:** bundle price = 0.06% of the next rebirth cost, ×1.5 per buy, resets at dawn.
 - **Day/night:** 8+4 min → **4 min day + 3 min night** (~8.6 binds/hour), "Night falls in 30s" warning,

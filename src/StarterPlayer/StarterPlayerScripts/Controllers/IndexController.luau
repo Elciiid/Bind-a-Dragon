@@ -20,6 +20,9 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
+local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
+local OddsText = require(ReplicatedStorage.Shared.OddsText)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -105,11 +108,11 @@ local function makeCell(row: Instance, order: number, speciesId: string?, rarity
 	end
 	Tooltip.Attach(cell, function()
 		if not found then
-			return `Undiscovered {rarity.Name} dragon · home odds {rarity.UndiscoveredOddsBand}; exact odds unlock on discovery`
+			return `Undiscovered {rarity.Name} dragon · {Text.Format(Text.Odds.Undiscovered, { band = rarity.UndiscoveredOddsBand })}`
 		end
-		local species = speciesId and Dragons[speciesId]
-		local odds = if species then string.format("%.2f", 1000 / species.BindWeight) else "?"
-		return `{name} · {rarity.Name} · Home altar x1: 1 in {odds}{if #mutationNames > 0 then " · Mutations: " .. table.concat(mutationNames, ", ") else ""}`
+		local oneIn = if speciesId then BindingOdds.GetHomeOneIn(speciesId) else nil
+		local chance = Text.Format(Text.Odds.Chance, { oneIn = if oneIn then OddsText.OneIn(oneIn) else "?" })
+		return `{name} · {rarity.Name} · {chance}{if #mutationNames > 0 then " · Mutations found: " .. table.concat(mutationNames, ", ") else ""}`
 	end)
 end
 

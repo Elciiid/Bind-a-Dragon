@@ -21,6 +21,7 @@ local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
+local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
@@ -246,9 +247,10 @@ local function climb(player: Player, useElevator: boolean)
 			data.EchoSigilSpireWins += 1
 			if data.EchoSigilSpireWins >= BindingConfig.EchoSigilSpireWins and data.EchoSigilSpireDay ~= day then
 				data.EchoSigilSpireDay = day
-				if data.EchoSigils < BindingConfig.EchoSigilCap then
+				local sigilCap = RebirthMilestones.GetEchoSigilCap(data.Rebirths)
+				if data.EchoSigils < sigilCap then
 					data.EchoSigils += 1
-					notify:FireClient(player, `Spire challenge complete: +1 Echo Sigil ({data.EchoSigils}/{BindingConfig.EchoSigilCap})`, "success")
+					notify:FireClient(player, `Spire challenge complete: +1 Echo Sigil ({data.EchoSigils}/{sigilCap})`, "success")
 				end
 			end
 		end

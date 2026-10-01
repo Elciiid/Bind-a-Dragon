@@ -154,6 +154,7 @@ return {
 		Portals = { Label = "Portals", Color = Color3.fromRGB(170, 130, 255), Order = 1, Icon = Icons.Travel_Portals, Glyph = "🌀" },
 		Home = { Label = "Home", Color = Color3.fromRGB(128, 217, 177), Order = 2, Icon = Icons.Travel_Home, Glyph = "🏡" },
 		Market = { Label = "Market", Color = Color3.fromRGB(255, 205, 90), Order = 3, Icon = Icons.Travel_Market, Glyph = "🎪" },
+		Altars = { Label = "Altars", Color = Color3.fromRGB(255, 160, 90), Order = 4, Icon = Icons.Travel_Portals, Glyph = "✨" }, -- R18 milestone (Config/RebirthMilestones AltarTravel)
 	} :: { [string]: { Label: string, Color: Color3, Order: number, Icon: string, Glyph: string? } },
 
 	-- Inventory window tabs (InventoryWindow). Icon = UITheme.Icons key; Fallback while the tab's own art is missing.
