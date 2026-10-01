@@ -4,9 +4,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
-
-local RARITY_EXPONENT = { Common = 0, Rare = 0.2, Epic = 0.4, Legendary = 0.6, Mythic = 0.8 }
 
 export type Outcome = {
 	SpeciesId: string,
@@ -42,7 +41,7 @@ function BindingOdds.GetPool(areaId: string, element: string?, luck: number): { 
 		local species = Dragons[speciesId]
 		for _, mutation in Mutations.Mutations do
 			local baseWeight = species.BindWeight * mutation.Share
-			local exponent = math.min(1, (RARITY_EXPONENT[species.Rarity] or 0) + mutation.LuckExponent)
+			local exponent = math.min(1, (LuckConfig.RarityExponent[species.Rarity] or 0) + mutation.LuckExponent)
 			local effectiveWeight = baseWeight * math.max(1, luck) ^ exponent
 			baseTotal += baseWeight
 			effectiveTotal += effectiveWeight

@@ -90,7 +90,7 @@ function Luck.CountPlayersNear(position: Vector3, radius: number): number
 	return count
 end
 
--- Each rarity's roll weight at the given luck, in Config/Rarities order. Rarer tiers gain more (TierScaling).
+-- Each rarity's roll weight at the given luck, in Config/Rarities order. Rarer tiers gain more (LuckConfig.RarityExponent).
 function Luck.GetRarityWeights(luck: number): { number }
 	local weights = {}
 	for index, rarity in Rarities do
@@ -98,7 +98,7 @@ function Luck.GetRarityWeights(luck: number): { number }
 		for _, species in Dragons do
 			if species.Rarity == rarity.Id then base += species.BindWeight end
 		end
-		weights[index] = base * luck ^ (0.2 * (index - 1))
+		weights[index] = base * luck ^ (LuckConfig.RarityExponent[rarity.Id] or 0)
 	end
 	return weights
 end

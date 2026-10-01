@@ -4,7 +4,7 @@
 --
 -- Timed potions: using one adds Minutes to that potion's timer (up to MaxStoredMinutes stored per potion).
 -- Timers only tick while the player is in the game (they pause offline). Roblox Premium members get
--- PremiumDurationBonus extra time per potion. For gold, only the strongest active multiplier applies (max x5);
+-- PremiumDurationBonus extra time per potion. For gold, only the strongest active multiplier applies (max GoldPotionCap);
 -- other timed stats retain multiplicative behavior.
 --
 -- Luck charges: the player ARMS one for their next bind (Boosts panel or the altar's luck panel). It's used up by
@@ -104,6 +104,7 @@ return {
 	Potions = Potions, -- display order
 	ById = byId,
 
+	GoldPotionCap = 5, -- only the strongest active gold potion applies, and never above this multiplier
 	MaxStoredMinutes = 60, -- per timed potion; using one past this is refused
 	PremiumDurationBonus = 0.10, -- Roblox Premium: +10% duration per potion
 	UseCooldown = 0.3, -- seconds between UseBoost requests per player (anti-spam)

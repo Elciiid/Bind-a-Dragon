@@ -212,7 +212,7 @@ function DragonStats.GetBoostMultiplier(data: PlayerData, stat: string): number
 			end
 		end
 	end
-	return if stat == "Gold" then math.min(multiplier, 5) else multiplier
+	return if stat == "Gold" then math.min(multiplier, Boosts.GoldPotionCap) else multiplier
 end
 
 -- Permanent roost income multiplier from rebirths (x IncomeBonusPerRebirth per rebirth, multiplying).

@@ -1,7 +1,8 @@
 --!strict
 -- Bind luck. Every source is a multiplier; they're multiplied together and then capped at Cap.
 -- Binding luck is applied once to each SpeciesId x MutationId outcome by Shared/BindingOdds.
--- TierScaling remains the shared exponent for trait/grade rolls only.
+-- TierScaling is the luck exponent step for TRAIT and GRADE rolls only (Shared/Luck GetTierWeights); it does not
+-- touch binding. Binding uses RarityExponent + each mutation's LuckExponent (Config/Mutations).
 -- Area luck is in Config/Areas (BindLuck); constellation luck is in Config/Constellations (Luck).
 -- PLACEHOLDER numbers.
 
@@ -23,8 +24,11 @@ return {
 	-- Constellation luck itself (Config/Constellations Luck, e.g. Eclipse Serpent x1.5, Dragon King x2) applies at every altar.
 	FavoredAreaLuck = 1.5,
 
-	-- How much harder luck pushes each higher tier. 0 = luck does nothing; higher = rarer tiers gain faster.
+	-- Trait/grade rolls: how much harder luck pushes each higher tier. 0 = luck does nothing; higher = rarer tiers gain faster.
 	TierScaling = 0.3,
+
+	-- Binding: a species' weight is multiplied by luck ^ min(1, RarityExponent[its rarity] + the mutation's LuckExponent).
+	RarityExponent = { Common = 0, Rare = 0.2, Epic = 0.4, Legendary = 0.6, Mythic = 0.8 } :: { [string]: number },
 
 	-- Stardust offerings at a Star Altar, made in order, each night (reset every night, lost if you don't bind).
 	-- With these numbers: 1 offering = x1.25, 2 = x1.5, 3 = x2.
