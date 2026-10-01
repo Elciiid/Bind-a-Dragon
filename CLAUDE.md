@@ -99,8 +99,10 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   (terrain, radius 57). Any new altar just needs the tag + `AreaId` attribute; the Bind prompt is added by code.
 - `Pens`: **6 plots** = the Dragon Sanctuaries (Valley rework 2026-10-01, plan `docs/Valley_Rework_Proposal.md`, checkpoint 1
   done: terrain, positions, dragon sizes; the kit system and the three looks follow). 150 studs across (rim r 75, terrace
-  r 77, flat to r 80), centers W1 (-208, -184) T 10, W2 (-174, -30) T 8, W3 (-158, 150) T 6, E1-E3 mirrored (T = terrace
-  height); each gate faces the altar (gate distance from the altar W1/E1 203, W2/E2 102, W3/E3 143). Each is a Model
+  r 77, flat to r 80). **Layout A-N (2026-10-02, replaces the 10-01 positions):** one even horseshoe, centers 256 from the
+  altar at bearings 50 / 90 / 130: W1 (-196, -165) T 12, W2 (-256, 0) T 8, W3 (-196, 165) T 8, E1-E3 mirrored (T = terrace
+  height, multiples of 4 because terrain voxels are 4 studs); every gate faces the altar at the same distance (181), 25 studs
+  between neighbours, flat usable area 18,676 studs^2 for all six (measured with a top-down raycast). Each is a Model
   tagged `RoostPlot` (PrimaryPart `Base`, Atomic) with attributes `RoamCenter` (terrace floor center), `RoamRadius` 64
   and `CenterHeight` 48. The layout every look shares lives in `ValleyTerrain` `V.Slots` (local coordinates: x = right
   for a player entering, y = toward the gate; `V.ToWorld(s, x, y)`): gate at y 75 (pillars +-13, lintel top 28), forecourt
@@ -122,8 +124,9 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   were removed surgically. **Don't re-run `ValleyDetail.BuildNature`**: its random stream depends on the terrain, which
   changed. Backup: `ServerStorage.Backups.StarterMeadow_2026-10-01_BeforeSanctuaryRework`.
 - `Spire`: the builder's `DragonSpire` (tag `DragonSpire`, PrimaryPart `Entrance` = invisible part in front of the
-  door, facing the altar; `EntranceRange` is measured from it) on its hill at (0, -250) (flat top y 28, radius 42),
-  behind the portal terrace; entrance at (0, 32, -220), a paved court in front, stairs up from the terrace.
+  door, facing the altar; `EntranceRange` is measured from it) on its hill at (0, -252) (flat top y 28, radius 42,
+  steeper slope since layout A-N: foot r ~70), the portal terrace wraps its south foot; entrance at (0, 32, -220), a paved
+  court in front, `SpireStairs` (z -176 .. -213) up from the terrace's front bay.
 - `Buildings` (market square at (0, 112), south of the river, all facing the square's center): the `StarMerchant` tent
   (-56, 116) (tag `StarMerchant`, PrimaryPart `Counter`), `DragonstoneForge` (58, 114) and `RuneShrine` (-50, 144) (tags
   `DragonstoneForge` / `RuneShrine`, PrimaryPart `PromptPoint` = invisible part at the front at standing height;
@@ -132,21 +135,25 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
 - `Entrance`: `Placeholder_EntranceGate` (two stone towers with navy star banners, lanterns) at the valley mouth (z 150).
 - `Bridges`: `Placeholder_GrandBridge` on the main road over the river (z 48-80, lands on the plaza step), and
   `Placeholder_SideBridge_W` / `_E` at (-100 / 100, 60) on the W3/E3 roads, square to the river; gold stars, lanterns.
-- `Portals`: on the portal terrace (a crescent 133-180 studs north of the altar, top y 12; `PortalTerrace`: retaining
-  wall, `GrandStairs` from the north road, `SpireStairs`, a themed ground disc under each gate), in unlock order west to
-  east, each facing the altar: `Portal_VolcanoPeak` (-94, -129), `Portal_FrozenCliffs` (-36, -156),
-  `Portal_StormCanyon` (36, -156), `Portal_EclipseIsles` (94, -129). Each is the builder's arch `Art` (2026-09-30: one
+- `Portals`: **layout A-N:** on the portal terrace behind the sanctuaries, wrapping the Spire's south foot (`V.Terrace.Poly` in
+  `ValleyTerrain`: a flat polygon, top y 12, front bay at (0, -176), back edge z -300; `PortalTerrace`: retaining wall along its
+  front/sides, `GrandStairs` at the end of the north road (z -155 .. -176), `SpireStairs`, a themed ground disc under each gate;
+  paved promenade `V.Walkway`), in unlock order west to east, each facing the altar: `Portal_VolcanoPeak` (-145, -280),
+  `Portal_FrozenCliffs` (-90, -256), `Portal_StormCanyon` (90, -256), `Portal_EclipseIsles` (145, -280) (Surface positions; every
+  sanctuary's back edge, z -245 for W1/E1, is south of the row). AreaSpawn (-22, 13.5, -193), TravelPoint `Portals` (22, -193).
+  The horizon landmarks stand behind the gates at bearings -35 / -18 / 18 / 35 (`Config/Horizon`, ridge dips `SADDLES`). Each is the builder's arch `Art` (2026-09-30: one
   themed mesh per destination (Volcano / Ice / Storm / Eclipse), anchored, collidable, PreciseConvexDecomposition) plus a
   `Surface` part filling the opening (16.5 x 28, 20.5 studs above the arch's base) (PrimaryPart, tag `AreaPortal`, `AreaId` = destination,
   CanCollide off): touching it teleports (`AreaService`, server-checked). The return portals (`Portal_StarterMeadow` in
   each area) use that area's own arch (the same themed mesh). The previous altars/arches and the builder's imports are in
   `ServerStorage.Backups.AltarsPortals_2026-09-30_BeforeSwap` (tags stripped). `PortalController` draws the Surface per client: destination color, light,
   swirl and particles when unlocked; dim gray with a lock + "Rebirth X" (close up) when locked (`Config/Portals`).
-- `Water`: the `Waterfall` on the western cliff (lip (-304, 61, 58)): streak Beams facing the camera on `BeamAnchor`
+- `Water`: the `Waterfall` on the western cliff (layout A-N: lip about (-344, 61, 124), pool (-322, 118); the ancient tree moved with it): streak Beams facing the camera on `BeamAnchor`
   (tagged `DistanceFade`: they fade out 380-500 studs from the camera, `Config/Atmosphere` BeamFade*, AmbientFXController; the east cascade too),
   foam/spray emitters tagged `AmbientFX`, a `SoundSource` tagged `Waterfall` for `Config/Audio`. The river (terrain
-  water, level -1) runs from its pool east through the gap between W2 and W3, past the plaza's south side (z ≈ 63),
-  with two ponds flanking the market, and leaves through the E2/E3 gap into a lower pool (294, 62). Edit terrain near
+  water, level -1) runs from its pool east through the gap between W2 and W3 (a stone-walled stream ~9 wide, z 82 at
+  x -226), past the plaza's south side (z ≈ 63) under the side bridges (x +-100) and the grand bridge, with two ponds
+  flanking the market, and leaves through the E2/E3 gap into a lower pool (332, 121) (the east cascade). Edit terrain near
   water with `ReadVoxelChannels`/`WriteVoxelChannels` (plain `ReadVoxels`/`WriteVoxels` drops water in shoreline
   cells), and keep water voxels free of ground (beds below the water's voxel layer), or the water doesn't render.
 - Terrain: written by `ServerStorage.RemasterTools.ValleyTerrain` (reference copy `tools/valley_terrain/`): valley
@@ -492,11 +499,23 @@ Game passes and developer products in `Config/Products` (IDs are 0 until created
   (sigils, gold, rebirths, potions, runes, stones, Stardust), `SimulateBinding`, `SetRoostSlots`. Note: `execute_luau`
   in Play has its own module cache, so read player data from the Client with `Remotes.GetPlayerData:InvokeServer()`.
 
-## Proposals waiting for a decision (2026-10-02)
+## Valley layout A-N + grass (built 2026-10-02, `docs/Valley_Layout_And_Grass_Proposal.md`, screenshots `docs/img/an_step*`)
 
-- `docs/Valley_Layout_And_Grass_Proposal.md` (section 4: approved direction A-79, adjusted mockup waiting for OK): layout options A (even horseshoe, recommended), B (two columns), C (shrink W1/E1) with measured usable areas
-  (W1/E1 18.3k, W2/E2 20.0k, W3/E3 18.2k studs^2 flat today) and two kids' grass options (colour only / colour + `Valley_GrassD` clover texture).
-  `Terrain.GrassLength` must be set by hand (not scriptable). Nothing applied to the place.
+- Step 1: terrain + positions (see Pens/Portals/Water above). Step 2: portals, terrace, stairs, travel points, waterfall,
+  landmarks. Step 3: `ValleyDetail.BuildRuins()` + `BuildLife()` (own folder `StarterMeadow.Life`: Forest 140 extra trees on the
+  new valley edges, Magic star-blossom/crystal trees at the gates, ruins and avenue, Flowers, Lanterns = the avenue on the north
+  road); the four kept ruins stand in the wedges beside the W1/E1 and W2/E2 roads and flanking the avenue; the old terrace
+  area is the open lantern-avenue meadow (`D.ClearZones.NorthField`). `ValleyTerrain` now writes 4 height samples per voxel
+  (round terrace rims) and `PaintForest` also reads `Life.Forest`. Don't re-run `BuildNature`.
+- Kits and tiers are in world position: `ReplicatedStorage.Assets.SanctuaryLooks.<Look>.<PlotName>` and `SanctuaryTiers.<PlotName>`
+  were moved rigidly with their plots (a plot move = `PivotTo` for the plot, its kits and tiers, then `ValleyBuild.BuildSanctuaries()`).
+- Backup: `ServerStorage.Backups.StarterMeadow_2026-10-02_BeforeAN` (folders, kits, old modules; terrain can't be copied: re-run the
+  old `ValleyTerrain` from `RemasterToolsCopy`).
+- Grass Option 1 applied: terrain Grass color (122, 152, 58), `Valley_GrassA` override, Mud (teal slopes) unchanged,
+  `Valley_GrassD` deleted; `Terrain.GrassLength` 0.4 is set by hand (not scriptable).
+- Measured (Studio, tree triangles from the kit `Triangles` attributes, whole world): trees 308 / ~441k (before 172 / ~250k);
+  StarterMeadow parts 2,017 (891 mesh) vs 1,651 (546 mesh). To trim: lower `D.MaxLifeTrees` (140) and rebuild `Life`.
+- The east cascade's beam attachments used to be placed in world space before parenting (beam never visible); fixed.
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 

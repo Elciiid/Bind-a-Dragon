@@ -71,3 +71,6 @@ Image: `docs/img/valley_layout_adjusted_AN.png`. A-79 was rejected as too costly
 | Waterfall + ancient tree | move ~50 | move ~60 |
 | Landmark / saddle re-aiming | no | yes (config) |
 | North | old W1/E1 meadow empty | W1/E1 stay about where they are, terrace behind them |
+
+## 6. Built (2026-10-02)
+Option A-N and grass Option 1 are built; see CLAUDE.md ("Valley layout A-N + grass") and the screenshots `docs/img/an_step1_*`, `an_step2_*`, `an_step3_*`.

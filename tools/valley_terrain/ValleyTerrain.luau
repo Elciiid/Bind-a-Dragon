@@ -557,9 +557,16 @@ end
 function V.PaintForest(): number
 	local G = V.Region
 	local grid = {}
-	local trees = workspace:FindFirstChild("StarterMeadow") and workspace.StarterMeadow:FindFirstChild("Nature")
-	trees = trees and trees:FindFirstChild("Trees")
-	for _, m in (if trees then trees:GetChildren() else {}) do
+	local sm = workspace:FindFirstChild("StarterMeadow")
+	local treeList = {}
+	for _, path in { { "Nature", "Trees" }, { "Life", "Forest" } } do
+		local f = sm and sm:FindFirstChild(path[1])
+		f = f and f:FindFirstChild(path[2])
+		for _, m in (if f then f:GetChildren() else {}) do
+			table.insert(treeList, m)
+		end
+	end
+	for _, m in treeList do
 		local p = if m:IsA("Model") then m:GetPivot().Position elseif m:IsA("BasePart") then m.Position else nil
 		if p then
 			local k = math.floor(p.X / 16) .. "," .. math.floor(p.Z / 16)

@@ -16,13 +16,17 @@ local M = Enum.Material
 local noise, sqrt, abs, max, min, rad, sin, cos = math.noise, math.sqrt, math.abs, math.max, math.min, math.rad, math.sin, math.cos
 
 D.MaxTrees = 260
+D.MaxLifeTrees = 140 -- BuildLife: extra forest trees on the new valley edges
 
 -- Valley tidy-up (2026-09-28): open grass around the landmarks, fewer and bigger clusters of dressing.
 -- Clear zones: BuildNature leaves nothing (except the magical trees, which only stand where they mean something) in a
 -- ring of grass around the plaza and in the field in front of the portal terrace.
 D.ClearZones = {
 	Plaza = 82, -- radius around the altar (the plaza base is 57)
-	PortalFront = { R0 = 82, R1 = 136, Half = 56 }, -- from the plaza ring to the terrace wall (R 133), bearings within +/-Half
+	-- layout A-N: the old terrace area north of the plaza is the open meadow of the lantern avenue (x +-110, z -176 .. -57),
+	-- and the forest keeps PortalTerrace studs away from the new portal terrace (a polygon behind the Spire)
+	NorthField = { X = 110, Z0 = -176, Z1 = -57 },
+	PortalTerrace = 24,
 	Sanctuaries = 108, -- radius around each sanctuary center (terrace 80 + forecourt to 97): nothing grows here (Valley rework)
 }
 D.FlowerPatches = 14 -- wildflower patches of 9-13 flowers, toward the valley edges (the middle of each field stays open)
@@ -111,8 +115,8 @@ local function open(x: number, z: number, margin: number): boolean
 			return false -- sanctuary terraces and their forecourts
 		end
 	end
-	if R > 120 and R < 190 and abs(th) < 50 then
-		return false -- portal terrace
+	if V.PolyOut(V.Terrace.Poly, x, z) < 16 then
+		return false -- portal terrace (layout A-N)
 	end
 	local sd = sqrt(x * x + (z + 252) ^ 2)
 	if sd < 48 or (abs(x) < 16 and z < -95 and z > -225) then
@@ -121,8 +125,8 @@ local function open(x: number, z: number, margin: number): boolean
 	if abs(x) < 42 and z > 125 and z < 230 then
 		return false -- entrance and the road through the gorge
 	end
-	if sqrt((x + 292) ^ 2 + (z - 60) ^ 2) < 48 then
-		return false -- keep the waterfall in view
+	if sqrt((x + 335) ^ 2 + (z - 118) ^ 2) < 48 or sqrt((x - 332) ^ 2 + (z - 121) ^ 2) < 30 then
+		return false -- keep the waterfall and the lower pool in view
 	end
 	return true
 end
@@ -132,8 +136,8 @@ D.Open = open
 local function clear(x: number, z: number): boolean
 	local R = sqrt(x * x + z * z)
 	local th = math.deg(math.atan2(x, -z))
-	local pf = D.ClearZones.PortalFront
-	if R < D.ClearZones.Plaza or (R > pf.R0 and R < pf.R1 and abs(th) < pf.Half) then
+	local nf = D.ClearZones.NorthField
+	if R < D.ClearZones.Plaza or (abs(x) < nf.X and z > nf.Z0 and z < nf.Z1) or V.PolyOut(V.Terrace.Poly, x, z) < D.ClearZones.PortalTerrace then
 		return true
 	end
 	for _, s in V.Sanct do
@@ -147,7 +151,7 @@ D.Clear = clear
 
 local function saddleDistance(th: number): number
 	local best = 180
-	for _, s in { -40, -15, 15, 40 } do
+	for _, s in { -35, -18, 18, 35 } do
 		best = min(best, abs(th - s))
 	end
 	return best
@@ -500,7 +504,7 @@ D.FantasyHeight = { -- target height range (studs) per kit tree
 	Fantasy_CrystalTree = { 22, 30 },
 	Fantasy_LanternWillow = { 24, 30 },
 }
-D.AncientTree = { X = -335, Z = 112, Height = 115 } -- cliff top south of the waterfall lip, canopy clear of the falls
+D.AncientTree = { X = -355, Z = 185, Height = 115 } -- cliff top south of the waterfall lip (layout A-N: moved with the waterfall), canopy clear of the falls
 
 function D.PlaceFantasyTree(parent: Instance, name: string, pos: Vector3, rng: Random, withCollider: boolean, height: number?): Model
 	local template = ServerStorage.PropKits.Fantasy[name] :: Model
@@ -614,14 +618,16 @@ end
 -- { name, position, yaw, pieces, keep }. Removed sites (keep = false, tidy-up 2026-09-28) stay listed: BuildNature
 -- still runs its magical-tree placement over every site (so every other tree keeps its spot), then removes theirs.
 D.RuinSites = {
-	{ "Ruin_Waterfall", Vector3.new(-262, 0, 38), 100, { "column", "arch", "rune" }, true },
-	{ "Ruin_LowPool", Vector3.new(280, 0, 38), -100, { "stump", "fallen", "rune" }, true },
+	-- layout A-N (2026-10-02): the four kept ruins stand in the open meadow wedges: two beside the W1/E1 and W2/E2 roads
+	-- (the old waterfall / low pool names stay), two flanking the lantern avenue
+	{ "Ruin_Waterfall", Vector3.new(-125, 0, -48), 70, { "column", "arch", "rune" }, true },
+	{ "Ruin_LowPool", Vector3.new(125, 0, -48), -70, { "stump", "fallen", "rune" }, true },
 	{ "Ruin_TerraceWest", Vector3.new(-115, 0, -128), 48, { "rune", "step" }, false },
 	{ "Ruin_TerraceEast", Vector3.new(115, 0, -128), -48, { "step", "rune" }, false },
 	{ "Ruin_MeadowWest", Vector3.new(-100, 0, -30), 70, { "stump", "step", "fallen" }, false }, -- W2 forecourt (Valley rework)
 	{ "Ruin_MeadowEast", Vector3.new(105, 0, 22), -70, { "fallen", "column" }, false },
-	{ "Ruin_SpireWest", Vector3.new(-52, 0, -262), 90, { "column", "stump" }, true },
-	{ "Ruin_SpireEast", Vector3.new(52, 0, -262), -90, { "stump", "column" }, true },
+	{ "Ruin_SpireWest", Vector3.new(-64, 0, -140), 90, { "column", "stump" }, true },
+	{ "Ruin_SpireEast", Vector3.new(64, 0, -140), -90, { "stump", "column" }, true },
 	{ "Ruin_Market", Vector3.new(72, 0, 150), 200, { "rune", "fallen" }, false },
 }
 
@@ -745,11 +751,13 @@ function D.BuildDressing()
 	local wf = SM.Water:FindFirstChild("Waterfall")
 	if wf then
 		local cascade = B.Folder(f, "EastCascade")
-		local anchor = P(cascade, "BeamAnchor", Vector3.new(1, 1, 1), CFrame.new(273, 0, 61), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
+		-- layout A-N: the river drops into the lower pool at (332, 121); attachments are placed in anchor space (setting
+		-- WorldPosition before parenting left them far off, so the beam was never seen)
+		local anchor = P(cascade, "BeamAnchor", Vector3.new(1, 1, 1), CFrame.new(313, 0, 113), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
 		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
-		a0.WorldPosition = Vector3.new(273, -0.9, 61)
-		a1.WorldPosition = Vector3.new(281.5, -6.9, 61.6)
 		a0.Parent, a1.Parent = anchor, anchor
+		a0.CFrame = CFrame.new(anchor.CFrame:PointToObjectSpace(Vector3.new(316, -0.9, 114)))
+		a1.CFrame = CFrame.new(anchor.CFrame:PointToObjectSpace(Vector3.new(323.5, -6.9, 117)))
 		local sheet = wf.BeamAnchor:FindFirstChild("Sheet1")
 		if sheet then
 			local beam = sheet:Clone()
@@ -760,7 +768,7 @@ function D.BuildDressing()
 		local foam = wf:FindFirstChild("Foam")
 		if foam then
 			local fm = foam:Clone()
-			fm.CFrame = CFrame.lookAt(Vector3.new(282, -6.6, 61.6), Vector3.new(300, -6.6, 62))
+			fm.CFrame = CFrame.lookAt(Vector3.new(321, -6.6, 116.5), Vector3.new(332, -6.6, 121))
 			fm.Size = Vector3.new(8, 1, 4)
 			for _, e in fm:GetDescendants() do
 				if e:IsA("ParticleEmitter") then
@@ -771,6 +779,168 @@ function D.BuildDressing()
 			fm.Parent = cascade
 		end
 	end
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Life (layout A-N, 2026-10-02): everything planted after the sanctuaries moved. Own folder SM.Life (cleared and rebuilt
+-- by BuildLife, deterministic): Forest (new trees on the valley edges, same kit and rules as BuildNature), Magic (star-
+-- blossom / crystal trees at the gates and beside the ruins), Flowers (patches in the meadow wedges and along the lantern
+-- avenue), Lanterns (the avenue on the north road). Run D.BuildRuins() first for the four ruins.
+
+local function gatherTrees(): { Vector3 }
+	local out = {}
+	for _, fname in { "Trees", "MagicTrees", "Specimens" } do
+		local sub = SM.Nature:FindFirstChild(fname)
+		for _, m in (if sub then sub:GetChildren() else {}) do
+			local p = m:GetPivot().Position
+			table.insert(out, Vector3.new(p.X, 0, p.Z))
+		end
+	end
+	return out
+end
+
+function D.BuildLife()
+	local life = B.Folder(SM, "Life", true)
+	local forest = B.Folder(life, "Forest")
+	local magic = B.Folder(life, "Magic")
+	local flowers = B.Folder(life, "Flowers")
+	local lamps = B.Folder(life, "Lanterns")
+	local rng = Random.new(5101)
+	local placed = gatherTrees()
+	local function farFrom(x: number, z: number, d: number): boolean
+		for _, p in placed do
+			if (p.X - x) ^ 2 + (p.Z - z) ^ 2 < d * d then
+				return false
+			end
+		end
+		return true
+	end
+	local function plant(parent: Instance, name: string, x: number, z: number, collider: boolean, height: number?)
+		local slope, h = slopeAt(x, z)
+		D.PlaceFantasyTree(parent, name, Vector3.new(x, h - 0.5 - slope * 2, z), rng, collider, height)
+		table.insert(placed, Vector3.new(x, 0, z))
+	end
+	-- the nearest free spot to (cx, cz) (rings of 4 studs, up to maxR)
+	local function findSpot(cx: number, cz: number, maxR: number, margin: number, sep: number, ignoreSanct: boolean?): (number?, number?)
+		for r = 0, maxR, 4 do
+			for k = 0, (if r == 0 then 0 else 11) do
+				local a = k * math.pi / 6 + r * 0.7
+				local x, z = cx + cos(a) * r, cz + sin(a) * r
+				local ok = farFrom(x, z, sep)
+				if ok then
+					if ignoreSanct then
+						local _, level, hint = V.Height(x, z)
+						ok = level == nil and hint ~= "paved" and hint ~= "flat" and hint ~= "bed" and hint ~= "rockbed"
+					else
+						ok = open(x, z, margin)
+					end
+				end
+				if ok then
+					return x, z
+				end
+			end
+		end
+		return nil, nil
+	end
+
+	-- 1) forest replant: the BuildNature grid with its own stream, only where the valley edge is bare (spacing 12 from every tree)
+	local FIRS = { "Fantasy_TealFir", "Fantasy_TealFir_B", "Fantasy_TealFir_B" }
+	local BROADLEAVES = { "Fantasy_EmeraldTree_A", "Fantasy_EmeraldTree_B" }
+	local count = 0
+	for gx = -560, 560, 15 do
+		for gz = -560, 560, 15 do
+			local x, z = gx + rng:NextNumber(-6, 6), gz + rng:NextNumber(-6, 6)
+			local R = sqrt(x * x + z * z)
+			local th = math.deg(math.atan2(x, -z))
+			local u = R - V.EdgeAt(th)
+			if u > -45 and count < D.MaxLifeTrees then
+				local slope, h = slopeAt(x, z)
+				local base = if u < 0 then 0.16 elseif u < 130 then 0.42 else 0.12
+				local cluster = math.clamp((0.5 + noise(x / 110, z / 110, 4.2)) * 1.6, 0.1, 1.3)
+				local p = base * cluster
+				if R > 290 and saddleDistance(th) < 9 then
+					p *= 0.25
+				end
+				if h < 130 and slope < 1.2 and rng:NextNumber() < p and farFrom(x, z, 12) and open(x, z, 8) and not clear(x, z) then
+					local list = if u > 60 or h > 50 then FIRS
+						elseif u > 0 then (if rng:NextNumber() < 0.5 then FIRS else BROADLEAVES)
+						else (if rng:NextNumber() < 0.8 then BROADLEAVES else FIRS)
+					plant(forest, list[rng:NextInteger(1, #list)], x, z, u < 32)
+					count += 1
+				end
+			end
+		end
+	end
+
+	-- 2) lantern avenue: the north road from the plaza to the grand stairs, a pair every 22 studs (the first pair stands at z -78)
+	for _, z in { -100, -122, -144 } do
+		for _, sd in { -1, 1 } do
+			B.Lantern(lamps, Vector3.new(sd * 9.5, V.Height(sd * 9.5, z), z), 0)
+		end
+	end
+	-- star-blossom trees framing the avenue, crystal trees further up (clear of the road and the lanterns)
+	for _, sd in { -1, 1 } do
+		plant(magic, "Fantasy_StarBlossom", sd * 24, -92, true)
+		plant(magic, "Fantasy_CrystalTree", sd * 26, -134, true)
+	end
+
+	-- 3) a pair of star-blossoms at each sanctuary gate, outside the forecourt (center + 100 toward the altar, +-34 across)
+	for _, sanct in V.Sanct do
+		local out = Vector2.new(-sanct.X, -sanct.Z).Unit
+		local across = Vector2.new(-out.Y, out.X)
+		for _, sgn in { -1, 1 } do
+			local x, z = sanct.X + out.X * 100 + across.X * 34 * sgn, sanct.Z + out.Y * 100 + across.Y * 34 * sgn
+			local sx, sz = findSpot(x, z, 16, 3, 10, true)
+			if sx then
+				plant(magic, "Fantasy_StarBlossom", sx, sz, true)
+			end
+		end
+	end
+
+	-- 4) trees beside each ruin (a star-blossom and a crystal tree on different sides)
+	for i, s in D.RuinSites do
+		if s[5] ~= false then
+			for j, name in { "Fantasy_StarBlossom", "Fantasy_CrystalTree" } do
+				local a = (i * 1.3 + j * 3.1)
+				local sx, sz = findSpot(s[2].X + cos(a) * 15, s[2].Z + sin(a) * 15, 14, 4, 9)
+				if sx then
+					plant(magic, name, sx, sz, true)
+				end
+			end
+		end
+	end
+
+	-- 5) flower patches in the meadow wedges and beside the avenue (own stream; 9-13 flowers per patch)
+	local kinds = { KIT.AI_Ench_Lupines, KIT.AI_Ench_Buttercups, KIT.AI_Ench_Daisies, KIT.Store_WildFlower }
+	local frng = Random.new(6203)
+	local patchCenters = {
+		{ -48, -72 }, { 48, -72 }, { -78, -118 }, { 78, -118 }, { -44, -152 }, { 44, -152 }, -- the avenue field
+		{ -118, -22 }, { 118, -22 }, { -112, -70 }, { 112, -70 }, -- the W / E wedges
+		{ -86, 118 }, { 86, 118 }, { -30, 214 }, { 30, 214 }, -- by the market and the entrance gorge
+	}
+	local patches = 0
+	for _, c in patchCenters do
+		local cx, cz = findSpot(c[1], c[2], 14, 6, 6)
+		if cx then
+			local mainKind = kinds[frng:NextInteger(1, #kinds)]
+			for _ = 1, frng:NextInteger(9, 13) do
+				local a, r = frng:NextNumber(0, 2 * math.pi), sqrt(frng:NextNumber()) * 8
+				local px, pz = cx + cos(a) * r, cz + sin(a) * r
+				if open(px, pz, 1) then
+					local _, h = slopeAt(px, pz)
+					local kind = if frng:NextNumber() < 0.75 then mainKind else kinds[frng:NextInteger(1, #kinds)]
+					local m = placeModel(kind, flowers, Vector3.new(px, h - 0.1, pz), frng:NextNumber(0, 2 * math.pi), frng:NextNumber(1, 1.6))
+					for _, d in m:GetDescendants() do
+						if d:IsA("BasePart") then
+							d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+						end
+					end
+				end
+			end
+			patches += 1
+		end
+	end
+	return string.format("forest %d, magic %d, patches %d, lanterns %d", count, #magic:GetChildren(), patches, #lamps:GetChildren())
 end
 
 return D
