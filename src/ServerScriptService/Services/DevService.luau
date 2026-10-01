@@ -19,6 +19,9 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
 
+local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
+local Rewards = require(ReplicatedStorage.Shared.Rewards)
+
 local DevService = {}
 
 local function giveDragons(player: Player, speciesIds: { string }, level: number, placeInRoost: boolean?, mutationId: string?): { string }
@@ -82,6 +85,24 @@ local function setRoostSlots(player: Player, slots: number): number
 	return DragonStats.GetRoostSlots(data)
 end
 
+-- GiveItems:Invoke(player, { Sigils = n, Gold = n, Rebirths = n, Potions = { GildedDraught = 2 }, WyrmRunes = n, Dragonstones = n, Stardust = n })
+-- adds test items to a player's data (Sigils respect the Config/Binding cap).
+local function giveItems(player: Player, items: any): any
+	local data = DataService:GetData(player)
+	assert(data, "GiveItems: player data not loaded yet")
+	if items.Sigils then
+		data.EchoSigils = math.clamp(data.EchoSigils + math.floor(items.Sigils), 0, BindingConfig.EchoSigilCap)
+	end
+	if items.Gold then
+		data.Gold = math.max(0, data.Gold + items.Gold)
+	end
+	if items.Rebirths then
+		data.Rebirths = math.max(0, data.Rebirths + math.floor(items.Rebirths))
+	end
+	Rewards.Apply(data, { Potions = items.Potions, WyrmRunes = items.WyrmRunes, Dragonstones = items.Dragonstones, Stardust = items.Stardust })
+	return { EchoSigils = data.EchoSigils, Gold = data.Gold, Rebirths = data.Rebirths }
+end
+
 function DevService:Start()
 	if not RunService:IsStudio() then
 		return
@@ -97,6 +118,10 @@ function DevService:Start()
 	slots.Name = "SetRoostSlots"
 	slots.OnInvoke = setRoostSlots
 	slots.Parent = folder
+	local items = Instance.new("BindableFunction")
+	items.Name = "GiveItems"
+	items.OnInvoke = giveItems
+	items.Parent = folder
 	local simulate = Instance.new("BindableFunction")
 	simulate.Name = "SimulateBinding"
 	simulate.OnInvoke = simulateBinding

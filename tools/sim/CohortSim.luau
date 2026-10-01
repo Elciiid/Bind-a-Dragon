@@ -78,6 +78,9 @@ do
 	p.Idle = { { 480, 720 } }
 end
 
+-- Switches for the "Old" preset (the economy approved before the mutation branch); all off = the live Config.
+local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false }
+
 local DAY = 86400
 local CYCLE = DayNight.DaySeconds + DayNight.NightSeconds
 local STEP = 60 -- seconds per decision step while active
@@ -93,6 +96,7 @@ type Dragon = {
 	Trait: string?,
 	Grade: string?,
 	Evolutions: { [string]: string }?,
+	Q: number?, -- cached quality
 }
 
 type State = {
@@ -121,6 +125,7 @@ type State = {
 	LastBindNight: number,
 	CostRebirths: number, CostValue: number, -- cache of the next rebirth cost
 	LastSpend: number,
+	Origin: number, -- seconds: when the player starts (the first session of day 0); day counts start here
 }
 
 local rarityRank: { [string]: number } = { Common = 1, Rare = 2, Epic = 3, Legendary = 4, Mythic = 5 }
@@ -134,7 +139,7 @@ local function newState(profile: Profile, seed: number, cap: number): State
 		Rng = Random.new(seed), Profile = profile, Data = data, Cap = cap, Time = 0, Runes = 0, Stones = 0, Sigils = 0,
 		GildedMin = 0, HoardMin = 0, Charges = {}, WyrmbloodMin = 0, SpireRecord = 0, Streak = 0, SpireWinsToday = 0,
 		SigilFromQuests = false, SigilFromSpire = false, NightConst = {}, Binds = 0, RebirthDay = {},
-		IndexMilestones = 0, ElementsRewarded = {}, NextId = 1, WeekBank = 0, LastBindNight = -1, CostRebirths = -1, CostValue = 0, LastSpend = -1e9,
+		IndexMilestones = 0, ElementsRewarded = {}, NextId = 1, WeekBank = 0, LastBindNight = -1, CostRebirths = -1, CostValue = 0, LastSpend = -1e9, Origin = 0,
 	}
 	return S
 end
@@ -146,12 +151,18 @@ local function newDragon(S: State, speciesId: string, mutationId: string?): Drag
 	return d
 end
 
--- Level-independent value of a dragon (what it would earn at equal levels).
-local function quality(d: Dragon): number
+-- Level-independent value of a dragon (what it would earn at equal levels). Cached on the dragon (Q); call
+-- refreshQuality after its trait/grade changes.
+local function refreshQuality(d: Dragon): number
 	local probe = table.clone(d)
 	probe.Level = 1
 	probe.Evolutions = nil
-	return DragonStats.GetGoldPerSecond(probe :: any)
+	d.Q = DragonStats.GetGoldPerSecond(probe :: any)
+	return d.Q
+end
+
+local function quality(d: Dragon): number
+	return d.Q or refreshQuality(d)
 end
 
 local function rebirthCost(S: State): number
@@ -166,40 +177,67 @@ local function slots(S: State): number
 	return DragonStats.GetRoostSlots(S.Data)
 end
 
--- Keeps the roost filled with the best dragons; a replacement must be clearly better than the dragon it replaces.
-local function equip(S: State)
+local BENCH = 12 -- dragons kept outside the roost (the rest are dropped; they never matter for income)
+
+-- Keeps the roost filled with the best dragons; a newcomer must be clearly better (1.5x) than the dragon it replaces.
+local function equip(S: State, newcomer: Dragon?)
 	local data = S.Data
 	local n = slots(S)
-	local inRoost: { [string]: boolean } = {}
-	for _, id in data.RoostDragonIds do
-		inRoost[id] = true
+	local ids = data.RoostDragonIds
+	local function weakest(): (number, number)
+		local index, q = 0, math.huge
+		for i, id in ids do
+			local x = quality(data.Dragons[id])
+			if x < q then
+				index, q = i, x
+			end
+		end
+		return index, q
 	end
-	local others: { Dragon } = {}
-	for id, d in data.Dragons do
-		if not inRoost[id] then
-			table.insert(others, d)
+	if newcomer then
+		if #ids < n then
+			table.insert(ids, newcomer.Id)
+		else
+			local i, q = weakest()
+			if i > 0 and quality(newcomer) > q * 1.5 then
+				ids[i] = newcomer.Id
+			end
 		end
 	end
-	table.sort(others, function(a, b)
-		return quality(a) > quality(b)
-	end)
-	for _, d in others do
-		if #data.RoostDragonIds < n then
-			table.insert(data.RoostDragonIds, d.Id)
-		else
-			-- the weakest roost dragon by quality
-			local weakIndex, weakQ = 0, math.huge
-			for i, id in data.RoostDragonIds do
-				local q = quality(data.Dragons[id])
-				if q < weakQ then
-					weakIndex, weakQ = i, q
-				end
+	-- free slots (a slot upgrade): the best dragons on the bench
+	while #ids < n do
+		local inRoost: { [string]: boolean } = {}
+		for _, id in ids do
+			inRoost[id] = true
+		end
+		local best: Dragon? = nil
+		for id, d in data.Dragons do
+			if not inRoost[id] and (best == nil or quality(d) > quality(best)) then
+				best = d
 			end
-			if quality(d) > weakQ * 1.5 then
-				data.RoostDragonIds[weakIndex] = d.Id
-			else
-				break
-			end
+		end
+		if best == nil then
+			break
+		end
+		table.insert(ids, best.Id)
+	end
+	-- trim the bench
+	local inRoost: { [string]: boolean } = {}
+	for _, id in ids do
+		inRoost[id] = true
+	end
+	local bench: { Dragon } = {}
+	for id, d in data.Dragons do
+		if not inRoost[id] then
+			table.insert(bench, d)
+		end
+	end
+	if #bench > BENCH then
+		table.sort(bench, function(a, b)
+			return quality(a) > quality(b)
+		end)
+		for i = BENCH + 1, #bench do
+			data.Dragons[bench[i].Id] = nil
 		end
 	end
 end
@@ -264,6 +302,39 @@ end
 ---------------------------------------------------------------------------------------------------------------------
 -- Binding
 
+-- The old bind: a rarity roll (weights 600/250/110/35/5, luck ^ 0.3 per step) then a species of that rarity; 1/850 Starborn.
+local function oldRoll(S: State, areaId: string, element: string?, luck: number): any
+	local weights = { Common = 600, Rare = 250, Epic = 110, Legendary = 35, Mythic = 5 }
+	local order = { "Common", "Rare", "Epic", "Legendary", "Mythic" }
+	local present: { [string]: { string } } = {}
+	for _, id in Areas[areaId].Species do
+		local sp = Dragons[id]
+		if element == nil or sp.Element == element then
+			present[sp.Rarity] = present[sp.Rarity] or {}
+			table.insert(present[sp.Rarity], id)
+		end
+	end
+	local total = 0
+	local w: { [string]: number } = {}
+	for i, r in order do
+		w[r] = if present[r] then weights[r] * luck ^ (0.3 * (i - 1)) else 0
+		total += w[r]
+	end
+	local roll = S.Rng:NextNumber() * total
+	for _, r in order do
+		roll -= w[r]
+		if roll < 0 then
+			local list = present[r]
+			table.sort(list)
+			return {
+				SpeciesId = list[S.Rng:NextInteger(1, #list)],
+				MutationId = if S.Rng:NextNumber() < 1 / 850 then "Starborn" else Mutations.NormalId,
+			}
+		end
+	end
+	return nil
+end
+
 local function pickArea(S: State, constellation: any): string
 	local best, bestLuck = "StarterMeadow", -1
 	for id, area in Areas do
@@ -315,7 +386,7 @@ local function bind(S: State, t: number, auto: boolean, extra: boolean?)
 	end
 	local area = Areas[areaId]
 	local element = if area.Element then area.Element else constellation.Element
-	local outcome = BindingOdds.Roll(S.Rng, areaId, element, luck)
+	local outcome = if Variant.OldBind then oldRoll(S, areaId, element, luck) else BindingOdds.Roll(S.Rng, areaId, element, luck)
 	if outcome == nil then
 		return
 	end
@@ -323,7 +394,7 @@ local function bind(S: State, t: number, auto: boolean, extra: boolean?)
 	local mutationId = if outcome.MutationId ~= Mutations.NormalId then outcome.MutationId else nil
 	local d = newDragon(S, outcome.SpeciesId, mutationId)
 	recordIndex(S, d)
-	equip(S)
+	equip(S, d)
 end
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -335,12 +406,22 @@ local function roostMultiplier(S: State): number
 		* DragonStats.GetIndexMultiplier(S.Data)
 end
 
+local function levelCost(d: Dragon, rebirths: number): number
+	if Variant.OldLevelCost then
+		local base = ({ Common = 1000, Rare = 5000, Epic = 20000, Legendary = 100000, Mythic = 500000 })[Dragons[d.SpeciesId].Rarity]
+		return base * 1.08 ^ (d.Level - 1) * RebirthConfig.IncomeBonusPerRebirth ^ rebirths
+	end
+	return DragonStats.GetLevelUpCost(d :: any, rebirths)
+end
+
 local function income(S: State): number
 	return DragonStats.GetRoostIncome(S.Data)
 end
 
 local function potionMultiplier(S: State): number
-	if S.HoardMin > 0 then
+	if Variant.StackPotions and S.HoardMin > 0 and S.GildedMin > 0 then
+		return 10
+	elseif S.HoardMin > 0 then
 		return 5
 	elseif S.GildedMin > 0 then
 		return 2
@@ -386,6 +467,7 @@ local function applyRunes(S: State)
 		end
 		S.Runes -= 1
 		best.Trait = roll(Traits.Traits).Id
+		refreshQuality(best)
 	end
 	while S.Stones > 0 do
 		local g = DragonStats.GetGrade(best :: any)
@@ -394,6 +476,7 @@ local function applyRunes(S: State)
 		end
 		S.Stones -= 1
 		best.Grade = roll(Traits.Grades).Id
+		refreshQuality(best)
 	end
 end
 
@@ -412,7 +495,7 @@ local function levelUpTo(S: State, d: Dragon, newLevel: number, t: number)
 end
 
 local function rebirth(S: State)
-	table.insert(S.RebirthDay, S.Time / DAY)
+	table.insert(S.RebirthDay, (S.Time - S.Origin) / DAY)
 	S.Data.Rebirths += 1
 	S.Data.Gold = 0
 end
@@ -444,7 +527,7 @@ local function spend(S: State, t: number, rate: number)
 		for _, id in data.RoostDragonIds do
 			local d: Dragon = data.Dragons[id]
 			if d.Level < cap then
-				local unit = DragonStats.GetLevelUpCost(d :: any, data.Rebirths)
+				local unit = levelCost(d, data.Rebirths)
 				local before = DragonStats.GetGoldPerSecond(d :: any)
 				local stepsList = { 1 }
 				for _, stage in Evolution.Stages do
@@ -713,6 +796,10 @@ local function runDay(S: State, day: number)
 	local allowance = RoostConfig.OfflineCapHours * 3600
 	local offlineRate = RoostConfig.OfflineIncomeMultiplier * (if p.Afk2x then Products.AfkIncomeMultiplier else 1)
 	local cursor = 0
+	if day == 0 then
+		S.Origin = if #segs > 0 then segs[1].From else 0 -- a new player starts playing at once: no offline time before
+		cursor = S.Origin
+	end
 	local spired = false
 	local function away(toSec: number, inGameIdle: boolean)
 		local from = cursor
@@ -853,7 +940,7 @@ local function startRun(profileName: string, seed: number, cap: number?): State
 	if starter then
 		local d = newDragon(S, starter, nil)
 		recordIndex(S, d)
-		equip(S)
+		equip(S, d)
 	end
 	return S
 end
@@ -904,6 +991,7 @@ function Sim.Run(profileName: string, seed: number, maxDays: number, weeks: numb
 		end
 	end
 	result.SpireRecord = S.SpireRecord
+	result.RebirthDay = S.RebirthDay -- the day (fractional) of each rebirth, for the pacing curve
 	result.Rebirths = S.Data.Rebirths
 	result.Binds = S.Binds
 	return result
@@ -965,6 +1053,24 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 	return summary
 end
 
+-- Median day of every rebirth number (the pacing curve): { [rebirthNumber] = days }.
+function Sim.Curve(profileName: string, runs: number, maxDays: number): { [number]: number }
+	local per: { [number]: { number } } = {}
+	for seed = 1, runs do
+		local r = Sim.Run(profileName, seed * 7919, maxDays)
+		for n, day in r.RebirthDay do
+			per[n] = per[n] or {}
+			table.insert(per[n], day)
+		end
+	end
+	local curve = {}
+	for n, list in per do
+		table.sort(list)
+		curve[n] = math.floor(percentile(list, 0.5) * 100 + 0.5) / 100
+	end
+	return curve
+end
+
 -- Background job: runs a cohort without blocking Studio and stores the JSON summary in a StringValue
 -- ServerStorage.SimTools.Result_<jobName> ("running" until it is done).
 function Sim.Start(jobName: string, profileName: string, runs: number, maxDays: number, weeks: number?)
@@ -1003,6 +1109,138 @@ function Sim.Trace(profileName: string, seed: number, days: number): { string }
 			S.Sigils, S.SpireRecord, if best then best.SpeciesId else "-", if best then best.Level else 0))
 	end
 	return lines
+end
+
+---------------------------------------------------------------------------------------------------------------------
+-- Config patching (in memory only; nothing is saved). Sim.Set("Rebirth", "LateGrowth", 2.2) edits the live module
+-- table until Sim.Reset(). Sim.Preset("Old") loads the economy approved before the mutation branch.
+
+local undo: { () -> () } = {}
+
+local modules: { [string]: any } = {
+	Rebirth = RebirthConfig, Leveling = Leveling, Index = IndexConfig, Economy = Economy, Boosts = Boosts, Luck = LuckConfig,
+	Roost = RoostConfig, Spire = SpireConfig, Binding = BindingConfig, Evolution = Evolution,
+}
+
+function Sim.Set(moduleName: string, key: string, value: any)
+	local t = modules[moduleName]
+	local old = t[key]
+	t[key] = value
+	table.insert(undo, function()
+		t[key] = old
+	end)
+end
+
+-- Species stats by id (or by rarity with Sim.SetRarity).
+function Sim.SetSpecies(speciesId: string, field: string, value: number)
+	local sp = (Dragons :: any)[speciesId]
+	local old = sp[field]
+	sp[field] = value
+	table.insert(undo, function()
+		sp[field] = old
+	end)
+end
+
+function Sim.SetRarity(rarity: string, field: string, value: number)
+	for id, sp in Dragons do
+		if sp.Rarity == rarity then
+			Sim.SetSpecies(id, field, value)
+		end
+	end
+end
+
+function Sim.SetTrait(id: string, income: number, power: number)
+	for _, t in Traits.Traits do
+		if t.Id == id then
+			local oi, op = t.Income, t.Power
+			t.Income, t.Power = income, power
+			table.insert(undo, function()
+				t.Income, t.Power = oi, op
+			end)
+		end
+	end
+end
+
+function Sim.SetGrade(id: string, multiplier: number)
+	for _, g in Traits.Grades do
+		if g.Id == id then
+			local old = g.Multiplier
+			g.Multiplier = multiplier
+			table.insert(undo, function()
+				g.Multiplier = old
+			end)
+		end
+	end
+end
+
+function Sim.SetMutation(id: string, field: string, value: number)
+	for _, m in Mutations.Mutations do
+		if m.Id == id then
+			local old = (m :: any)[field]
+			;(m :: any)[field] = value
+			table.insert(undo, function()
+				(m :: any)[field] = old
+			end)
+		end
+	end
+end
+
+function Sim.SetVariant(key: string, value: boolean)
+	local old = (Variant :: any)[key]
+	;(Variant :: any)[key] = value
+	table.insert(undo, function()
+		(Variant :: any)[key] = old
+	end)
+end
+
+function Sim.Reset()
+	for i = #undo, 1, -1 do
+		undo[i]()
+	end
+	table.clear(undo)
+end
+
+function Sim.Preset(name: string)
+	Sim.Reset()
+	if name ~= "Old" then
+		return
+	end
+	-- the economy approved in the economy rebalance (before the mutation branch)
+	Sim.SetRarity("Common", "BaseGoldPerSecond", 750); Sim.SetRarity("Rare", "BaseGoldPerSecond", 1800)
+	Sim.SetRarity("Epic", "BaseGoldPerSecond", 4400); Sim.SetRarity("Legendary", "BaseGoldPerSecond", 11000)
+	Sim.SetRarity("Mythic", "BaseGoldPerSecond", 29000)
+	Sim.SetRarity("Common", "BasePower", 10); Sim.SetRarity("Rare", "BasePower", 25); Sim.SetRarity("Epic", "BasePower", 60)
+	Sim.SetRarity("Legendary", "BasePower", 150); Sim.SetRarity("Mythic", "BasePower", 400)
+	local traitsOld = {
+		Hoarder = { 1.25, 1 }, Scalebound = { 1, 1.25 }, Swiftwing = { 1.15, 1.15 }, Gilded = { 1.75, 1 }, Ironhide = { 1, 1.75 },
+		Emberheart = { 1.5, 1.5 }, Goldhoard = { 3, 1 }, Stormcaller = { 1, 3 }, Ancient = { 5, 5 }, Celestial = { 10, 10 },
+		Dragonlord = { 25, 25 },
+	}
+	for id, v in traitsOld do
+		Sim.SetTrait(id, v[1], v[2])
+	end
+	for id, m in { D = 1, C = 1.5, B = 2, A = 3, S = 5, SS = 10, SSS = 25 } do
+		Sim.SetGrade(id, m)
+	end
+	Sim.Set("Rebirth", "LateGrowth", 2.69); Sim.Set("Rebirth", "CurveEnd", 50); Sim.Set("Rebirth", "RebirthCap", 50)
+	Sim.Set("Rebirth", "WeeklyRebirths", 5); Sim.Set("Rebirth", "WeeklyJump", 2.2)
+	Sim.Set("Index", "IncomePerEntry", 0.01); Sim.Set("Index", "ElementMultiplier", 1.3); Sim.Set("Index", "AllSpeciesMultiplier", 1.5)
+	local up = Economy.RoostUpgrades
+	local old = up.IncomeBonusPerLevel
+	up.IncomeBonusPerLevel = 0.10
+	table.insert(undo, function()
+		up.IncomeBonusPerLevel = old
+	end)
+	Sim.Set("Boosts", "GoldPotionCap", math.huge)
+	Sim.SetVariant("OldBind", true)
+	Sim.SetVariant("OldLevelCost", true)
+	Sim.SetVariant("StackPotions", true)
+	-- Starborn as a mutation id (x3 income, x2 power)
+	local byId: any = Mutations.ById
+	byId.Starborn = { Id = "Starborn", IncomeMultiplier = 3, PowerMultiplier = 2 }
+	table.insert(undo, function()
+		byId.Starborn = nil
+	end)
 end
 
 return Sim
