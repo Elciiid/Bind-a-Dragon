@@ -2,7 +2,28 @@
 
 `CohortSim.luau` simulates whole players (days of play) against the **live Config** and the real shared code
 (`DragonStats`, `BindingOdds`, `Luck.GetTierWeights`), so any edit to a Config file is simulated without touching the
-sim. It runs inside Studio (no Luau runtime outside it).
+sim. It runs in Studio or with the portable CLI harness. All results are **raw elapsed days**; the historical
+`0.476` calibration is deliberately excluded.
+
+## Portable reproducible runs
+
+```powershell
+./tools/sim/RunCli.ps1 -Luau C:/path/to/luau.exe -Runs 1000 -Profile Dedicated -MaxDays 180
+./tools/sim/RunCli.ps1 -Luau C:/path/to/luau.exe -Runs 1000 -Profile Casual -MaxDays 180
+./tools/sim/RunCli.ps1 -Luau C:/path/to/luau.exe -Runs 1000 -Profile AfkOnly -MaxDays 180
+./tools/sim/RunCli.ps1 -Luau C:/path/to/luau.exe -Runs 1000 -Profile PaidAfk -MaxDays 180
+./tools/sim/RunCli.ps1 -Luau C:/path/to/luau.exe -Runs 1000 -Baseline -Profile Dedicated -MaxDays 180
+./tools/sim/RunCli.ps1 -Luau C:/path/to/luau.exe -Check -Runs 0
+```
+
+The harness bundles real repository modules without replacing economic formulas. It substitutes inert Roblox value
+constructors/services and deterministic Park–Miller RNG (`seed * 7919`). Studio uses Roblox `Random`, so equivalent
+distributions are expected, not identical individual outcomes. `-Baseline` isolates flat level prices and LateGrowth
+2.55 under the same repaired timeline and new Spire reward policy: a controlled comparison, not an exact replay of old
+skipping. `-LateGrowth` supports deterministic parameter sweeps. Runs do not change repository files.
+
+`CostChecks.luau` tests every species at R0/R1/R10/R20/R30: increasing prices, exact bulk sums, newest-band income floor,
+and anchor invariance under placement/potions/upgrades within one rebirth.
 
 ## Run it
 
@@ -31,11 +52,19 @@ Profiles: `Dedicated`, `Casual`, `AfkOnly`, `PaidAfk` (`Sim.Profiles`; edit the 
   `GetRoostIncome`, slot/income upgrades, level costs, evolution branches (night = the sky's constellation).
 - **Spending:** rebirth the moment it is affordable; otherwise buy the best-paying upgrade (level, next stage,
   cap, income level, slot) if it pays back within `SpendK` x the time left to the next rebirth.
-- **Spire:** a climb restarts from floor 1; fast/fought floors, first-clear drops, re-clear drops, first-clear gold,
-  Wyrmblood x2 power; Spire minutes per day per profile. Drops feed runes/stones/potions/luck charges.
+- **Spire:** all stages cost 12 seconds inside active-session budgets (25/8/0/5 minutes daily by profile). Runs start
+  at 1 and finish at 100, then repeat; failed attempts restart. Drops arrive on completion, using live configuration.
+  No manual altar binds occur during reserved Spire time. Wyrmblood/Conqueror boosts and first-clear gold are included.
 - **Runes/Dragonstones:** applied to the best roost dragon, re-rolling until the result is decent.
-- **Quests/streak/Index:** daily quests (`QuestRate`), the login streak, weekly quests, Index milestone rewards.
-- Not simulated: Stardust offerings and the merchant, group luck, event nights, boss-specific tactics, selling or
-  trading, session quirks. Numbers are therefore relative: compare cohorts and configs, not exact days.
+- **Quests/streak/Index:** actual randomly selected daily/weekly quests complete from bind/favored bind/level/offering/
+  active gold counters. No random completion grants. Login streak and Index rewards are included.
+- **Merchant/offerings:** buy affordable 10-Stardust bundles under a 1%-rebirth-cost price ceiling and make the three
+  offerings. Sigil binds reuse that night's offerings. Earned Ascended luck and R18 sigil-cap perk are included.
+- **Boosts/retention:** strongest gold potion wins; all timed boosts tick together during active time. Exact per-level
+  and bulk costs use the real shared code. Post-rebirth anchors include retained dragons/permanent bonuses, excluding
+  temporary boosts. Dedicated sessions total 3.5 hours/day, +/-15% length variation and 3% skipped days.
+- Not simulated: group luck, event nights, Premium duration, travel time, or human decision delays. Offline gaps
+  use current-income closed-form payouts; idle Auto-binds occur between check-ins. Results describe the stated strategy,
+  not a guarantee for every human player. See `Hakai_Polish_Results.md` for measurements and limitations.
 
 Results are medians/percentiles over seeds (`seed * 7919`), so a run is reproducible.

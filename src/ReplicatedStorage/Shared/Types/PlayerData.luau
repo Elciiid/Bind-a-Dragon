@@ -29,6 +29,8 @@ export type PlayerData = {
 	WyrmRunes: number, -- trait rolls (from the Dragon Spire)
 	Dragonstones: number, -- grade rolls (from the Dragon Spire)
 	Rebirths: number,
+	LevelingIncomeAnchor: number, -- unboosted strongest legal roost at the start of this rebirth
+	LevelingAnchorRebirth: number, -- rebirth for which the immutable anchor was initialized
 
 	Dragons: { [string]: Dragon }, -- keyed by Dragon.Id
 	NextDragonId: number,
@@ -83,6 +85,7 @@ export type Settings = {
 	SoundVolume: number, -- 0..1
 	LowEffects: boolean,
 	QuickBinds: boolean,
+	ReducedMotion: boolean,
 }
 
 return {}

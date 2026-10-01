@@ -165,7 +165,9 @@ local function performBind(
 
 	if rarity.AnnounceOnBind or mutation.AnnounceOnBind then
 		local variant = if mutationId ~= Mutations.NormalId then `{mutation.Name} ` else ""
-		announcement:FireAllClients(`{player.DisplayName} bound a {variant}{rarity.Name} {Dragons[speciesId].Name}!`)
+		announcement:FireAllClients(`{player.DisplayName} bound a {variant}{rarity.Name} {Dragons[speciesId].Name}!`, {
+			Kind = "DragonBind", PlayerId = player.UserId, DragonId = dragonId,
+		})
 	end
 end
 

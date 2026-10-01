@@ -20,11 +20,13 @@ return {
 	MaxStoredPurchaseIds = 50,
 
 	-- Player settings (the Settings window). Volumes are 0..1 and multiply Config/Audio and UI sound volumes.
-	-- LowEffects: fewer lights/particles, no shake/flash/blur. QuickBinds: short binding ceremony (not for big binds).
+	-- LowEffects: fewer lights/particles. ReducedMotion: no camera travel, spin, shake or flash.
+	-- QuickBinds: short binding ceremony for every rarity.
 	DefaultSettings = {
 		MusicVolume = 1,
 		SoundVolume = 1,
 		LowEffects = false,
 		QuickBinds = false,
+		ReducedMotion = false,
 	},
 }

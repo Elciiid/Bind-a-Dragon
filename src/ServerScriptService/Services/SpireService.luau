@@ -2,8 +2,8 @@
 -- Dragon Spire: server-run auto-battle climbs (numbers in Config/Spire).
 --
 -- A climb starts from the "Climb the Spire" prompt on any instance tagged "DragonSpire" (a BasePart, or a Model with
--- a PrimaryPart), or SpireAction("Start", useElevator) while standing near one. The Tower Elevator (pass or
--- Elevator Skip product, MonetizationService) starts the climb above the record. SpireAction("Stop") ends it. The player must
+-- a PrimaryPart), or SpireAction("Start") while standing near one. Every run starts at stage 1.
+-- SpireAction("AutoRepeat", boolean) controls repeat at the top; SpireAction("Stop") ends it. The player must
 -- stay within EntranceRange; walking away ends the climb.
 -- The server fights floor by floor with the player's most powerful dragon (x Wyrmblood Tonic) and sends each step
 -- to the client (SpireUpdate) for display. Results and rewards are decided here only.
@@ -14,7 +14,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
-local MonetizationService = require(script.Parent.MonetizationService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
@@ -22,14 +21,10 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
 local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
-local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
-type PlayerData = PlayerDataTypes.PlayerData
 type Run = { Stop: boolean }
 
 local SPIRE_TAG = "DragonSpire"
-local CHECK_INTERVAL = 0.25
-local ACTION_COOLDOWN = 0.5
 
 local spireAction = ReplicatedStorage.Remotes.SpireAction :: RemoteEvent
 local spireUpdate = ReplicatedStorage.Remotes.SpireUpdate :: RemoteEvent
@@ -38,6 +33,8 @@ local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 local rng = Random.new()
 local runs: { [Player]: Run } = {}
 local lastAction: { [Player]: number } = {}
+local lastStop: { [Player]: number } = {}
+local autoRepeat: { [Player]: boolean } = {} -- session-only, OFF on join
 local speciesIds: { string } = {}
 for speciesId in Dragons do
 	table.insert(speciesIds, speciesId)
@@ -58,7 +55,8 @@ end
 local function isNearSpire(player: Player): boolean
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if root == nil or not root:IsA("BasePart") then
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if root == nil or not root:IsA("BasePart") or humanoid == nil or humanoid.Health <= 0 then
 		return false
 	end
 	for _, spire in CollectionService:GetTagged(SPIRE_TAG) do
@@ -77,9 +75,9 @@ local function waitClimbing(player: Player, run: Run, seconds: number): boolean
 		if run.Stop or player.Parent ~= Players or not isNearSpire(player) then
 			return false
 		end
-		waited += task.wait(math.min(CHECK_INTERVAL, seconds - waited))
+		waited += task.wait(math.min(SpireConfig.CheckInterval, seconds - waited))
 	end
-	return not run.Stop and player.Parent == Players
+	return not run.Stop and player.Parent == Players and isNearSpire(player)
 end
 
 local function matches(drop: SpireConfig.Drop, floor: number): boolean
@@ -131,56 +129,20 @@ local function getEnemy(floor: number): (string, string)
 	return if species then species.Name else "Wild Dragon", speciesId
 end
 
--- The Tower Elevator (pass, or one Elevator Skip) starts above the record: no fast floors and no re-clears.
-local function getStartFloor(player: Player, data: PlayerData, useElevator: boolean): number?
-	if not useElevator then
-		return 1
-	end
-	if data.SpireRecord <= 0 or data.SpireRecord >= SpireConfig.MaxFloors then
-		notify:FireClient(player, "The elevator opens once you've cleared a floor, and stops below the top.", "error")
-		return nil
-	end
-	if not MonetizationService:UseElevator(player, data) then
-		notify:FireClient(player, "You need the Tower Elevator pass or an Elevator Skip.", "error")
-		return nil
-	end
-	return data.SpireRecord + 1
-end
-
-local function climb(player: Player, useElevator: boolean)
+local function climb(player: Player, run: Run)
 	local data = DataService:GetData(player)
-	if data == nil or runs[player] then
+	if data == nil then
+		runs[player] = nil
 		return
 	end
 	local dragon = DragonStats.GetBestDragon(data)
 	if dragon == nil then
+		runs[player] = nil
 		notify:FireClient(player, "You need a dragon to climb the Spire.", "error")
 		return
 	end
-	local run: Run = { Stop = false }
-	runs[player] = run
-
-	local record = data.SpireRecord
-	local startFloor = getStartFloor(player, data, useElevator)
-	if startFloor == nil then
-		runs[player] = nil
-		return
-	end
-	local floor = startFloor
-	local fastUntil = math.max(floor - 1, record - SpireConfig.TopWindow)
+	local floor = 1
 	local result = "Stopped"
-
-	-- Floors far below the record: fast, no drops.
-	if fastUntil >= floor then
-		local seconds = (fastUntil - floor + 1) * SpireConfig.FastFloorSeconds
-		spireUpdate:FireClient(player, { Phase = "Fast", From = floor, To = fastUntil, Seconds = seconds, Record = record })
-		if not waitClimbing(player, run, seconds) then
-			runs[player] = nil
-			spireUpdate:FireClient(player, { Phase = "Ended", Result = result, Floor = floor, Record = data.SpireRecord })
-			return
-		end
-		floor = fastUntil + 1
-	end
 
 	while floor <= SpireConfig.MaxFloors do
 		local best, bestPower = DragonStats.GetBestDragon(data)
@@ -190,9 +152,8 @@ local function climb(player: Player, useElevator: boolean)
 		local power = bestPower * BoostService:GetMultiplier(player, "SpirePower")
 		local enemyPower = DragonStats.GetEnemyPower(floor)
 		local species = Dragons[best.SpeciesId]
-		-- Far weaker enemies go fast; an already-cleared floor won that way gives nothing (no farming).
-		local fast = power >= enemyPower * SpireConfig.PowerFastRatio
-		local seconds = if fast then SpireConfig.FastFloorSeconds else SpireConfig.FightSeconds
+		if run.Stop or not isNearSpire(player) then break end
+		local seconds = SpireConfig.FightSeconds
 		local enemyName, enemyId = getEnemy(floor)
 		spireUpdate:FireClient(player, {
 			Phase = "Fight",
@@ -207,7 +168,7 @@ local function climb(player: Player, useElevator: boolean)
 			EnemyId = enemyId,
 			EnemyPower = enemyPower,
 			Seconds = seconds,
-			Fast = fast,
+			AutoRepeat = autoRepeat[player] == true,
 			Record = data.SpireRecord,
 		})
 		if not waitClimbing(player, run, seconds) then
@@ -223,12 +184,16 @@ local function climb(player: Player, useElevator: boolean)
 		local firstClear = floor > data.SpireRecord
 		local reward: Rewards.Reward = if firstClear
 			then rollDrops(SpireConfig.FirstClearDrops, floor, rewardMultiplier)
-			elseif fast then {}
 			else rollDrops(SpireConfig.ReclearDrops, floor, rewardMultiplier)
+		local baseline = rollDrops(SpireConfig.VictoryDrops, floor, rewardMultiplier)
+		reward.WyrmRunes = (reward.WyrmRunes or 0) + (baseline.WyrmRunes or 0)
+		reward.Dragonstones = (reward.Dragonstones or 0) + (baseline.Dragonstones or 0)
+		if reward.WyrmRunes == 0 then reward.WyrmRunes = nil end
+		if reward.Dragonstones == 0 then reward.Dragonstones = nil end
 		local gold = 0
 		if firstClear then
 			data.SpireRecord = floor
-			if not fast then -- fast-forwarded new floors keep their drops but give no gold
+			do
 				gold = math.floor(DragonStats.GetRoostIncome(data) * SpireConfig.FirstClearIncomeSeconds * rewardMultiplier)
 				local bankLimit = DragonStats.GetGoldBankLimit(data)
 				if bankLimit then
@@ -238,7 +203,7 @@ local function climb(player: Player, useElevator: boolean)
 			end
 		end
 		Rewards.Apply(data, reward)
-		if not fast then
+		do
 			local day = os.time() // 86400
 			if data.EchoSigilSpireProgressDay ~= day then
 				data.EchoSigilSpireProgressDay = day
@@ -272,16 +237,27 @@ local function climb(player: Player, useElevator: boolean)
 			Record = data.SpireRecord,
 		})
 		floor += 1
+		if floor > SpireConfig.MaxFloors then
+			result = "Top"
+			spireUpdate:FireClient(player, { Phase = "Ended", Result = result, Floor = SpireConfig.MaxFloors, Record = data.SpireRecord, AutoRepeat = autoRepeat[player] == true })
+			if not autoRepeat[player] or not waitClimbing(player, run, SpireConfig.RepeatPauseSeconds) or not autoRepeat[player] then
+				break
+			end
+			floor = 1
+			result = "Stopped"
+		end
 	end
 
 	if floor > SpireConfig.MaxFloors then
 		result = "Top"
 	end
 	runs[player] = nil
-	spireUpdate:FireClient(player, { Phase = "Ended", Result = result, Floor = floor, Record = data.SpireRecord })
+	if result ~= "Top" then
+		spireUpdate:FireClient(player, { Phase = "Ended", Result = result, Floor = floor, Record = data.SpireRecord, AutoRepeat = autoRepeat[player] == true })
+	end
 end
 
-local function tryStart(player: Player, useElevator: boolean)
+local function tryStart(player: Player)
 	if runs[player] then
 		return
 	end
@@ -289,21 +265,37 @@ local function tryStart(player: Player, useElevator: boolean)
 		notify:FireClient(player, "Go to the Dragon Spire to climb.", "error")
 		return
 	end
-	task.spawn(climb, player, useElevator)
+	local run: Run = { Stop = false }
+	runs[player] = run -- reserve synchronously before spawning; duplicate starts cannot race
+	task.spawn(function()
+		local ok, err = pcall(climb, player, run)
+		if not ok then
+			runs[player] = nil
+			warn(`[SpireService] {err}`)
+			spireUpdate:FireClient(player, { Phase = "Ended", Result = "Stopped", AutoRepeat = autoRepeat[player] == true })
+		end
+	end)
 end
 
--- SpireAction(action, useElevator?)
-local function onSpireAction(player: Player, action: unknown, useElevator: unknown)
-	if action ~= "Start" and action ~= "Stop" then
+-- SpireAction("Start" | "Stop" | "AutoRepeat", enabled?)
+local function onSpireAction(player: Player, action: unknown, value: unknown)
+	if action ~= "Start" and action ~= "Stop" and action ~= "AutoRepeat" then
 		return
 	end
+	if action == "AutoRepeat" and typeof(value) ~= "boolean" then return end
 	local now = os.clock()
-	if now - (lastAction[player] or 0) < ACTION_COOLDOWN then
-		return
+	if action == "Stop" then
+		if now - (lastStop[player] or -math.huge) < SpireConfig.StopCooldown then return end
+		lastStop[player] = now
+	else
+		if now - (lastAction[player] or -math.huge) < SpireConfig.ActionCooldown then return end
+		lastAction[player] = now
 	end
-	lastAction[player] = now
 	if action == "Start" then
-		tryStart(player, useElevator == true)
+		tryStart(player)
+	elseif action == "AutoRepeat" then
+		autoRepeat[player] = value == true
+		spireUpdate:FireClient(player, { Phase = "State", AutoRepeat = autoRepeat[player] })
 	elseif runs[player] then
 		runs[player].Stop = true
 	end
@@ -315,18 +307,19 @@ local function setupSpire(spire: Instance)
 		warn(`[SpireService] DragonSpire {spire:GetFullName()} needs to be a BasePart or a Model with a PrimaryPart`)
 		return
 	end
-	local prompt = Instance.new("ProximityPrompt")
+	local existing = spire:FindFirstChild("ClimbPrompt", true)
+	local prompt = if existing and existing:IsA("ProximityPrompt") then existing else Instance.new("ProximityPrompt")
 	prompt.Name = "ClimbPrompt"
 	prompt.ActionText = "Climb the Spire"
 	prompt.ObjectText = "Dragon Spire"
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.HoldDuration = SpireConfig.PromptHoldSeconds
-	prompt.MaxActivationDistance = 15
+	prompt.MaxActivationDistance = SpireConfig.PromptDistance
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
 	prompt.Triggered:Connect(function(player)
-		tryStart(player, false)
+		tryStart(player)
 	end)
 end
 
@@ -341,6 +334,8 @@ function SpireService:Start()
 			runs[player].Stop = true
 		end
 		lastAction[player] = nil
+		lastStop[player] = nil
+		autoRepeat[player] = nil
 	end)
 	CollectionService:GetInstanceAddedSignal(SPIRE_TAG):Connect(setupSpire)
 	for _, spire in CollectionService:GetTagged(SPIRE_TAG) do

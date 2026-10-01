@@ -223,27 +223,56 @@ function DragonStats.GetRebirthBonus(rebirths: number): number
 	return RebirthConfig.IncomeBonusPerRebirth ^ rebirths
 end
 
--- Gold needed to go from the dragon's current level to the next. Scales with the rebirth bonus so levelling stays
--- a real gold sink after every rebirth (see Config/Leveling).
-function DragonStats.GetLevelUpCost(dragon: Dragon, rebirths: number): number
+-- Rising next-level cost. The latest five-level band has a retained-income floor; earlier levels get a geometric
+-- catch-up discount. Optional anchor keeps existing callers compatible, but player UI/server pass the saved anchor.
+function DragonStats.GetLevelUpCost(dragon: Dragon, rebirths: number, incomeAnchor: number?): number
 	local species = Dragons[dragon.SpeciesId]
 	local share = species and Leveling.CostFractionOfNextRebirth[species.Rarity]
 	if share == nil then
 		return math.huge
 	end
-	return math.max(1, math.floor(DragonStats.GetRebirthCost(rebirths) * share))
+	local growth = Leveling.CostGrowthPerLevel
+	local baseline = DragonStats.GetRebirthCost(rebirths) * share
+	local exponent = dragon.Level - 1
+	if rebirths > 0 then
+		local bandSum = 0
+		for i = 0, Leveling.CapPerRebirth - 1 do bandSum += growth ^ i end
+		local anchor = if incomeAnchor and incomeAnchor == incomeAnchor and incomeAnchor < math.huge then math.max(0, incomeAnchor) else 0
+		baseline = math.max(baseline, anchor * Leveling.RetainedIncomeBandSeconds / bandSum)
+		exponent = dragon.Level - (Leveling.CapBase + Leveling.CapPerRebirth * rebirths - Leveling.CapPerRebirth)
+	end
+	return math.max(1, math.ceil(baseline * growth ^ exponent))
 end
 
 -- Levels and total gold for buying up to `count` levels (stops at the cap). Doesn't change the dragon.
-function DragonStats.GetBulkLevelCost(dragon: Dragon, count: number, cap: number, rebirths: number): (number, number)
+function DragonStats.GetBulkLevelCost(dragon: Dragon, count: number, cap: number, rebirths: number, incomeAnchor: number?): (number, number)
 	local levels, total = 0, 0
 	local probe = table.clone(dragon)
 	while levels < count and probe.Level < cap do
-		total += DragonStats.GetLevelUpCost(probe, rebirths)
+		total += DragonStats.GetLevelUpCost(probe, rebirths, incomeAnchor)
 		probe.Level += 1
 		levels += 1
 	end
 	return levels, total
+end
+
+-- Hypothetical strongest legal roost, independent of placement, includes retained permanent bonuses only.
+function DragonStats.GetRetainedIncomeAnchor(data: PlayerData): number
+	local incomes = {}
+	for _, dragon in data.Dragons do table.insert(incomes, DragonStats.GetGoldPerSecond(dragon)) end
+	table.sort(incomes, function(a, b) return a > b end)
+	local total = 0
+	for i = 1, math.min(#incomes, DragonStats.GetRoostSlots(data)) do total += incomes[i] end
+	return total * DragonStats.GetRoostIncomeMultiplier(data) * DragonStats.GetRebirthBonus(data.Rebirths) * DragonStats.GetIndexMultiplier(data)
+end
+
+-- Initialized once per rebirth; clients receive the number but can never submit an anchor.
+function DragonStats.EnsureLevelingAnchor(data: PlayerData)
+	if data.LevelingAnchorRebirth ~= data.Rebirths or type(data.LevelingIncomeAnchor) ~= "number"
+		or data.LevelingIncomeAnchor ~= data.LevelingIncomeAnchor or data.LevelingIncomeAnchor < 0 or data.LevelingIncomeAnchor == math.huge then
+		data.LevelingIncomeAnchor = DragonStats.GetRetainedIncomeAnchor(data)
+		data.LevelingAnchorRebirth = data.Rebirths
+	end
 end
 
 -- Max dragon level: CapBase + CapPerRebirth per rebirth.

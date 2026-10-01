@@ -63,6 +63,8 @@ function Window.new(props: Props): Window
 
 	-- Title banner, hanging on the top edge
 	local banner = Banner.new(frame, { Text = props.Title, Icon = props.Icon })
+	local bannerScale = Instance.new("UIScale")
+	bannerScale.Parent = banner.Holder
 	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 	banner.Holder.Position = UDim2.fromScale(0.5, 0)
 
@@ -175,6 +177,8 @@ function Window.new(props: Props): Window
 			if isPhone then theme.TextSizes.PhoneBanner else theme.TextSizes.Banner,
 			if isPhone then sizes.PhoneBannerStar else sizes.BannerStar
 		)
+		local safe = HudLayout.GetUsableRect()
+		bannerScale.Scale = math.min(1, math.max(1, safe.Width - theme.Sizes.Margin * 2) / math.max(1, banner.Holder.Size.X.Offset + theme.Sizes.CornerOrnament))
 		local closeSize = if isPhone then sizes.PhoneCloseButton else sizes.CloseButton
 		close.Size = UDim2.fromOffset(closeSize, closeSize)
 		cross.TextSize = math.floor(closeSize * 0.5)

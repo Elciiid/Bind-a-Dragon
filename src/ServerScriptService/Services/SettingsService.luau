@@ -52,6 +52,9 @@ function SettingsService:Start()
 		if type(incoming.QuickBinds) == "boolean" then
 			settings.QuickBinds = incoming.QuickBinds
 		end
+		if type(incoming.ReducedMotion) == "boolean" then
+			settings.ReducedMotion = incoming.ReducedMotion
+		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		lastSave[player] = nil

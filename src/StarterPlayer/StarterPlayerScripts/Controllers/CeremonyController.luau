@@ -28,8 +28,10 @@ local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local OddsText = require(ReplicatedStorage.Shared.OddsText)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
+local Button = require(script.Parent.UI.Button)
 
-export type Request = { SpeciesId: string, MutationId: string, BaseOneIn: number, EffectiveOneIn: number }
+export type Request = { SpeciesId: string, MutationId: string, BaseOneIn: number, EffectiveOneIn: number, OnReveal: (() -> ())? }
 
 local CeremonyController = {}
 
@@ -151,19 +153,26 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 	local character = Players.LocalPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if playing or species == nil or root == nil or not root:IsA("BasePart") then
-		task.spawn(onDone)
+		onDone()
 		return false
 	end
 	local _, center = AltarGlowController.GetNearestAltar(root.Position, Ceremony.AltarRange)
 	if center == nil then
-		task.spawn(onDone)
+		onDone()
 		return false
 	end
 	local rarity = rarityOf(species.Rarity)
 	local mutation = Mutations.Get(request.MutationId)
 	local color = if mutation.Id ~= Mutations.NormalId then mutation.Color elseif rarity then rarity.Color else Color3.new(1, 1, 1)
 	local big = (Ceremony.FullAlways :: any)[species.Rarity] == true or (mutation.Id == "Primordial" and Ceremony.PrimordialIsBig)
-	local quick = Players.LocalPlayer:GetAttribute("QuickBinds") == true and not big
+	local quick = Players.LocalPlayer:GetAttribute("QuickBinds") == true
+	local reduced = Players.LocalPlayer:GetAttribute("ReducedMotion") == true
+	if reduced then
+		task.wait(Ceremony.ReducedHoldSeconds)
+		if request.OnReveal then request.OnReveal() end
+		onDone()
+		return true
+	end
 	local low = EffectsQuality.IsLow()
 	playing = true
 
@@ -171,7 +180,15 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 	folder.Name = "Ceremony"
 	folder.Parent = workspace
 	local camera = workspace.CurrentCamera
+	if camera == nil then
+		folder:Destroy()
+		playing = false
+		onDone()
+		return false
+	end
 	local startCFrame = camera.CFrame
+	local startType = camera.CameraType
+	local startSubject = camera.CameraSubject
 	local skipped = false
 	local connections: { RBXScriptConnection } = {}
 
@@ -179,7 +196,8 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 	local overlay = Instance.new("ScreenGui")
 	overlay.Name = "CeremonyOverlay"
 	overlay.DisplayOrder = UITheme.Layers.Notifications + 5
-	overlay.IgnoreGuiInset = true
+	overlay:SetAttribute("RevealLayer", true)
+	overlay.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
 	overlay.ResetOnSpawn = false
 	overlay.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local flash = Instance.new("Frame")
@@ -192,6 +210,12 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 	hint.AnchorPoint = Vector2.new(0.5, 1)
 	hint.Position = UDim2.new(0.5, 0, 1, -24)
 	hint.Size = UDim2.fromOffset(320, 20)
+	hint.Visible = false
+	local skip = Button.new(overlay, { Text = Text.Reveal.Skip, Kind = "Neutral" })
+	skip.Instance.Size = UDim2.fromOffset(Ceremony.SkipButtonSize.X, Ceremony.SkipButtonSize.Y)
+	skip.Instance.AnchorPoint = Vector2.new(0.5, 1)
+	skip.Instance.Position = UDim2.new(0.5, 0, 1, -Ceremony.SkipBottomMargin)
+	table.insert(connections, skip.Instance.Activated:Connect(function() skipped = true end))
 
 	table.insert(connections, UserInputService.InputBegan:Connect(function(input)
 		local t = input.UserInputType
@@ -208,8 +232,9 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 		end
 	end
 
-	-- Camera
 	local cameraTarget: CFrame? = nil
+	local function animate()
+	-- Camera
 	if not quick then
 		local away = Vector3.new(root.Position.X - center.X, 0, root.Position.Z - center.Z)
 		away = if away.Magnitude > 0.1 then away.Unit else Vector3.new(0, 0, 1)
@@ -284,6 +309,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 		waitFor(Ceremony.Stars.FlySeconds + Ceremony.Stars.Stagger * (count - 1))
 	end
 
+	waitFor(Ceremony.AnticipationSeconds)
 	-- Burst
 	if not skipped then
 		playSound((Ceremony.Sounds :: any)[species.Rarity])
@@ -327,7 +353,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			ringImage.Parent = ringGui
 			table.insert(rings, { Gui = ringGui, Image = ringImage, Delay = (wave - 1) * 0.25 })
 		end
-		flash.BackgroundTransparency = if big then Ceremony.Burst.BigFlashTransparency else Ceremony.Burst.FlashTransparency
+		flash.BackgroundTransparency = if low then 1 elseif big then Ceremony.Burst.BigFlashTransparency else Ceremony.Burst.FlashTransparency
 		local skyFlash: ColorCorrectionEffect? = nil
 		if big and not low then
 			local cc = Instance.new("ColorCorrectionEffect")
@@ -348,7 +374,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			end
 			light.Brightness = Ceremony.Burst.LightBrightness * math.max(0, 1 - elapsed / 1.2)
 			local base = if big then Ceremony.Burst.BigFlashTransparency else Ceremony.Burst.FlashTransparency
-			flash.BackgroundTransparency = base + (1 - base) * math.clamp(elapsed / 0.5, 0, 1)
+			flash.BackgroundTransparency = if low then 1 else base + (1 - base) * math.clamp(elapsed / 0.5, 0, 1)
 			if skyFlash then
 				skyFlash.Brightness = Ceremony.SkyFlash.Brightness * math.max(0, 1 - elapsed / Ceremony.SkyFlash.Seconds)
 			end
@@ -369,12 +395,13 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			local high = center + Vector3.new(0, Ceremony.Reveal.RiseHeight, 0)
 			model:PivotTo(CFrame.new(low0))
 			model.Parent = folder
+			if request.OnReveal then request.OnReveal() end
 			-- Name banner on screen (lower middle), in the rarity color
 			local reveal = Instance.new("Frame")
 			reveal.Name = "Reveal"
 			reveal.AnchorPoint = Vector2.new(0.5, 0.5)
-			reveal.Position = UDim2.fromScale(0.5, 0.74)
-			reveal.Size = UDim2.fromOffset(10, 10)
+			reveal.Position = UDim2.fromScale(0.5, 0.6)
+			reveal.Size = UDim2.new(0.85, 0, 0, 140)
 			reveal.BackgroundTransparency = 1
 			reveal.Parent = overlay
 			local pop = Instance.new("UIScale")
@@ -388,18 +415,30 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 				Tail = Style.Shade(color, -0.6),
 			})
 			banner:Layout(if phone then 42 else 64, if phone then 26 else 40, if phone then 22 else 32)
+			local bannerFit = Instance.new("UIScale")
+			bannerFit.Parent = banner.Holder
+			local function fitBanner()
+				bannerFit.Scale = math.min(1, math.max(1, overlay.AbsoluteSize.X * reveal.Size.X.Scale) / math.max(1, banner.Holder.Size.X.Offset + UITheme.Sizes.CornerOrnament))
+			end
+			fitBanner()
+			table.insert(connections, overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitBanner))
 			banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 			banner.Holder.Position = UDim2.fromScale(0.5, 0.5)
 			local odds = OddsText.Line(request.EffectiveOneIn)
-			local tag = Style.Label(reveal, `{if mutation.Id ~= Mutations.NormalId then mutation.Name .. " · " else ""}{species.Rarity} · {species.Element} · {odds}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
+			local tag = Style.Label(reveal, `{species.Rarity} · {species.Element}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
 			tag.AnchorPoint = Vector2.new(0.5, 0)
 			tag.Position = UDim2.new(0.5, 0, 0.5, (if phone then 42 else 64) / 2 + 8)
 			tag.BackgroundTransparency = 0.15
 			tag.BackgroundColor3 = UITheme.Colors.GlassBottom
 			tag.TextStrokeTransparency = 1
-			tag.AutomaticSize = Enum.AutomaticSize.X
-			tag.Size = UDim2.fromOffset(0, if phone then 22 else 28)
-			tag.TextWrapped = false
+			tag.Size = UDim2.new(0.9, 0, 0, if phone then 22 else 28)
+			tag.TextScaled = true
+			tag.TextWrapped = true
+			local oddsLabel = Style.Label(reveal, odds, "Title", if phone then 24 else 32, OddsText.Color(request.EffectiveOneIn))
+			oddsLabel.AnchorPoint = Vector2.new(0.5, 0)
+			oddsLabel.Position = UDim2.new(0.5, 0, 0.5, 62)
+			oddsLabel.Size = UDim2.new(1, 0, 0, 36)
+			oddsLabel.TextScaled = true
 			Style.Round(tag)
 			Style.Pad(tag, 14, 0)
 			Style.GoldBorder(tag, 2)
@@ -428,13 +467,19 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 		end)
 		waitFor(Ceremony.Camera.ReturnSeconds)
 	end
+	end
+	local ok, err = xpcall(animate, debug.traceback)
+	if not ok then warn(`[CeremonyController] Reveal fallback: {err}`) end
 
 	-- Clean up (also after a skip)
+	skipped = true
 	pcall(function()
 		RunService:UnbindFromRenderStep("CeremonyCamera")
 	end)
 	if cameraTarget then
-		camera.CameraType = Enum.CameraType.Custom
+		camera.CFrame = startCFrame
+		camera.CameraSubject = startSubject
+		camera.CameraType = startType
 	end
 	for _, connection in connections do
 		connection:Disconnect()
@@ -446,7 +491,8 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 		leftover:Destroy()
 	end
 	playing = false
-	task.spawn(onDone)
+	if request.OnReveal then request.OnReveal() end
+	onDone()
 	return true
 end
 

@@ -6,8 +6,8 @@
 --  * no text log: each cleared floor pops a "Floor 39 cleared!" chip that fades (first clears sparkle), and the drops
 --    fly as small icons into the Inventory button;
 --  * Stop = a small rose button; Hide (–) minimizes the HUD to a small floor badge (tap it to open again).
--- Between climbs, near the Spire: your best dragon with Climb / Elevator (Tower Elevator pass or an Elevator Skip:
--- starts above the record). Floor clears never use the toast queue. Sizes/motion in UITheme, words in Text.Spire.
+-- Between climbs, near the Spire: your best dragon with Climb and Auto-Repeat. Every run starts at stage 1.
+-- Floor clears never use the toast queue. Sizes/motion in UITheme, words in Text.Spire.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -29,6 +29,7 @@ local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Layout = require(ReplicatedStorage.Shared.Config.Layout)
 
 local spireAction = ReplicatedStorage.Remotes.SpireAction :: RemoteEvent
 local spireUpdate = ReplicatedStorage.Remotes.SpireUpdate :: RemoteEvent
@@ -36,7 +37,7 @@ local spireUpdate = ReplicatedStorage.Remotes.SpireUpdate :: RemoteEvent
 local words = Text.Spire
 
 type Portrait = { Root: Frame, Card: Frame, Holder: Frame, Name: TextLabel, Fill: Frame, Key: string }
-type Mode = "Ready" | "Fast" | "Fight" | "Ended"
+type Mode = "Ready" | "Fight" | "Ended"
 
 local SpireController = {}
 
@@ -50,13 +51,13 @@ local bossTag: TextLabel
 local recordLabel: TextLabel
 local vsLabel: TextLabel
 local message: TextLabel
-local fastTrack: Frame
-local fastFill: Frame
 local mine: Portrait
 local enemy: Portrait
 local stopButton: Button.Button
 local climbButton: Button.Button
-local elevatorButton: Button.Button
+local repeatButton: Button.Button
+local buttonRow: Frame
+local autoRepeat = false
 local chip: TextLabel? = nil
 
 local mode: Mode = "Ready"
@@ -261,19 +262,10 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- States
 
-local function updateElevator()
-	local data = DataController:Get()
-	local hasPass = Players.LocalPlayer:GetAttribute("Pass_ElevatorPass") == true
-	local skips = if data then data.ElevatorSkips else 0
-	elevatorButton.Instance.Visible = climbButton.Instance.Visible
-		and (hasPass or skips > 0)
-		and record > 0
-		and record < SpireConfig.MaxFloors
-	elevatorButton:SetText(if hasPass
-		then format(words.Elevator, { floor = record + 1 })
-		else format(words.ElevatorLeft, { floor = record + 1, n = skips }))
-	-- Climb fills the row alone, or shares it with the Elevator
-	climbButton.Instance.Size = UDim2.new(if elevatorButton.Instance.Visible then 0.5 else 1, -4, 0, 42)
+local function updateRepeat()
+	repeatButton:SetText(if autoRepeat then words.AutoRepeatOn else words.AutoRepeatOff)
+	local height = if phone then Layout.DetailsSize.Y / hudScale.Scale else 42
+	climbButton.Instance.Size = UDim2.new(0.5, -4, 0, height)
 end
 
 local function setFloorBadge(text: string, boss: boolean)
@@ -285,20 +277,30 @@ end
 local function setMode(newMode: Mode)
 	mode = newMode
 	local fighting = newMode == "Fight"
+	local height = if phone then Layout.DetailsSize.Y / hudScale.Scale else 34
+	local rowHeight = if phone then height else 42
+	repeatButton.Label.TextSize = 18 / (if phone then hudScale.Scale else 1)
+	stopButton.Label.TextSize = 16 / (if phone then hudScale.Scale else 1)
+	climbButton.Label.TextSize = 22 / (if phone then hudScale.Scale else 1)
 	enemy.Root.Visible = fighting
 	vsLabel.Visible = fighting
 	recordLabel.Visible = fighting
 	message.Visible = not fighting
-	fastTrack.Visible = newMode == "Fast"
-	stopButton.Instance.Visible = fighting or newMode == "Fast"
+	stopButton.Instance.Visible = fighting
 	climbButton.Instance.Visible = newMode == "Ready" or newMode == "Ended"
+	repeatButton.Instance.Parent = if fighting then hud else buttonRow
+	repeatButton.Instance.AnchorPoint = if fighting then Vector2.new(0.5, 1) else Vector2.zero
+	repeatButton.Instance.Position = if fighting then UDim2.new(0.5, 0, 1, -10) else UDim2.new()
+	repeatButton.Instance.Size = if fighting then UDim2.new(0.44, 0, 0, height) else UDim2.new(0.5, -4, 0, rowHeight)
+	buttonRow.Size = UDim2.new(1, -(12 + Theme.Sizes.SpirePortrait + 12 + 16), 0, rowHeight)
+	stopButton.Instance.Size = UDim2.fromOffset(92, height)
 	-- the Stop button: under VS in a fight, bottom-right while zooming up
 	stopButton.Instance.AnchorPoint = if fighting then Vector2.new(0.5, 1) else Vector2.new(1, 1)
-	stopButton.Instance.Position = if fighting then UDim2.new(0.5, 0, 1, -10) else UDim2.new(1, -14, 1, -10)
+	stopButton.Instance.Position = if fighting then UDim2.new(0.5, 0, 1, -(height + Theme.Sizes.Gap + 10)) else UDim2.new(1, -14, 1, -10)
 	if not fighting then
-		timerSeconds = if newMode == "Fast" then timerSeconds else 0
+		timerSeconds = 0
 	end
-	updateElevator()
+	updateRepeat()
 end
 
 local function showHud()
@@ -309,14 +311,16 @@ local function showHud()
 		mini.Visible = false
 		hud.Visible = true
 	end
+	Players.LocalPlayer:SetAttribute("SpireHudVisible", hud.Visible)
 end
 
 local function hideAll()
 	hud.Visible = false
 	mini.Visible = false
+	Players.LocalPlayer:SetAttribute("SpireHudVisible", false)
 end
 
--- Between climbs, near the Spire: your best dragon and Climb / Elevator.
+-- Between climbs, near the Spire: your best dragon, Climb and Auto-Repeat.
 local function showReady()
 	local data = DataController:Get()
 	record = if data then data.SpireRecord else record
@@ -338,6 +342,11 @@ local function showReady()
 end
 
 local function onUpdate(update: { [string]: any })
+	if typeof(update.AutoRepeat) == "boolean" then
+		autoRepeat = update.AutoRepeat
+		updateRepeat()
+	end
+	if update.Phase == "State" then return end
 	if update.Phase == "Ended" and not HudLayout.HasFocus() then
 		hiddenByWindow = false
 	end
@@ -348,22 +357,12 @@ local function onUpdate(update: { [string]: any })
 	record = update.Record or record
 	recordLabel.Text = format(words.Record, { record = record })
 	local phase = update.Phase
-	if phase == "Fast" then
-		setFloorBadge(format(words.Floors, { from = update.From, to = update.To }), false)
-		message.Text = words.Fast
-		timerStart, timerSeconds = os.clock(), update.Seconds
-		setMode("Fast")
-	elseif phase == "Fight" then
+	if phase == "Fight" then
 		setFloorBadge(format(words.Floor, { floor = update.Floor }), update.Boss == true)
 		local mutation = Mutations.Get(update.MutationId)
 		local dragonName = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {update.Dragon}` else update.Dragon
 		setPortrait(mine, update.SpeciesId, update.Level, dragonName)
-		-- fast fights change enemy every fraction of a second: keep the last picture, just rename
-		if update.Fast and enemy.Key ~= "" then
-			enemy.Name.Text = update.Enemy
-		else
-			setPortrait(enemy, update.EnemyId, math.max(1, update.Floor), update.Enemy)
-		end
+		setPortrait(enemy, update.EnemyId, math.max(1, update.Floor), update.Enemy)
 		playerWins = update.Power >= update.EnemyPower
 		local stronger = math.max(update.Power, update.EnemyPower, 1)
 		powerRatio = math.min(0.85, math.min(update.Power, update.EnemyPower) / stronger)
@@ -505,11 +504,9 @@ function SpireController:Init()
 	Tooltip.Attach(message, function()
 		return Text.SpireStuckTip
 	end)
-	fastTrack, fastFill = makeBar(hud, Theme.Colors.Trim)
-	fastTrack.Position = UDim2.fromOffset(portraitRight, 78)
-	fastTrack.Size = UDim2.new(1, -(portraitRight + 16), 0, 14)
 
 	local row = Instance.new("Frame")
+	buttonRow = row
 	row.Name = "Buttons"
 	row.AnchorPoint = Vector2.new(0, 1)
 	row.Position = UDim2.new(0, portraitRight, 1, -12)
@@ -526,11 +523,11 @@ function SpireController:Init()
 		spireAction:FireServer("Start")
 	end })
 	climbButton.Instance.LayoutOrder = 1
-	elevatorButton = Button.new(row, { Text = "", Kind = "Neutral", TextSize = 18, OnClick = function()
-		spireAction:FireServer("Start", true)
+	repeatButton = Button.new(row, { Text = words.AutoRepeatOff, Kind = "Neutral", TextSize = 18, OnClick = function()
+		spireAction:FireServer("AutoRepeat", not autoRepeat)
 	end })
-	elevatorButton.Instance.LayoutOrder = 2
-	elevatorButton.Instance.Size = UDim2.new(0.5, -4, 0, 42)
+	repeatButton.Instance.LayoutOrder = 2
+	repeatButton.Instance.Size = UDim2.new(0.5, -4, 0, 42)
 
 	stopButton = Button.new(hud, { Text = words.Stop, Kind = "Cancel", TextSize = 16, OnClick = function()
 		spireAction:FireServer("Stop")
@@ -594,15 +591,17 @@ function SpireController:Init()
 	-- Phones: the same HUD, smaller, still bottom center (between the thumbstick and the jump button).
 	HudLayout.OnLayoutChanged(function(isPhone)
 		phone = isPhone
-		hudScale.Scale = if isPhone then sizes.PhoneSpireScale else 1
+		local safe = HudLayout.GetUsableRect()
+		if safe.Width <= Layout.SafeMargin * 2 or safe.Height <= 0 then return end
+		hudScale.Scale = math.max(0.1, math.min(if isPhone then sizes.PhoneSpireScale else 1, (safe.Width - Layout.SafeMargin * 2) / sizes.SpireHud.X))
+		hud.Size = UDim2.fromOffset(sizes.SpireHud.X, if isPhone then sizes.PhoneSpireHudHeight else sizes.SpireHud.Y)
 		hud.Position = UDim2.new(0.5, 0, 1, if isPhone then -6 else -16)
 		mini.Position = UDim2.new(0.5, 0, 1, if isPhone then -6 else -16)
 		mini.Size = UDim2.fromOffset(math.floor(sizes.SpireMini.X * hudScale.Scale), math.floor(sizes.SpireMini.Y * hudScale.Scale))
+		setMode(mode)
 	end)
 
 	spireUpdate.OnClientEvent:Connect(onUpdate)
-	DataController:OnChanged("ElevatorSkips", updateElevator)
-	Players.LocalPlayer:GetAttributeChangedSignal("Pass_ElevatorPass"):Connect(updateElevator)
 	setMode("Ready")
 end
 
@@ -614,10 +613,6 @@ function SpireController:Start()
 			return
 		end
 		local t = math.clamp((os.clock() - timerStart) / timerSeconds, 0, 1)
-		if mode == "Fast" then
-			fastFill.Size = UDim2.fromScale(t, 1)
-			return
-		end
 		if mode ~= "Fight" or not hud.Visible then
 			return
 		end

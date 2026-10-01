@@ -83,6 +83,7 @@ end
 -- Called by RebirthService right after a rebirth (and by the Studio dev tools).
 function MilestoneService:OnRebirth(player: Player, data: PlayerData)
 	self:Check(player, data)
+	DragonStats.EnsureLevelingAnchor(data) -- after milestone grants; also handles Studio's granted rebirths
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -98,7 +99,6 @@ local function chooseUpgrade(data: PlayerData, spare: number): (PlayerDataTypes.
 	for _, dragonId in data.RoostDragonIds do
 		local dragon = data.Dragons[dragonId]
 		if dragon and dragon.Level < cap then
-			local unit = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
 			local before = DragonStats.GetGoldPerSecond(dragon)
 			local options = { 1, cap - dragon.Level }
 			for _, stage in Evolution.Stages do
@@ -110,9 +110,10 @@ local function chooseUpgrade(data: PlayerData, spare: number): (PlayerDataTypes.
 			for _, levels in options do
 				local probe = table.clone(dragon)
 				probe.Level = dragon.Level + levels
-				local ratio = (DragonStats.GetGoldPerSecond(probe) - before) / (unit * levels)
+				local _, cost = DragonStats.GetBulkLevelCost(dragon, levels, cap, data.Rebirths, data.LevelingIncomeAnchor)
+				local ratio = (DragonStats.GetGoldPerSecond(probe) - before) / cost
 				if ratio > bestRatio then
-					bestDragon, bestLevels, bestRatio, bestCost = dragon, levels, ratio, unit * levels
+					bestDragon, bestLevels, bestRatio, bestCost = dragon, levels, ratio, cost
 				end
 			end
 		end

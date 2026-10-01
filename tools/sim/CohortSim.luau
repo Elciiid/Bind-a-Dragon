@@ -33,6 +33,7 @@ local Traits = require(Config.Traits)
 local BindingOdds = require(Shared.BindingOdds)
 local DragonStats = require(Shared.DragonStats)
 local Luck = require(Shared.Luck)
+local Milestones = require(Config.RebirthMilestones)
 
 local Sim = {}
 
@@ -43,7 +44,6 @@ export type Profile = {
 	Jitter: number, -- minutes each session start moves around
 	SkipDay: number, -- chance of playing no active session on a day
 	SpireMinutes: number, -- Spire time inside the first active session
-	QuestRate: number, -- chance each daily quest gets done
 	AutoBind: boolean,
 	Afk2x: boolean,
 	SpendK: number, -- buy an upgrade only if it pays back within this share of the time left to the next rebirth
@@ -52,20 +52,20 @@ export type Profile = {
 Sim.Profiles = {
 	Dedicated = {
 		Name = "Dedicated", Active = { { 660, 110 }, { 1140, 100 } }, Jitter = 60, SkipDay = 0.03,
-		SpireMinutes = 25, QuestRate = 0.95, AutoBind = false, Afk2x = false, SpendK = 0.6,
+		SpireMinutes = 25, AutoBind = false, Afk2x = false, SpendK = 0.6,
 	},
 	Casual = {
 		Name = "Casual", Active = { { 1140, 60 } }, Jitter = 90, SkipDay = 0.25,
-		SpireMinutes = 8, QuestRate = 0.6, AutoBind = false, Afk2x = false, SpendK = 0.6,
+		SpireMinutes = 8, AutoBind = false, Afk2x = false, SpendK = 0.6,
 	},
 	AfkOnly = {
 		Name = "AfkOnly", Active = { { 1140, 12 } }, Jitter = 120, SkipDay = 0.10,
-		SpireMinutes = 0, QuestRate = 0.25, AutoBind = false, Afk2x = false, SpendK = 0.6,
+		SpireMinutes = 0, AutoBind = false, Afk2x = false, SpendK = 0.6,
 	},
 	PaidAfk = {
 		-- Auto-bind + 2x AFK Income: in the game ~12 h a day, 12 five-minute check-ins.
 		Name = "PaidAfk", Active = {}, Jitter = 45, SkipDay = 0.05,
-		SpireMinutes = 5, QuestRate = 0.5, AutoBind = true, Afk2x = true, SpendK = 0.6,
+		SpireMinutes = 5, AutoBind = true, Afk2x = true, SpendK = 0.6,
 	},
 } :: { [string]: Profile }
 
@@ -79,7 +79,8 @@ do
 end
 
 -- Switches for the "Old" preset (the economy approved before the mutation branch); all off = the live Config.
-local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false }
+local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false, FlatLevelCost = false }
+local progress: (any, string, number) -> ()
 
 local DAY = 86400
 local CYCLE = DayNight.DaySeconds + DayNight.NightSeconds
@@ -126,20 +127,48 @@ type State = {
 	CostRebirths: number, CostValue: number, -- cache of the next rebirth cost
 	LastSpend: number,
 	Origin: number, -- seconds: when the player starts (the first session of day 0); day counts start here
+	Daily: {any}, Weekly: {any}, Floor: number, FightLeft: number,
+	ConquerorMin: number, RunebrightMin: number, RuneEarned: number, StoneEarned: number, UpgradeSpent: number,
+	LevelCosts: {[string]: {number}},
+	BandMinutes: {number},
+	ReinvestedBandMinutes: {number},
+	OfferingNight: number, OfferingLuck: number,
 }
 
 local rarityRank: { [string]: number } = { Common = 1, Rare = 2, Epic = 3, Legendary = 4, Mythic = 5 }
+
+local function sigilCap(S: State): number
+	local cap = BindingConfig.EchoSigilCap
+	for _, milestone in Milestones.Milestones do
+		if S.Data.Rebirths >= milestone.Rebirths then cap += milestone.Perks.EchoSigilCap or 0 end
+	end
+	return cap
+end
+
+local function ascendedLuck(S: State): number
+	local luck = 1
+	for _, milestone in Milestones.Milestones do
+		if S.Data.Rebirths >= milestone.Rebirths then luck *= milestone.Perks.AscendedLuck or 1 end
+	end
+	return luck
+end
 
 local function newState(profile: Profile, seed: number, cap: number): State
 	local data = {
 		Dragons = {}, RoostDragonIds = {}, Rebirths = 0, Gold = 0,
 		RoostSlotUpgrades = 0, RoostIncomeLevel = 0, Index = {}, MutationIndex = {}, ActiveBoosts = {},
+		Stardust = 0, MerchantDay = -1, MerchantPurchases = 0, LevelingIncomeAnchor = 0, LevelingAnchorRebirth = 0,
 	}
 	local S: State = {
 		Rng = Random.new(seed), Profile = profile, Data = data, Cap = cap, Time = 0, Runes = 0, Stones = 0, Sigils = 0,
 		GildedMin = 0, HoardMin = 0, Charges = {}, WyrmbloodMin = 0, SpireRecord = 0, Streak = 0, SpireWinsToday = 0,
 		SigilFromQuests = false, SigilFromSpire = false, NightConst = {}, Binds = 0, RebirthDay = {},
 		IndexMilestones = 0, ElementsRewarded = {}, NextId = 1, WeekBank = 0, LastBindNight = -1, CostRebirths = -1, CostValue = 0, LastSpend = -1e9, Origin = 0,
+		Daily = {}, Weekly = {}, Floor = 1, FightLeft = 12, ConquerorMin = 0, RunebrightMin = 0, RuneEarned = 0, StoneEarned = 0, UpgradeSpent = 0,
+		LevelCosts = {},
+		BandMinutes = {},
+		ReinvestedBandMinutes = {},
+		OfferingNight = -1, OfferingLuck = 1,
 	}
 	return S
 end
@@ -376,6 +405,25 @@ local function bind(S: State, t: number, auto: boolean, extra: boolean?)
 		local area = Areas[areaId]
 		local moon = LuckConfig.MoonPhases[night % #LuckConfig.MoonPhases + 1].Luck
 		luck = area.BindLuck * constellation.Luck * moon
+		local offeringLuck = if S.OfferingNight == night then S.OfferingLuck else 1
+		for _, offering in if S.OfferingNight == night then {} else LuckConfig.Offerings do
+			if S.Data.Stardust < offering.Cost then
+				local price = DragonStats.GetMerchantPrice(S.Data, night)
+				if S.Data.Gold >= price and price < rebirthCost(S) * 0.01 then
+					S.Data.Gold -= price
+					S.Data.Stardust += Economy.Merchant.BundleSize
+					if S.Data.MerchantDay ~= night then S.Data.MerchantPurchases = 0 end
+					S.Data.MerchantDay = night
+					S.Data.MerchantPurchases += 1
+				end
+			end
+			if S.Data.Stardust < offering.Cost then break end
+			S.Data.Stardust -= offering.Cost
+			offeringLuck += offering.Luck
+			progress(S, "Offer", 1)
+		end
+		S.OfferingNight, S.OfferingLuck = night, offeringLuck
+		luck *= offeringLuck * ascendedLuck(S)
 		if area.Element ~= nil and area.Element == constellation.Element then
 			luck *= LuckConfig.FavoredAreaLuck
 		end
@@ -391,6 +439,8 @@ local function bind(S: State, t: number, auto: boolean, extra: boolean?)
 		return
 	end
 	S.Binds += 1
+	progress(S, "Bind", 1)
+	if area.Element and area.Element == constellation.Element then progress(S, "FavoredBind", 1) end
 	local mutationId = if outcome.MutationId ~= Mutations.NormalId then outcome.MutationId else nil
 	local d = newDragon(S, outcome.SpeciesId, mutationId)
 	recordIndex(S, d)
@@ -406,16 +456,32 @@ local function roostMultiplier(S: State): number
 		* DragonStats.GetIndexMultiplier(S.Data)
 end
 
-local function levelCost(d: Dragon, rebirths: number): number
+local function levelCost(d: Dragon, rebirths: number, anchor: number?): number
 	if Variant.OldLevelCost then
 		local base = ({ Common = 1000, Rare = 5000, Epic = 20000, Legendary = 100000, Mythic = 500000 })[Dragons[d.SpeciesId].Rarity]
 		return base * 1.08 ^ (d.Level - 1) * RebirthConfig.IncomeBonusPerRebirth ^ rebirths
 	end
-	return DragonStats.GetLevelUpCost(d :: any, rebirths)
+	if Variant.FlatLevelCost then return DragonStats.GetRebirthCost(rebirths) * Leveling.CostFractionOfNextRebirth[Dragons[d.SpeciesId].Rarity] end
+	return DragonStats.GetLevelUpCost(d :: any, rebirths, anchor)
 end
 
 local function income(S: State): number
 	return DragonStats.GetRoostIncome(S.Data)
+end
+
+-- Prefix sums cache the exact shared per-level calculation; never approximate bulk costs as unit x count.
+local function bulkCost(S: State, d: Dragon, count: number): number
+	local prefix = S.LevelCosts[d.SpeciesId]
+	if prefix == nil then
+		prefix = {0}
+		local probe = table.clone(d)
+		for level = 1, DragonStats.GetLevelCap(S.Data) do
+			probe.Level = level
+			prefix[level + 1] = prefix[level] + levelCost(probe, S.Data.Rebirths, S.Data.LevelingIncomeAnchor)
+		end
+		S.LevelCosts[d.SpeciesId] = prefix
+	end
+	return prefix[d.Level + count] - prefix[d.Level]
 end
 
 local function potionMultiplier(S: State): number
@@ -445,7 +511,7 @@ local function applyRunes(S: State)
 		return
 	end
 	local function roll(entries: { any }): any
-		local w = Luck.GetTierWeights(entries, 1)
+		local w = Luck.GetTierWeights(entries, if S.RunebrightMin > 0 then Boosts.ById.RunebrightTonic.Multiplier else 1)
 		local total = 0
 		for _, x in w do
 			total += x
@@ -481,6 +547,7 @@ local function applyRunes(S: State)
 end
 
 local function levelUpTo(S: State, d: Dragon, newLevel: number, t: number)
+	progress(S, "Levels", newLevel - d.Level)
 	while d.Level < newLevel do
 		d.Level += 1
 		for _, stage in Evolution.Stages do
@@ -498,6 +565,33 @@ local function rebirth(S: State)
 	table.insert(S.RebirthDay, (S.Time - S.Origin) / DAY)
 	S.Data.Rebirths += 1
 	S.Data.Gold = 0
+	for _, milestone in Milestones.Milestones do
+		if S.Data.Rebirths == milestone.Rebirths and milestone.Perks.Champion then
+			local champion: any = newDragon(S, Milestones.Champion.SpeciesId, nil)
+			champion.Champion = true
+			equip(S, champion) -- optional collection dragon, never adds an Index entry
+		end
+	end
+	DragonStats.EnsureLevelingAnchor(S.Data)
+	table.clear(S.LevelCosts)
+	if S.Data.Rebirths >= 10 then
+		local d = DragonStats.GetBestDragon(S.Data)
+		if d and S.Data.LevelingIncomeAnchor > 0 then
+			local probe = table.clone(d)
+			probe.Level = DragonStats.GetLevelCap(S.Data) - Leveling.CapPerRebirth
+			local _, c = DragonStats.GetBulkLevelCost(probe, Leveling.CapPerRebirth, DragonStats.GetLevelCap(S.Data), S.Data.Rebirths, S.Data.LevelingIncomeAnchor)
+			table.insert(S.BandMinutes, c / S.Data.LevelingIncomeAnchor / 60)
+			local hypothetical = table.clone(S.Data)
+			hypothetical.Dragons = table.clone(S.Data.Dragons)
+			hypothetical.Dragons[d.Id] = probe
+			local seconds = 0
+			for i = 1, Leveling.CapPerRebirth do
+				seconds += DragonStats.GetLevelUpCost(probe, S.Data.Rebirths, S.Data.LevelingIncomeAnchor) / DragonStats.GetRetainedIncomeAnchor(hypothetical)
+				probe.Level += 1
+			end
+			table.insert(S.ReinvestedBandMinutes, seconds / 60)
+		end
+	end
 end
 
 -- Spends gold: rebirth when affordable, otherwise the best-paying upgrade if it pays back soon enough.
@@ -527,7 +621,6 @@ local function spend(S: State, t: number, rate: number)
 		for _, id in data.RoostDragonIds do
 			local d: Dragon = data.Dragons[id]
 			if d.Level < cap then
-				local unit = levelCost(d, data.Rebirths)
 				local before = DragonStats.GetGoldPerSecond(d :: any)
 				local stepsList = { 1 }
 				for _, stage in Evolution.Stages do
@@ -541,7 +634,7 @@ local function spend(S: State, t: number, rate: number)
 					local probe = table.clone(d)
 					probe.Level = d.Level + n
 					local gain = (DragonStats.GetGoldPerSecond(probe :: any) - before) * mult * potionMultiplier(S)
-					local c = unit * n
+					local c = bulkCost(S, d, n)
 					if gain > 0 then
 						local pb = c / gain
 						if pb < bestPayback then
@@ -589,6 +682,7 @@ local function spend(S: State, t: number, rate: number)
 		end
 		data.Gold -= bestCost
 		if bestAction.Kind == "Level" then
+			S.UpgradeSpent += bestCost
 			levelUpTo(S, bestAction.Dragon, bestAction.To, t)
 		elseif bestAction.Kind == "Income" then
 			data.RoostIncomeLevel += 1
@@ -629,6 +723,10 @@ local function giveDrops(S: State, drops: { any }, floor: number, mult: number)
 				end
 			elseif potion.Stat == "SpirePower" then
 				S.WyrmbloodMin = math.min(S.WyrmbloodMin + (potion.Minutes or 0), Boosts.MaxStoredMinutes)
+			elseif potion.Stat == "SpireRewards" then
+				S.ConquerorMin = math.min(S.ConquerorMin + (potion.Minutes or 0), Boosts.MaxStoredMinutes)
+			elseif potion.Stat == "RollLuck" then
+				S.RunebrightMin = math.min(S.RunebrightMin + (potion.Minutes or 0), Boosts.MaxStoredMinutes)
 			end
 		end
 		local runes, stones = drop.WyrmRunes or 0, drop.Dragonstones or 0
@@ -641,6 +739,9 @@ local function giveDrops(S: State, drops: { any }, floor: number, mult: number)
 		end
 		S.Runes += runes * mult
 		S.Stones += stones * mult
+		S.RuneEarned += runes * mult
+		S.StoneEarned += stones * mult
+		S.Data.Stardust += (drop.Stardust or 0) * mult
 	end
 end
 
@@ -648,116 +749,112 @@ end
 local function spire(S: State, t: number, minutes: number)
 	local data = S.Data
 	local seconds = minutes * 60
-	if S.WyrmbloodMin > 0 then
-		-- use a stored Wyrmblood for this session if we have one (10 min); good enough for the model
-	end
-	while seconds > 0 do
+	while seconds >= S.FightLeft do
 		local best, power = DragonStats.GetBestDragon(data)
 		if best == nil then
 			return
 		end
 		if S.WyrmbloodMin > 0 then
 			power *= 2
-			S.WyrmbloodMin = math.max(0, S.WyrmbloodMin - seconds / 60)
 		end
-		local floor = 1
-		local fastUntil = math.max(0, S.SpireRecord - SpireConfig.TopWindow)
-		seconds -= fastUntil * SpireConfig.FastFloorSeconds
-		floor = fastUntil + 1
+		local floor = S.Floor
+		seconds -= S.FightLeft
+		S.FightLeft = SpireConfig.FightSeconds
 		local climbed = false
-		while floor <= SpireConfig.MaxFloors and seconds > 0 do
+		do
 			local enemy = DragonStats.GetEnemyPower(floor)
-			local fast = power >= enemy * SpireConfig.PowerFastRatio
-			seconds -= if fast then SpireConfig.FastFloorSeconds else SpireConfig.FightSeconds
 			if power < enemy then
-				break
+				S.Floor = 1
+				return
 			end
 			climbed = true
 			local first = floor > S.SpireRecord
+			local rewardMult = if S.ConquerorMin > 0 then Boosts.ById.ConquerorsBrew.Multiplier else 1
+			giveDrops(S, SpireConfig.VictoryDrops, floor, rewardMult)
 			if first then
 				S.SpireRecord = floor
-				giveDrops(S, SpireConfig.FirstClearDrops, floor, 1)
-				if not fast then
-					local gold = income(S) * SpireConfig.FirstClearIncomeSeconds
+				giveDrops(S, SpireConfig.FirstClearDrops, floor, rewardMult)
+				do
+					local gold = income(S) * SpireConfig.FirstClearIncomeSeconds * rewardMult
 					local limit = DragonStats.GetGoldBankLimit(data)
 					if limit then
 						gold = math.max(0, math.min(gold, limit - data.Gold))
 					end
 					data.Gold += gold
 				end
-			elseif not fast then
-				giveDrops(S, SpireConfig.ReclearDrops, floor, 1)
+			else
+				giveDrops(S, SpireConfig.ReclearDrops, floor, rewardMult)
 			end
-			if not fast then
+			do
 				S.SpireWinsToday += 1
 				if S.SpireWinsToday >= BindingConfig.EchoSigilSpireWins and not S.SigilFromSpire then
 					S.SigilFromSpire = true
-					S.Sigils = math.min(S.Sigils + 1, BindingConfig.EchoSigilCap)
+					S.Sigils = math.min(S.Sigils + 1, sigilCap(S))
 				end
 			end
-			floor += 1
-		end
-		if not climbed then
-			seconds -= 60 -- walked up and lost straight away: time passes
-		else
-			seconds -= 20 -- walk back to start the next climb
+			S.Floor = if floor >= SpireConfig.MaxFloors then 1 else floor + 1
 		end
 	end
+	S.FightLeft -= seconds
 end
 
 ---------------------------------------------------------------------------------------------------------------------
 -- One day
 
-local function dailyQuests(S: State)
-	local p = S.Profile
-	local done = 0
-	for _ = 1, Quests.DailyCount do
-		if S.Rng:NextNumber() < p.QuestRate then
-			done += 1
-		end
-	end
-	for slot = 1, done do
-		local r = Quests.DailyRewards[slot]
-		if r then
-			S.Runes += r.WyrmRunes or 0
-			S.Stones += r.Dragonstones or 0
-			if r.Potions and r.Potions.GildedDraught then
-				S.GildedMin += 5 * r.Potions.GildedDraught
-			end
-		end
-	end
-	if done >= Quests.DailyCount and not S.SigilFromQuests then
-		S.SigilFromQuests = true
-		S.Sigils = math.min(S.Sigils + 1, BindingConfig.EchoSigilCap)
-	end
-	-- login streak
-	S.Streak += 1
-	local reward = Quests.StreakRewards[(S.Streak - 1) % #Quests.StreakRewards + 1]
-	S.Runes += reward.WyrmRunes or 0
-	S.Stones += reward.Dragonstones or 0
-	if reward.Potions then
-		S.GildedMin += 5 * (reward.Potions.GildedDraught or 0)
-		S.HoardMin += 5 * (reward.Potions.HoardElixir or 0)
-		if reward.Potions.MoonfireTonic then
-			table.insert(S.Charges, Boosts.ById.MoonfireTonic.Multiplier)
+local function grantReward(S: State, r: any)
+	S.Runes += r.WyrmRunes or 0
+	S.Stones += r.Dragonstones or 0
+	S.RuneEarned += r.WyrmRunes or 0
+	S.StoneEarned += r.Dragonstones or 0
+	S.Data.Stardust += r.Stardust or 0
+	if r.Potions then
+		S.GildedMin += 5 * (r.Potions.GildedDraught or 0)
+		S.HoardMin += 5 * (r.Potions.HoardElixir or 0)
+		for id, count in r.Potions do
+			local p = Boosts.ById[id]
+			if p and p.Kind == "LuckCharge" then for i = 1, count do table.insert(S.Charges, p.Multiplier) end end
 		end
 	end
 end
 
-local function weeklyQuests(S: State)
-	local p = S.Profile
-	for slot = 1, Quests.WeeklyCount do
-		if S.Rng:NextNumber() < math.min(1, p.QuestRate * 1.2) then
-			local r = Quests.WeeklyRewards[slot]
-			if r then
-				S.Runes += r.WyrmRunes or 0
-				S.Stones += r.Dragonstones or 0
-				if r.Potions and r.Potions.HoardElixir then
-					S.HoardMin += 5 * r.Potions.HoardElixir
-				end
+local function chooseQuests(S: State, pool: {any}, count: number): {any}
+	local available = table.clone(pool)
+	local selected = {}
+	for i = 1, count do
+		local q = table.remove(available, S.Rng:NextInteger(1, #available))
+		table.insert(selected, { Kind = q.Kind, Target = q.Target or math.max(1, income(S) * q.IncomeSeconds), Progress = 0, Done = false, Slot = i })
+	end
+	return selected
+end
+
+progress = function(S: State, kind: string, amount: number)
+	for _, pair in {{S.Daily, Quests.DailyRewards}, {S.Weekly, Quests.WeeklyRewards}} do
+		for _, q in pair[1] do
+			if not q.Done and q.Kind == kind then
+				q.Progress += amount
+				if q.Progress >= q.Target then q.Done = true; grantReward(S, pair[2][q.Slot]) end
 			end
 		end
 	end
+	local all = #S.Daily > 0
+	for _, q in S.Daily do all = all and q.Done end
+	if all and not S.SigilFromQuests then
+		S.SigilFromQuests = true
+		S.Sigils = math.min(S.Sigils + 1, sigilCap(S))
+	end
+end
+
+local function dailyQuests(S: State)
+	local p = S.Profile
+	S.Daily = chooseQuests(S, Quests.DailyPool, Quests.DailyCount)
+	-- login streak
+	S.Streak += 1
+	local reward = Quests.StreakRewards[(S.Streak - 1) % #Quests.StreakRewards + 1]
+	grantReward(S, reward)
+end
+
+local function weeklyQuests(S: State)
+	S.Weekly = chooseQuests(S, Quests.WeeklyPool, Quests.WeeklyCount)
 end
 
 local function runDay(S: State, day: number)
@@ -800,7 +897,7 @@ local function runDay(S: State, day: number)
 		S.Origin = if #segs > 0 then segs[1].From else 0 -- a new player starts playing at once: no offline time before
 		cursor = S.Origin
 	end
-	local spired = false
+	local spireBudget = p.SpireMinutes * 60
 	local function away(toSec: number, inGameIdle: boolean)
 		local from = cursor
 		if toSec <= from then
@@ -808,14 +905,13 @@ local function runDay(S: State, day: number)
 		end
 		local seconds = math.min(toSec - from, allowance)
 		allowance -= seconds
-		-- income is flat while away; use the current value
 		data.Gold += income(S) * offlineRate * seconds
 		local limit = DragonStats.GetGoldBankLimit(data)
 		if limit and data.Gold > limit then
 			data.Gold = limit
 		end
 		-- Auto-bind while in the game: once per night, 60 s before it ends (idle in game, base luck)
-		if inGameIdle and p.AutoBind then
+		if p.AutoBind then
 			local t0, t1 = startT + from, startT + toSec
 			local n = nightIndex(t0)
 			while true do
@@ -823,7 +919,11 @@ local function runDay(S: State, day: number)
 				if when > t1 then
 					break
 				end
-				if when >= t0 then
+				local inWindow = false
+				for _, w in p.Idle or {} do
+					if when >= startT + w[1] * 60 and when < startT + (w[1] + w[2]) * 60 then inWindow = true end
+				end
+				if when >= t0 and inWindow then
 					bind(S, when, true)
 				end
 				n += 1
@@ -844,30 +944,34 @@ local function runDay(S: State, day: number)
 			local tEnd = startT + seg.To
 			S.Time = t
 			applyRunes(S)
-			if not spired and p.SpireMinutes > 0 then
-				spired = true
-				spire(S, t, p.SpireMinutes)
-				equip(S)
-			end
+			S.Floor, S.FightLeft = 1, SpireConfig.FightSeconds
 			local lastBound = -1
 			local sinceAuto = false
 			while t < tEnd do
 				local dt = math.min(STEP, tEnd - t)
 				local mult = potionMultiplier(S)
 				data.Gold += income(S) * mult * dt
+				progress(S, "Gold", income(S) * mult * dt)
+				if spireBudget > 0 then
+					local fought = math.min(dt, spireBudget)
+					spire(S, t, fought / 60)
+					spireBudget -= fought
+				end
+				applyRunes(S)
 				local limit = DragonStats.GetGoldBankLimit(data)
 				if limit and data.Gold > limit then
 					data.Gold = limit
 				end
 				local minutes = dt / 60
 				S.HoardMin = math.max(0, S.HoardMin - minutes)
-				if S.HoardMin == 0 then
-					S.GildedMin = math.max(0, S.GildedMin - minutes)
-				end
+				S.GildedMin = math.max(0, S.GildedMin - minutes)
+				S.WyrmbloodMin = math.max(0, S.WyrmbloodMin - minutes)
+				S.ConquerorMin = math.max(0, S.ConquerorMin - minutes)
+				S.RunebrightMin = math.max(0, S.RunebrightMin - minutes)
 				t += dt
 				S.Time = t
 				-- bind once per night while it is night
-				if isNight(t) then
+				if isNight(t) and spireBudget <= 0 then
 					local n = nightIndex(t)
 					if lastBound ~= n then
 						lastBound = n
@@ -897,27 +1001,6 @@ end
 
 ---------------------------------------------------------------------------------------------------------------------
 -- Idle auto-bind: PaidAfk is in the game between check-ins, so nights inside its Idle window bind at base luck.
-
-local function autoBindWindow(S: State, day: number)
-	local p = S.Profile
-	if not p.AutoBind or p.Idle == nil then
-		return
-	end
-	for _, w in p.Idle do
-		local t0, t1 = day * DAY + w[1] * 60, day * DAY + (w[1] + w[2]) * 60
-		local n = nightIndex(t0)
-		while true do
-			local when = (n + 1) * CYCLE - Products.AutoBindSecondsLeft
-			if when > t1 then
-				break
-			end
-			if when >= t0 then
-				bind(S, when, true)
-			end
-			n += 1
-		end
-	end
-end
 
 ---------------------------------------------------------------------------------------------------------------------
 -- Public
@@ -958,7 +1041,6 @@ function Sim.Run(profileName: string, seed: number, maxDays: number, weeks: numb
 			task.wait() -- keep Studio responsive; the job runs in the background
 			yieldClock = os.clock()
 		end
-		autoBindWindow(S, day)
 		runDay(S, day)
 		-- the cap may have been reached inside the day: find when
 		if capHitDay == nil and S.Data.Rebirths >= S.Cap then
@@ -992,8 +1074,16 @@ function Sim.Run(profileName: string, seed: number, maxDays: number, weeks: numb
 	end
 	result.SpireRecord = S.SpireRecord
 	result.RebirthDay = S.RebirthDay -- the day (fractional) of each rebirth, for the pacing curve
+	for checkpoint in checkpoints do
+		local count = 0
+		for _, reached in S.RebirthDay do if reached <= checkpoint then count += 1 end end
+		result.RebirthsAt[checkpoint] = count
+	end
 	result.Rebirths = S.Data.Rebirths
 	result.Binds = S.Binds
+	result.RunesEarned, result.StonesEarned, result.UpgradeSpent = S.RuneEarned, S.StoneEarned, S.UpgradeSpent
+	result.BandMinutes = S.BandMinutes
+	result.ReinvestedBandMinutes = S.ReinvestedBandMinutes
 	return result
 end
 
@@ -1012,8 +1102,14 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 	local spire: { number } = {}
 	local weekly: { { number } } = {}
 	local rebirthsAt: { [number]: { number } } = {}
+	local runes, stones, spent = {}, {}, {}
+	local bands = {}
+	local reinvested = {}
 	for seed = 1, runs do
 		local r = Sim.Run(profileName, seed * 7919, maxDays, weeks)
+		table.insert(runes, r.RunesEarned); table.insert(stones, r.StonesEarned); table.insert(spent, r.UpgradeSpent)
+		for _, minutes in r.BandMinutes do table.insert(bands, minutes) end
+		for _, minutes in r.ReinvestedBandMinutes do table.insert(reinvested, minutes) end
 		if r.DaysToCap then
 			table.insert(days, r.DaysToCap)
 		else
@@ -1031,6 +1127,9 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 	end
 	table.sort(days)
 	table.sort(spire)
+	table.sort(runes); table.sort(stones); table.sort(spent)
+	table.sort(bands)
+	table.sort(reinvested)
 	local summary: any = {
 		Profile = profileName,
 		Runs = runs,
@@ -1041,6 +1140,9 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 		SpireDay7Median = percentile(spire, 0.5),
 		Weekly = {},
 		RebirthsDay7 = nil,
+		MedianRunesEarned = percentile(runes, 0.5), MedianStonesEarned = percentile(stones, 0.5), MedianUpgradeSpent = percentile(spent, 0.5),
+		BandMinutesMedian = percentile(bands, 0.5), BandMinutesP10 = percentile(bands, 0.1), BandMinutesP90 = percentile(bands, 0.9),
+		ReinvestedBandMinutesMedian = percentile(reinvested, 0.5), ReinvestedBandMinutesP10 = percentile(reinvested, 0.1), ReinvestedBandMinutesP90 = percentile(reinvested, 0.9),
 	}
 	for k, list in weekly do
 		table.sort(list)
@@ -1100,7 +1202,6 @@ function Sim.Trace(profileName: string, seed: number, days: number): { string }
 	local S = startRun(profileName, seed, nil)
 	local lines = {}
 	for day = 0, days - 1 do
-		autoBindWindow(S, day)
 		runDay(S, day)
 		local best = DragonStats.GetBestDragon(S.Data)
 		table.insert(lines, string.format(

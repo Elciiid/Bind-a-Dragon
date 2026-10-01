@@ -67,6 +67,9 @@ end
 
 -- Uses the Tower Elevator for one climb: free with the pass, else spends one Elevator Skip.
 function MonetizationService:UseElevator(player: Player, data: PlayerDataTypes.PlayerData): boolean
+	if Products.Passes.ElevatorPass.Disabled or Products.Products.ElevatorSkip.Disabled then
+		return false -- retired: never consume persisted skips
+	end
 	if self:OwnsPass(player, "ElevatorPass") then
 		return true
 	end

@@ -9,11 +9,13 @@ export type Item = {
 	Name: string,
 	Description: string,
 	Robux: number,
+	Disabled: boolean?, -- preserve old entitlement config while removing sale/use
 }
 
 return {
 	Passes = {
 		ElevatorPass = {
+			Disabled = true,
 			Id = 0,
 			Name = "Tower Elevator",
 			Description = "Start Spire climbs above your record floor",
@@ -35,6 +37,7 @@ return {
 
 	Products = {
 		ElevatorSkip = {
+			Disabled = true,
 			Id = 0,
 			Name = "Elevator Skip",
 			Description = "One Spire climb starting above your record floor",
@@ -43,7 +46,7 @@ return {
 	} :: { [string]: Item },
 
 	-- Display order in the shop.
-	ShopOrder = { "ElevatorPass", "ElevatorSkip", "AfkIncome2x", "AutoBind" },
+	ShopOrder = { "AfkIncome2x", "AutoBind" }, -- elevator is retired; stored entitlements are preserved
 
 	AfkIncomeMultiplier = 2, -- 2x AFK Income: offline and idle roost income only
 	AutoBindSecondsLeft = 60, -- Auto-bind binds for you when this many seconds of night are left (bind yourself earlier for better luck)

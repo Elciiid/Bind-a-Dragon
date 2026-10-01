@@ -3,6 +3,13 @@
 This file gives Claude Code the context for this project. Read it before making changes.
 Keep it updated: when a system is finished or a design decision changes, edit the relevant section.
 
+**Hakai gameplay polish economy (2026-10-02, feature branch):** level prices grow x1.08 per level with a server-saved
+retained-income anchor and exact bulk/Auto-Upgrade sums; `Rebirth.LateGrowth = 2.31`. Paired 1,000-seed cohorts/profile
+produce raw Dedicated R30 median **7.961 days** (3.5 scheduled active h/day + capped 50% offline); paid AFK **16.00 days**.
+Latest-band roost-only grind median **12.12 minutes**, with a 15-minute quote floor. Finite first-clear Spire gold can
+shorten individual bands and is already included in progression cohorts. Full evidence, assumptions and limitations:
+[`tools/sim/Hakai_Polish_Results.md`](tools/sim/Hakai_Polish_Results.md). These simulations do not certify Studio flows.
+
 ## Project summary
 
 A cooperative Roblox dragon-collecting idle game built by a 3-person team.

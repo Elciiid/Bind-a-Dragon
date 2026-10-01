@@ -15,7 +15,7 @@ return {
 	FirstCost = 50e6, -- R1: a new player rebirths ~5 min into their first session
 	EarlyGrowth = 5.0, -- R2..R10: quick early rebirths (R10 within the first day)
 	EarlyUntil = 10,
-	LateGrowth = 2.55, -- R11..R30: tuned with tools/sim for ~8 days to R30 for a Dedicated player (very sensitive: +0.05 = +2-3 days)
+	LateGrowth = 2.31, -- R11..R30: raw elapsed-day cohorts with rising costs; dedicated target 7–9 days (see tools/sim)
 
 	-- The launch curve ends here. NEVER change this after launch: weekly updates raise RebirthCap instead.
 	CurveEnd = 30,

@@ -14,29 +14,51 @@ local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 
 local MERCHANT_TAG = "StarMerchant"
-local MIN_REQUEST_INTERVAL = 0.25 -- seconds between economy requests per player (anti-spam)
 local UPGRADE_STAND_RANGE = 16 -- studs from the player's own upgrade stand (the client prompt reaches 10)
 
 local notify = ReplicatedStorage.Remotes.Notify :: RemoteEvent
 local buyRoostUpgrade = ReplicatedStorage.Remotes.BuyRoostUpgrade :: RemoteEvent
+local buyStardustRemote = ReplicatedStorage.Remotes.BuyStardust :: RemoteEvent
 
 local lastRequest: { [Player]: number } = {}
 
 local EconomyService = {}
 
+-- GLB imports may lack PrimaryPart. Prefer an explicitly authored interaction anchor.
+local function merchantPart(merchant: Instance): BasePart?
+	if merchant:IsA("BasePart") then return merchant end
+	local anchor = merchant:FindFirstChild("InteractionAnchor", true)
+	if anchor and anchor:IsA("BasePart") then return anchor end
+	if merchant:IsA("Model") and merchant.PrimaryPart then return merchant.PrimaryPart end
+	return merchant:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function nearMerchant(player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not root:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then return false end
+	for _, merchant in CollectionService:GetTagged(MERCHANT_TAG) do
+		local anchor = merchantPart(merchant)
+		if anchor and (root.Position - anchor.Position).Magnitude <= Economy.Merchant.PurchaseRange then return true end
+	end
+	return false
+end
+
 local function allowRequest(player: Player): boolean
 	local now = os.clock()
-	if now - (lastRequest[player] or 0) < MIN_REQUEST_INTERVAL then
+	if now - (lastRequest[player] or 0) < Economy.Merchant.RequestInterval then
 		return false
 	end
 	lastRequest[player] = now
 	return true
 end
 
-local function buyStardust(player: Player)
-	if not allowRequest(player) then
+local function buyStardust(player: Player, request: unknown)
+	if request ~= "Bundle" or not allowRequest(player) or not nearMerchant(player) then
 		return
 	end
 	local data = DataService:GetData(player)
@@ -110,26 +132,27 @@ local function onBuyRoostUpgrade(player: Player, kind: unknown)
 end
 
 local function setupMerchant(merchant: Instance)
-	local part = if merchant:IsA("BasePart") then merchant elseif merchant:IsA("Model") then merchant.PrimaryPart else nil
+	local part = merchantPart(merchant)
 	if part == nil then
 		warn(`[EconomyService] StarMerchant {merchant:GetFullName()} needs to be a BasePart or a Model with a PrimaryPart`)
 		return
 	end
-	local prompt = Instance.new("ProximityPrompt")
+	local existing = merchant:FindFirstChild("BuyStardustPrompt", true)
+	local prompt = if existing and existing:IsA("ProximityPrompt") then existing else Instance.new("ProximityPrompt")
 	prompt.Name = "BuyStardustPrompt"
-	prompt.ActionText = "Buy Stardust" -- each client shows its own price (MerchantController)
-	prompt.ObjectText = "Star Merchant"
+	prompt.ActionText = Text.Merchant.Talk
+	prompt.ObjectText = Text.Merchant.Title
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.HoldDuration = Economy.Merchant.PromptHoldSeconds
-	prompt.MaxActivationDistance = 12
+	prompt.MaxActivationDistance = Economy.Merchant.PromptDistance
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
-	prompt.Triggered:Connect(buyStardust)
 end
 
 function EconomyService:Start()
 	buyRoostUpgrade.OnServerEvent:Connect(onBuyRoostUpgrade)
+	buyStardustRemote.OnServerEvent:Connect(buyStardust)
 	CollectionService:GetInstanceAddedSignal(MERCHANT_TAG):Connect(setupMerchant)
 	for _, merchant in CollectionService:GetTagged(MERCHANT_TAG) do
 		setupMerchant(merchant)

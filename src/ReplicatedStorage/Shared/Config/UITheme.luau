@@ -19,6 +19,7 @@ local Icons: { [string]: string } = {
 	Stardust = "rbxassetid://79393071959270",
 	WyrmRune = "rbxassetid://112660725792759",
 	Dragonstone = "rbxassetid://89473820390429",
+	EchoSigil = "", -- assets/icons/EchoSigil.png; set creator-owned image ID after upload
 
 	Menu_Dragons = "rbxassetid://115314657694318",
 	Menu_Index = "rbxassetid://82066920142194",
@@ -261,8 +262,12 @@ return {
 		PhoneTravelSlot = 62,
 		PhoneCardScale = 0.55, -- phones: Inventory dragon and potion cards are drawn this much smaller (a full row fits)
 		PhoneSkyIcon = 40,
-		SpireHud = Vector2.new(500, 150), -- PC: the Spire battle HUD (bottom center); phones draw it at PhoneSpireScale
+		SpireHud = Vector2.new(500, 200), -- includes separate Auto-Repeat and Stop controls
+		MerchantWindow = Vector2.new(460, 300), -- live-price merchant interaction panel
+		MerchantText = 18,
+		MerchantPriceText = 22,
 		PhoneSpireScale = 0.6,
+		PhoneSpireHudHeight = 300, -- accommodates physical 44px touch controls
 		SpirePortrait = 104, -- dragon portraits in the HUD
 		SpireFloorBadge = Vector2.new(170, 46), -- the big "Floor 40" badge on the HUD's top edge
 		SpireMini = Vector2.new(150, 46), -- the HUD minimized (Hide): just the floor badge

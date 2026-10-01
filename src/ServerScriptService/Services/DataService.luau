@@ -17,6 +17,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ProfileStore = require(ServerScriptService.Packages.ProfileStore)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
+local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
@@ -32,6 +33,7 @@ local function defaultSettings(): PlayerDataTypes.Settings
 		SoundVolume = defaults.SoundVolume,
 		LowEffects = defaults.LowEffects,
 		QuickBinds = defaults.QuickBinds,
+		ReducedMotion = defaults.ReducedMotion,
 	}
 end
 
@@ -76,6 +78,8 @@ local TEMPLATE: PlayerData = {
 	WyrmRunes = 0,
 	Dragonstones = 0,
 	Rebirths = 0,
+	LevelingIncomeAnchor = 0,
+	LevelingAnchorRebirth = -1,
 
 	Dragons = {},
 	NextDragonId = 1,
@@ -238,6 +242,7 @@ local function onPlayerAdded(player: Player)
 	profile:AddUserId(player.UserId) -- GDPR
 	profile:Reconcile()
 	migrate(profile.Data)
+	DragonStats.EnsureLevelingAnchor(profile.Data)
 	sanitizeMutations(profile.Data)
 
 	profile.OnSave:Connect(function()

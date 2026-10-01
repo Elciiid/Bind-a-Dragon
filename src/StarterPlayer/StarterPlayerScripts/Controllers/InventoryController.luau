@@ -25,6 +25,7 @@ local Text = require(ReplicatedStorage.Shared.Config.Text)
 local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
 local OddsText = require(ReplicatedStorage.Shared.OddsText)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Layout = require(ReplicatedStorage.Shared.Config.Layout)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
@@ -64,9 +65,24 @@ type Card = {
 	SwitchLabel: TextLabel,
 	InRoost: boolean?,
 	Tooltip: string,
+	Details: TextButton,
+	DetailsScale: UIScale,
 }
 
 local cards: { [string]: Card } = {}
+
+local function layoutCard(card: Card, phone: boolean)
+	card.Scale.Scale = cardScale
+	card.DetailsScale.Scale = 1 / cardScale
+	card.Card.Size = UDim2.fromOffset(CARD.X, if phone then Layout.PhoneDragonCardHeight else CARD.Y)
+	local controlHeight = if phone then Layout.TouchTarget / cardScale else 40
+	local switchHeight = if phone then Layout.TouchTarget / cardScale else 24
+	card.Upgrade.Instance.Size = UDim2.new(1, -16, 0, controlHeight)
+	card.Upgrade.Instance.Position = UDim2.new(0.5, 0, 1, -(if phone then 7 + switchHeight + UITheme.Sizes.Gap else 34))
+	card.Upgrade.Label.TextSize = 17 / cardScale
+	card.Switch.Size = UDim2.fromOffset(if phone then 160 else 116, switchHeight)
+	card.SwitchLabel.TextSize = 13 / cardScale
+end
 
 local function setText(label: TextLabel, value: string)
 	if label.Text ~= value then
@@ -247,6 +263,8 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		SwitchLabel = switchLabel,
 		InRoost = nil,
 		Tooltip = "",
+		Details = nil :: any,
+		DetailsScale = nil :: any,
 	}
 	switch.Activated:Connect(function()
 		if entry.InRoost then
@@ -258,6 +276,28 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 	Tooltip.Attach(card, function()
 		return entry.Tooltip
 	end)
+	local details = Instance.new("TextButton")
+	details.Name = "Details"
+	details.Text = words.Details
+	details.Font = name.Font
+	details.TextSize = 12
+	details.TextColor3 = colors.Text
+	details.BackgroundColor3 = colors.PanelBottom
+	details.AnchorPoint = Vector2.new(1, 0)
+	details.Position = UDim2.new(1, -4, 0, 36)
+	details.Size = UDim2.fromOffset(Layout.DetailsSize.X, Layout.DetailsSize.Y)
+	details.ZIndex = 6
+	details.Parent = card
+	local detailsScale = Instance.new("UIScale")
+	detailsScale.Scale = 1 / cardScale
+	detailsScale.Parent = details
+	entry.Details = details
+	entry.DetailsScale = detailsScale
+	Style.Corner(details, 6)
+	details.Activated:Connect(function()
+		Tooltip.Toggle(card, function() return entry.Tooltip end, details.AbsolutePosition + Vector2.new(0, details.AbsoluteSize.Y))
+	end)
+	layoutCard(entry, HudLayout.IsPhone())
 	return entry
 end
 
@@ -288,10 +328,10 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 		power = Format.Number(DragonStats.GetPower(dragon)),
 		trait = if trait then trait.Name else words.NoTrait,
 		grade = if grade then `Grade {grade.Id}` else words.NoGrade,
-	}) .. ` · {stage.Name} · Lv {dragon.Level}/{cap} · {mutation.Name} · {Text.Format(Text.Odds.Chance, { oneIn = if baseOneIn then OddsText.OneIn(baseOneIn) else "?" })} · Base {Format.Number(if species then species.BaseGoldPerSecond else 0)}/s · Base power {Format.Number(if species then species.BasePower else 0)}`
+	}) .. `\n{stage.Name} · Lv {dragon.Level}/{cap} · {mutation.Name}\n{Text.Format(Text.Odds.Chance, { oneIn = if baseOneIn then OddsText.OneIn(baseOneIn) else "?" })}\n{words.HomeOdds}\n{words.TooltipBaseIncome}: {Format.Number(if species then species.BaseGoldPerSecond else 0)}/s\n{words.TooltipBasePower}: {Format.Number(if species then species.BasePower else 0)}\n{words.TooltipGold}: {Format.Number(DragonStats.GetGoldPerSecond(dragon))}/s\n{words.TooltipModifiers}: {Format.Multiplier(if species and species.BaseGoldPerSecond > 0 then DragonStats.GetGoldPerSecond(dragon) / species.BaseGoldPerSecond else 1)}\n{Text.Format(words.TooltipRoost, { roost = Format.Multiplier(DragonStats.GetRoostIncomeMultiplier(data)), rebirth = Format.Multiplier(DragonStats.GetRebirthBonus(data.Rebirths)), index = Format.Multiplier(DragonStats.GetIndexMultiplier(data)) })}`
 
 	local atCap = dragon.Level >= cap
-	local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
+	local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths, data.LevelingIncomeAnchor)
 	local label = if atCap then words.MaxLevel else `{words.Upgrade}  {Format.Number(cost)}`
 	if card.Upgrade.Label.Text ~= label then
 		card.Upgrade:SetText(label)
@@ -386,11 +426,24 @@ function InventoryController:Init()
 	headerText.Size = UDim2.fromOffset(0, 26)
 	headerText.TextWrapped = false
 	Style.Outline(headerText, 1.5)
+	local resources = Instance.new("Frame")
+	resources.Name = "Resources"
+	resources.BackgroundTransparency = 1
+	resources.LayoutOrder = 2
+	resources.Size = UDim2.fromOffset(0, 28)
+	resources.AutomaticSize = Enum.AutomaticSize.X
+	resources.Parent = header
+	local resourceLayout = Instance.new("UIListLayout")
+	resourceLayout.FillDirection = Enum.FillDirection.Horizontal
+	resourceLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	resourceLayout.Padding = UDim.new(0, UITheme.Sizes.Gap)
+	resourceLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	resourceLayout.Parent = resources
 	local function counter(order: number, iconKey: string, color: Color3): TextLabel
-		local icon = Icon.new(header, iconKey, color)
+		local icon = Icon.new(resources, iconKey, color)
 		icon.LayoutOrder = order
 		icon.Size = UDim2.fromOffset(28, 28)
-		local label = Style.Label(header, "0", "Title", 17, color)
+		local label = Style.Label(resources, "0", "Title", 17, color)
 		label.LayoutOrder = order + 1
 		label.AutomaticSize = Enum.AutomaticSize.X
 		label.Size = UDim2.fromOffset(0, 26)
@@ -433,17 +486,25 @@ function InventoryController:Init()
 	grid.Parent = list
 
 	HudLayout.OnLayoutChanged(function(phone)
-		cardScale = if phone then UITheme.Sizes.PhoneCardScale else 1
-		grid.CellSize = UDim2.fromOffset(math.floor(CARD.X * cardScale), math.floor(CARD.Y * cardScale))
+		cardScale = if phone then math.max(Layout.PhoneDragonCardMinScale, UITheme.Sizes.PhoneCardScale) else 1
+		local cardHeight = if phone then Layout.PhoneDragonCardHeight else CARD.Y
+		grid.CellSize = UDim2.fromOffset(math.floor(CARD.X * cardScale), math.floor(cardHeight * cardScale))
 		for _, card in cards do
-			card.Scale.Scale = cardScale
+			layoutCard(card, phone)
 		end
-		equip.Instance.Size = UDim2.fromOffset(if phone then 120 else 164, if phone then 28 else 40)
+		equip.Instance.Size = UDim2.fromOffset(if phone then 140 else 164, if phone then Layout.TouchTarget else 40)
+		header.Position = UDim2.fromOffset(0, if phone then Layout.TouchTarget + UITheme.Sizes.Gap else 0)
+		header.Size = UDim2.new(1, if phone then 0 else -170, 0, if phone then 54 else 40)
+		headerLayout.FillDirection = if phone then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal
+		headerText.AutomaticSize = if phone then Enum.AutomaticSize.None else Enum.AutomaticSize.X
+		headerText.Size = if phone then UDim2.new(1, 0, 0, 22) else UDim2.fromOffset(0, 26)
+		headerText.TextScaled = phone
 		headerText.TextSize = if phone then 13 else 17
 		runeCount.TextSize = headerText.TextSize
 		stoneCount.TextSize = headerText.TextSize
-		list.Position = UDim2.fromOffset(0, if phone then 32 else 48)
-		list.Size = UDim2.new(1, 0, 1, if phone then -32 else -48)
+		local listTop = if phone then Layout.TouchTarget + UITheme.Sizes.Gap + 54 + UITheme.Sizes.Gap else 48
+		list.Position = UDim2.fromOffset(0, listTop)
+		list.Size = UDim2.new(1, 0, 1, -listTop)
 	end)
 
 	window:OnOpen(function()
@@ -453,7 +514,7 @@ function InventoryController:Init()
 	local function markDirty()
 		dirty = true
 	end
-	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "RoostSlotUpgrades", "WyrmRunes", "Dragonstones" } do
+	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "LevelingIncomeAnchor", "RoostSlotUpgrades", "RoostIncomeLevel", "Index", "WyrmRunes", "Dragonstones" } do
 		DataController:OnChanged(key, markDirty)
 	end
 end

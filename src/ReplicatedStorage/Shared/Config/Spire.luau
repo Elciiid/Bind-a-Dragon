@@ -3,12 +3,11 @@
 --
 -- Enemy power = EnemyBase x EnemyGrowth ^ floor (bosses every BossEvery floors x BossMultiplier).
 -- A floor is won if the player's power (best dragon x Wyrmblood Tonic) >= the enemy's.
--- Each climb starts at floor 1. Floors more than TopWindow below the player's record are "far below": they resolve
--- in FastFloorSeconds each with no drops. The TopWindow floors below the record and every new floor are real fights
--- (FightSeconds each), unless the player's power is PowerFastRatio x the enemy's (FastFloorSeconds). A climb ends at the first lost floor, at MaxFloors, or if the player walks away.
+-- Every run fights stages 1..100 in order. The player can opt into a new run after stage 100.
+-- A loss, Stop, death or departure ends the run.
 --
 -- Rewards: a first clear (floor above the record) pays FirstClearIncomeSeconds of roost income and its guaranteed
--- drops; re-clears inside the TopWindow roll the Reclear chances. Conqueror's Brew doubles gold, Stardust,
+-- drops; all re-clears roll the Reclear chances. Every boss gives baseline stones and runes. Conqueror's Brew doubles gold, Stardust,
 -- Wyrm Runes and Dragonstones (not potions). Numbers from the approved economy simulation; PLACEHOLDER.
 
 export type Drop = {
@@ -24,23 +23,24 @@ export type Drop = {
 }
 
 return {
-	MaxFloors = 150, -- +10 each weekly update
+	MaxFloors = 100, -- every run attempts stages 1 through 100 in order
 	EnemyBase = 10,
 	EnemyGrowth = 1.15, -- retuned with tools/sim after the mutation economy: Dedicated week-1 floor median ~98
 	BossEvery = 10,
 	BossMultiplier = 1.5,
 
-	FightSeconds = 20, -- per fought floor
-	FastFloorSeconds = 0.25, -- per far-below floor (no drops)
-	TopWindow = 10, -- re-clear window below the record
-	PowerFastRatio = 3, -- floors where power >= this x the enemy also take FastFloorSeconds: a new one still gives its
-	-- first-clear drops (no gold), an already-cleared one gives nothing
+	FightSeconds = 12, -- every stage; a full successful run takes 20 minutes
+	CheckInterval = 0.25, -- check alive/range/stop during a fight
+	ActionCooldown = 0.5, -- rate-limit manual start and toggle requests
+	StopCooldown = 0.1, -- separate limiter so Stop remains available immediately after Start
+	PromptDistance = 15, -- keyboard, gamepad and mobile prompt reach
+	RepeatPauseSeconds = 1, -- completion breath before an opted-in repeat
 
 	FirstClearIncomeSeconds = 30, -- first-clear gold = this many seconds of roost income
 
 	-- Guaranteed on a floor's first clear (every matching entry is given).
 	FirstClearDrops = {
-		{ Every = 5, SkipBosses = true, Potion = "GildedDraught" }, -- bosses get the Hoard Elixir instead
+		{ Every = 5, SkipBosses = true, Potion = "GildedDraught", WyrmRunes = 1, Dragonstones = 1 },
 		{ Every = 10, Potion = "HoardElixir", WyrmRunes = 1, Dragonstones = 1, Stardust = 10 },
 		{ Every = 10, Potion = "RunebrightTonic", Chance = 0.10 },
 		{ Every = 20, Potion = "StarlightTonic" },
@@ -49,11 +49,12 @@ return {
 		{ Every = 100, Offset = 50, Potion = "ConquerorsBrew" }, -- floors 50, 150, 250 ...
 	} :: { Drop },
 
-	-- Chances on re-clears inside the TopWindow.
+	-- Every victory gives these baseline rewards, including repeat runs.
+	VictoryDrops = { { Every = 10, WyrmRunes = 1, Dragonstones = 1 } } :: { Drop },
+	-- Potion chances on all re-clears; currency comes from VictoryDrops.
 	ReclearDrops = {
 		{ Every = 5, SkipBosses = true, Potion = "GildedDraught", Chance = 0.25 },
 		{ Every = 10, Potion = "HoardElixir", Chance = 0.10 },
-		{ Every = 10, RuneOrStone = true, Chance = 0.10 },
 		{ Every = 10, Potion = "RunebrightTonic", Chance = 0.10 },
 	} :: { Drop },
 
