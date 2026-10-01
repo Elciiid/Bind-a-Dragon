@@ -494,7 +494,7 @@ Game passes and developer products in `Config/Products` (IDs are 0 until created
 
 ## Proposals waiting for a decision (2026-10-02)
 
-- `docs/Valley_Layout_And_Grass_Proposal.md`: layout options A (even horseshoe, recommended), B (two columns), C (shrink W1/E1) with measured usable areas
+- `docs/Valley_Layout_And_Grass_Proposal.md` (section 4: approved direction A-79, adjusted mockup waiting for OK): layout options A (even horseshoe, recommended), B (two columns), C (shrink W1/E1) with measured usable areas
   (W1/E1 18.3k, W2/E2 20.0k, W3/E3 18.2k studs^2 flat today) and two kids' grass options (colour only / colour + `Valley_GrassD` clover texture).
   `Terrain.GrassLength` must be set by hand (not scriptable). Nothing applied to the place.
 

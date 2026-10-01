@@ -38,3 +38,13 @@ After the layout is approved: lantern paths along the spokes, small binder ruins
 - **Option 2 (color + clover dots):** option 1 colour (128,158,58) with the new texture `Valley_GrassD` (made by `tools/terrain_textures/gen.py valley_grass_d`: pale clover dots + a few warm buds on a slightly deeper base; asset rbxassetid://74192556784093; the MaterialVariant `Valley_GrassD` already exists in MaterialService). At ground level the dots are tiny (48-stud tiles); from the air they give the fields a faint speckle.
 - Blades and ground match (both come from the terrain Grass colour). Applying either: set the colour (and for option 2 `MaterialService:SetBaseMaterialOverride(Grass, "Valley_GrassD")`) in Edit mode; the Valley build modules set the colour in `ValleyTerrain` (`V.GrassColor`), update it there too.
 Pick 1 or 2 (or tweak the colour) and I apply it.
+
+## 4. Adjusted layout A-79 (2026-10-02, after "no sanctuary north of the portal row")
+
+Images: `docs/img/valley_layout_adjusted_A79.png` (recommended) and `valley_layout_adjusted_A60.png` (the ±60 example, rejected). Script: `tools/valley_layout/mockup.py`.
+
+- **Why not ±60:** W1 would sit at (-222, -128): its back edge z -208 is 80 studs behind the outer portals (z -129) and the river would cut through W2.
+- **A-79:** R 256 (gate distance 181 for all six), bearings 79 / 118.7 / 158.4 (even steps of 39.7 degrees), rim gap 24 (flat edges 14 apart).
+  W1/E1 (+-251, -49) back edge z -129 = level with the outer portals; W2/E2 (+-224, 123); W3/E3 (+-94, 238); the S pair leaves a 38-stud gap (rim to rim) for the entrance road.
+- **River:** runs in the W1/W2 gap (z ~37 at x -238) as a narrow stream, joins today's line at x ~ -112; side bridges (+-100, 60) now serve the W2/E2 roads; W1/E1 need no crossing.
+- **Costs:** valley wider by ~75 studs per side (to about +-350) and ~130 studs longer to the south (flat edge z 318); waterfall + ancient tree move ~50 out; market tents (shrine, merchant, forge) shift ~30 studs inward because the W3/E3 forecourts reach them; the old W1/E1 meadow behind the portal terrace becomes open ground.
