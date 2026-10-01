@@ -1,24 +1,20 @@
 --!strict
--- Dragon rarities, in order from most common to rarest. Order matters: luck boosts every tier after the first.
--- PLACEHOLDER numbers; the designer owns balancing.
+-- Broad presentation tiers only. Exact odds and stats live on species/mutations, never here.
 
 export type Rarity = {
 	Id: string,
 	Name: string,
 	Color: Color3,
-	BindWeight: number, -- relative chance when binding (weights don't need to add up to anything)
-	GoldPerSecond: number, -- base roost income before level/stage multipliers
-	BasePower: number, -- base Spire battle power before level/stage/trait/grade multipliers
 	AnnounceOnBind: boolean, -- tell the whole server when someone binds one
+	UndiscoveredOddsBand: string, -- deliberately broad; exact species odds unlock on discovery
 }
 
 local Rarities: { Rarity } = {
-	-- GoldPerSecond ratios match BasePower ratios (Mythic ≈ 40x Common): one lucky bind helps but can't halve a week.
-	{ Id = "Common", Name = "Common", Color = Color3.fromRGB(190, 190, 190), BindWeight = 600, GoldPerSecond = 750, BasePower = 10, AnnounceOnBind = false },
-	{ Id = "Rare", Name = "Rare", Color = Color3.fromRGB(80, 160, 255), BindWeight = 250, GoldPerSecond = 1_800, BasePower = 25, AnnounceOnBind = false },
-	{ Id = "Epic", Name = "Epic", Color = Color3.fromRGB(180, 90, 255), BindWeight = 110, GoldPerSecond = 4_400, BasePower = 60, AnnounceOnBind = false },
-	{ Id = "Legendary", Name = "Legendary", Color = Color3.fromRGB(255, 190, 40), BindWeight = 35, GoldPerSecond = 11_000, BasePower = 150, AnnounceOnBind = true },
-	{ Id = "Mythic", Name = "Mythic", Color = Color3.fromRGB(255, 60, 110), BindWeight = 5, GoldPerSecond = 29_000, BasePower = 400, AnnounceOnBind = true },
+	{ Id = "Common", Name = "Common", Color = Color3.fromRGB(190, 190, 190), AnnounceOnBind = false, UndiscoveredOddsBand = "about 1 in 1-2" },
+	{ Id = "Rare", Name = "Rare", Color = Color3.fromRGB(80, 160, 255), AnnounceOnBind = false, UndiscoveredOddsBand = "about 1 in 3-5" },
+	{ Id = "Epic", Name = "Epic", Color = Color3.fromRGB(180, 90, 255), AnnounceOnBind = false, UndiscoveredOddsBand = "about 1 in 8-12" },
+	{ Id = "Legendary", Name = "Legendary", Color = Color3.fromRGB(255, 190, 40), AnnounceOnBind = true, UndiscoveredOddsBand = "about 1 in 25-35" },
+	{ Id = "Mythic", Name = "Mythic", Color = Color3.fromRGB(255, 60, 110), AnnounceOnBind = true, UndiscoveredOddsBand = "about 1 in 100-300" },
 }
 
 return Rarities

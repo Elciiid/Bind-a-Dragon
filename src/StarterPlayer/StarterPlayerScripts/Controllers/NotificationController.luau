@@ -17,7 +17,7 @@ local RewardPopup = require(script.Parent.UI.RewardPopup)
 local DragonPicture = require(script.Parent.UI.DragonPicture)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
-local IndexConfig = require(ReplicatedStorage.Shared.Config.Index)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
@@ -146,7 +146,7 @@ local function rarityColor(rarityId: string): Color3
 	return if rarity then rarity.Color else UITheme.Colors.Gold
 end
 
--- payload.Moment: "NewDragon" { SpeciesId, Level?, Starborn?, Auto? } | "Evolve" { SpeciesId, Level, Stage, Under? }
+-- payload.Moment: "NewDragon" { SpeciesId, Level?, MutationId?, Auto?, BaseOneIn?, EffectiveOneIn? } | "Evolve" { SpeciesId, Level, Stage, Under? }
 -- | "Rebirth" { Rebirths, Income, CapTo, Unlocked? } | "Tier" { Tier, Name } | "Look" { Name } | "Constellation" { Name, Luck }.
 -- fallback = the toast text if the payload can't be shown.
 function NotificationController:Moment(payload: any, fallback: string?)
@@ -160,19 +160,25 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			end
 			return
 		end
-		local starborn = payload.Starborn == true
+		local mutation = Mutations.Get(payload.MutationId)
 		local tag
 		if moment == "Evolve" then
 			local under = if payload.Under then Text.Format(words.EvolveUnder, { constellation = payload.Under }) else ""
 			tag = Text.Format(words.EvolveTag, { stage = payload.Stage or "", under = under })
 		else
 			tag = Text.Format(if payload.Auto then words.AutoTag else words.NewDragonTag, { rarity = species.Rarity, element = species.Element })
+			if type(payload.BaseOneIn) == "number" and type(payload.EffectiveOneIn) == "number" then
+				local odds = if math.abs(payload.BaseOneIn - payload.EffectiveOneIn) > 0.01
+					then `Base 1 in {math.round(payload.BaseOneIn)} · Current 1 in {math.round(payload.EffectiveOneIn)}`
+					else `1 in {math.round(payload.BaseOneIn)}`
+				tag ..= ` · {odds}`
+			end
 		end
 		RewardPopup.Show({
-			Title = if moment == "Evolve" then words.Evolve elseif starborn then words.Starborn else words.NewDragon,
-			Name = if starborn then `★ {species.Name} ★` else species.Name,
+			Title = if moment == "Evolve" then words.Evolve elseif mutation.Id ~= Mutations.NormalId then words.Mutation else words.NewDragon,
+			Name = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {species.Name}` else species.Name,
 			Tag = tag,
-			Color = if starborn then IndexConfig.StarbornColor else rarityColor(species.Rarity),
+			Color = if mutation.Id ~= Mutations.NormalId then mutation.Color else rarityColor(species.Rarity),
 			Picture = function(frame)
 				DragonPicture.new(frame, payload.SpeciesId, payload.Level)
 			end,

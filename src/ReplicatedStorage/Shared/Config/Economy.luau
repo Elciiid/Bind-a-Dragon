@@ -21,7 +21,7 @@ return {
 
 		-- Roost income multiplier: +IncomeBonusPerLevel per level, up to MaxIncomeLevel.
 		--   cost of the next level = IncomeBaseCost x IncomeCostGrowth ^ (current level)
-		IncomeBonusPerLevel = 0.10,
+		IncomeBonusPerLevel = 0.04,
 		MaxIncomeLevel = 25,
 		IncomeBaseCost = 100e3,
 		IncomeCostGrowth = 3.5,

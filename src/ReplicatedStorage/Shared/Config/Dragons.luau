@@ -7,36 +7,40 @@ export type Species = {
 	Name: string,
 	Element: string, -- key into Config/Elements
 	Rarity: string, -- Id from Config/Rarities
+	BindWeight: number, -- relative weight in its element's home pool
+	BaseGoldPerSecond: number,
+	BasePower: number,
+	Role: string,
 }
 
 local Dragons: { [string]: Species } = {
 	-- Fire
-	Cinderwing = { Name = "Cinderwing", Element = "Fire", Rarity = "Common" },
-	Emberclaw = { Name = "Emberclaw", Element = "Fire", Rarity = "Rare" },
-	Blazefang = { Name = "Blazefang", Element = "Fire", Rarity = "Epic" },
-	Infernus = { Name = "Infernus", Element = "Fire", Rarity = "Legendary" },
-	Solflare = { Name = "Solflare", Element = "Fire", Rarity = "Mythic" },
+	Cinderwing = { Name = "Cinderwing", Element = "Fire", Rarity = "Common", BindWeight = 600, BaseGoldPerSecond = 750, BasePower = 10, Role = "Starter-balanced" },
+	Emberclaw = { Name = "Emberclaw", Element = "Fire", Rarity = "Rare", BindWeight = 250, BaseGoldPerSecond = 1_350, BasePower = 24, Role = "Early economy" },
+	Blazefang = { Name = "Blazefang", Element = "Fire", Rarity = "Epic", BindWeight = 110, BaseGoldPerSecond = 2_450, BasePower = 52, Role = "Mid economy" },
+	Infernus = { Name = "Infernus", Element = "Fire", Rarity = "Legendary", BindWeight = 36, BaseGoldPerSecond = 4_300, BasePower = 105, Role = "Balanced legendary" },
+	Solflare = { Name = "Solflare", Element = "Fire", Rarity = "Mythic", BindWeight = 4, BaseGoldPerSecond = 5_500, BasePower = 175, Role = "Gold chase" },
 
 	-- Ice
-	Frostling = { Name = "Frostling", Element = "Ice", Rarity = "Common" },
-	Glacierback = { Name = "Glacierback", Element = "Ice", Rarity = "Rare" },
-	Rimewing = { Name = "Rimewing", Element = "Ice", Rarity = "Epic" },
-	Borealis = { Name = "Borealis", Element = "Ice", Rarity = "Legendary" },
-	Aurorynth = { Name = "Aurorynth", Element = "Ice", Rarity = "Mythic" },
+	Frostling = { Name = "Frostling", Element = "Ice", Rarity = "Common", BindWeight = 620, BaseGoldPerSecond = 800, BasePower = 11, Role = "Balanced" },
+	Glacierback = { Name = "Glacierback", Element = "Ice", Rarity = "Rare", BindWeight = 235, BaseGoldPerSecond = 1_300, BasePower = 26, Role = "Early hybrid" },
+	Rimewing = { Name = "Rimewing", Element = "Ice", Rarity = "Epic", BindWeight = 105, BaseGoldPerSecond = 2_300, BasePower = 58, Role = "Hybrid" },
+	Borealis = { Name = "Borealis", Element = "Ice", Rarity = "Legendary", BindWeight = 35, BaseGoldPerSecond = 3_900, BasePower = 130, Role = "Combat hybrid" },
+	Aurorynth = { Name = "Aurorynth", Element = "Ice", Rarity = "Mythic", BindWeight = 5, BaseGoldPerSecond = 5_200, BasePower = 230, Role = "Upper hybrid" },
 
 	-- Storm
-	Gustwing = { Name = "Gustwing", Element = "Storm", Rarity = "Common" },
-	Sparkscale = { Name = "Sparkscale", Element = "Storm", Rarity = "Rare" },
-	Thunderhorn = { Name = "Thunderhorn", Element = "Storm", Rarity = "Epic" },
-	Tempestus = { Name = "Tempestus", Element = "Storm", Rarity = "Legendary" },
-	Stormcrown = { Name = "Stormcrown", Element = "Storm", Rarity = "Mythic" },
+	Gustwing = { Name = "Gustwing", Element = "Storm", Rarity = "Common", BindWeight = 580, BaseGoldPerSecond = 700, BasePower = 14, Role = "Combat common" },
+	Sparkscale = { Name = "Sparkscale", Element = "Storm", Rarity = "Rare", BindWeight = 270, BaseGoldPerSecond = 1_200, BasePower = 32, Role = "Combat rare" },
+	Thunderhorn = { Name = "Thunderhorn", Element = "Storm", Rarity = "Epic", BindWeight = 108, BaseGoldPerSecond = 2_100, BasePower = 78, Role = "Combat epic" },
+	Tempestus = { Name = "Tempestus", Element = "Storm", Rarity = "Legendary", BindWeight = 36, BaseGoldPerSecond = 3_500, BasePower = 190, Role = "Combat legendary" },
+	Stormcrown = { Name = "Stormcrown", Element = "Storm", Rarity = "Mythic", BindWeight = 6, BaseGoldPerSecond = 4_600, BasePower = 340, Role = "Apex combat" },
 
 	-- Shadow
-	Duskling = { Name = "Duskling", Element = "Shadow", Rarity = "Common" },
-	Nightclaw = { Name = "Nightclaw", Element = "Shadow", Rarity = "Rare" },
-	Umbrafang = { Name = "Umbrafang", Element = "Shadow", Rarity = "Epic" },
-	Voidwing = { Name = "Voidwing", Element = "Shadow", Rarity = "Legendary" },
-	Eclipsar = { Name = "Eclipsar", Element = "Shadow", Rarity = "Mythic" },
+	Duskling = { Name = "Duskling", Element = "Shadow", Rarity = "Common", BindWeight = 640, BaseGoldPerSecond = 900, BasePower = 12, Role = "Economy common" },
+	Nightclaw = { Name = "Nightclaw", Element = "Shadow", Rarity = "Rare", BindWeight = 220, BaseGoldPerSecond = 1_500, BasePower = 29, Role = "Balanced rare" },
+	Umbrafang = { Name = "Umbrafang", Element = "Shadow", Rarity = "Epic", BindWeight = 100, BaseGoldPerSecond = 2_700, BasePower = 70, Role = "Economy epic" },
+	Voidwing = { Name = "Voidwing", Element = "Shadow", Rarity = "Legendary", BindWeight = 33, BaseGoldPerSecond = 4_700, BasePower = 155, Role = "Economy legendary" },
+	Eclipsar = { Name = "Eclipsar", Element = "Shadow", Rarity = "Mythic", BindWeight = 7, BaseGoldPerSecond = 6_200, BasePower = 270, Role = "Prestige economy" },
 }
 
 return Dragons

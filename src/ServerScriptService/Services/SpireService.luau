@@ -20,6 +20,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
+local BindingConfig = require(ReplicatedStorage.Shared.Config.Binding)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
@@ -198,6 +199,7 @@ local function climb(player: Player, useElevator: boolean)
 			Boss = DragonStats.IsBossFloor(floor),
 			Dragon = if species then species.Name else "Your dragon",
 			SpeciesId = best.SpeciesId, -- for the HUD portraits
+			MutationId = best.MutationId or "Normal",
 			Level = best.Level,
 			Power = power,
 			Enemy = enemyName,
@@ -227,10 +229,29 @@ local function climb(player: Player, useElevator: boolean)
 			data.SpireRecord = floor
 			if not fast then -- fast-forwarded new floors keep their drops but give no gold
 				gold = math.floor(DragonStats.GetRoostIncome(data) * SpireConfig.FirstClearIncomeSeconds * rewardMultiplier)
+				local bankLimit = DragonStats.GetGoldBankLimit(data)
+				if bankLimit then
+					gold = math.max(0, math.min(gold, bankLimit - data.Gold))
+				end
 				data.Gold += gold
 			end
 		end
 		Rewards.Apply(data, reward)
+		if not fast then
+			local day = os.time() // 86400
+			if data.EchoSigilSpireProgressDay ~= day then
+				data.EchoSigilSpireProgressDay = day
+				data.EchoSigilSpireWins = 0
+			end
+			data.EchoSigilSpireWins += 1
+			if data.EchoSigilSpireWins >= BindingConfig.EchoSigilSpireWins and data.EchoSigilSpireDay ~= day then
+				data.EchoSigilSpireDay = day
+				if data.EchoSigils < BindingConfig.EchoSigilCap then
+					data.EchoSigils += 1
+					notify:FireClient(player, `Spire challenge complete: +1 Echo Sigil ({data.EchoSigils}/{BindingConfig.EchoSigilCap})`, "success")
+				end
+			end
+		end
 		local parts = {}
 		if gold > 0 then
 			table.insert(parts, `{Format.Number(gold)} gold`)

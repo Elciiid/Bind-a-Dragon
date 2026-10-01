@@ -4,8 +4,8 @@
 --
 -- Timed potions: using one adds Minutes to that potion's timer (up to MaxStoredMinutes stored per potion).
 -- Timers only tick while the player is in the game (they pause offline). Roblox Premium members get
--- PremiumDurationBonus extra time per potion. Different potions on the same stat multiply
--- (Gilded Draught x Hoard Elixir = x10 gold).
+-- PremiumDurationBonus extra time per potion. For gold, only the strongest active multiplier applies (max x5);
+-- other timed stats retain multiplicative behavior.
 --
 -- Luck charges: the player ARMS one for their next bind (Boosts panel or the altar's luck panel). It's used up by
 -- that bind only. It multiplies luck after the normal cap (Config/Luck Cap), up to Config/Luck PotionCap.

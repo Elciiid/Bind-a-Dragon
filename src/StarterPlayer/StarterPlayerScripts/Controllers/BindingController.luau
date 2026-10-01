@@ -14,7 +14,9 @@ type BindResult = {
 	SpeciesId: string,
 	ConstellationId: string,
 	Luck: number,
-	Starborn: boolean,
+	MutationId: string,
+	BaseOneIn: number,
+	EffectiveOneIn: number,
 	Auto: boolean, -- bound by the Auto-bind pass
 }
 
@@ -33,14 +35,21 @@ function BindingController:Start()
 				Moment = "NewDragon",
 				SpeciesId = result.SpeciesId,
 				Level = 1,
-				Starborn = result.Starborn,
+				MutationId = result.MutationId,
 				Auto = result.Auto,
-			}, `You bound {species.Name}!`)
+				BaseOneIn = result.BaseOneIn,
+				EffectiveOneIn = result.EffectiveOneIn,
+			}, `You bound {species.Name}! Base 1 in {math.round(result.BaseOneIn)} · Current 1 in {math.round(result.EffectiveOneIn)}`)
 		end
 		if result.Auto or CeremonyController.IsIdle() then
 			toast()
 		else
-			task.spawn(CeremonyController.Play, { SpeciesId = result.SpeciesId, Starborn = result.Starborn }, toast)
+			task.spawn(CeremonyController.Play, {
+				SpeciesId = result.SpeciesId,
+				MutationId = result.MutationId,
+				BaseOneIn = result.BaseOneIn,
+				EffectiveOneIn = result.EffectiveOneIn,
+			}, toast)
 		end
 	end)
 end

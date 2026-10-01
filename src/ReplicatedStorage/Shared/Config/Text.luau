@@ -113,13 +113,14 @@ local Text = {
 		WyrmRunes = { Name = "Wyrm Runes", Info = "Inscribe a rune on a dragon at the Rune Shrine to awaken a trait. Earned in the Dragon Spire, quests and the Index." },
 		Dragonstones = { Name = "Dragonstones", Info = "Temper a dragon at the Dragonstone Forge to raise its grade. Earned in the Dragon Spire, quests and the Index." },
 		Stardust = { Name = "Stardust", Info = "Offer it at a Star Altar for more luck on your next bind. Buy it from the Star Merchant or find it in the Spire." },
+		EchoSigils = { Name = "Echo Sigils", Info = "Spend one for an extra bind after your nightly bind. Earn one from all daily quests and one from five non-fast Spire wins each day. Holds up to 6." },
 	},
 
 	-- Reward pop-ups for big moments (NotificationController -> UI/RewardPopup). {placeholders} as noted.
 	Moments = {
 		Button = "Awesome!",
 		NewDragon = "New dragon!",
-		Starborn = "Starborn!",
+		Mutation = "Mutation!",
 		NewDragonTag = "{rarity} · {element}",
 		AutoTag = "Auto-bind · {rarity} · {element}",
 		Evolve = "Evolved!",

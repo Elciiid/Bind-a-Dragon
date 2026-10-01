@@ -3,9 +3,8 @@
 --   Level cap           = CapBase + CapPerRebirth x rebirths
 --   Income at level L   = base x IncomePerLevel ^ (L - 1)        (compounding)
 --   Power at level L    = base x PowerPerLevel ^ (L - 1)
---   Cost of next level  = BaseCost[rarity] x CostGrowth ^ (L - 1) x Rebirth.IncomeBonusPerRebirth ^ rebirths
--- Costs scale with the rebirth bonus so each rebirth's new levels cost about the same share of income:
--- levelling stays a real gold sink instead of snowballing.
+--   Cost of next level  = next rebirth cost x CostFractionOfNextRebirth[rarity]
+-- This keeps each newly unlocked five-level band meaningful at every point in progression.
 -- PLACEHOLDER numbers.
 
 return {
@@ -15,14 +14,13 @@ return {
 	IncomePerLevel = 1.06, -- income x1.06 per level
 	PowerPerLevel = 1.05, -- Spire power x1.05 per level
 
-	BaseCost = {
-		Common = 1_000,
-		Rare = 5_000,
-		Epic = 20_000,
-		Legendary = 100_000,
-		Mythic = 500_000,
+	CostFractionOfNextRebirth = {
+		Common = 0.0020,
+		Rare = 0.0025,
+		Epic = 0.0030,
+		Legendary = 0.0035,
+		Mythic = 0.0040,
 	} :: { [string]: number },
-	CostGrowth = 1.08, -- each level costs 8% more than the last (just above income growth)
 
 	MaxLevelsPerRequest = 100, -- most levels one "level up xN" request can buy
 }

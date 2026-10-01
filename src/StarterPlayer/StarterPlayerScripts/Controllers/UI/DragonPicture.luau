@@ -1,7 +1,7 @@
 --!strict
 -- A picture of a dragon for cards and pop-ups: a ViewportFrame with its real art (ReplicatedStorage.Assets.Dragons.
 -- <SpeciesId>.<StageId> or <SpeciesId>), seen from the front-side; species that only have the shared placeholder model
--- show their big rarity icon instead. Starborn dragons get a gold tint on the fallback icon.
+-- show their big rarity icon instead. Mutation identity is displayed by cards, labels, and world aura.
 --
 -- Usage: DragonPicture.new(frame, speciesId, level?) -> GuiObject (fills `frame`)
 

@@ -105,6 +105,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 		notify:FireClient(player, `{name} evolved into {article} {evolvedTo.Name}{evolvedUnder}!`, "moment", {
 			Moment = "Evolve",
 			SpeciesId = dragon.SpeciesId,
+			MutationId = dragon.MutationId,
 			Level = dragon.Level,
 			Stage = evolvedTo.Name,
 			Under = if state.IsNight then state.Constellation.Name else nil,
