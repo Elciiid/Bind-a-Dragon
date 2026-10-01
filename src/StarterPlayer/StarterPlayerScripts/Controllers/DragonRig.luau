@@ -69,10 +69,11 @@ local function envelope(t: number, a: number, b: number): number
 	return 1
 end
 
-function DragonRig.Build(model: Model, config: RigConfig.Rig): Rig?
+-- `ignore`: a part whose bones are not part of this rig (the low-poly LOD mesh has bones with the same names).
+function DragonRig.Build(model: Model, config: RigConfig.Rig, ignore: Instance?): Rig?
 	local bones: { [string]: Bone } = {}
 	for _, d in model:GetDescendants() do
-		if d:IsA("Bone") then
+		if d:IsA("Bone") and not (ignore and d:IsDescendantOf(ignore)) then
 			d.Transform = CFrame.identity
 			bones[d.Name] = d
 		end

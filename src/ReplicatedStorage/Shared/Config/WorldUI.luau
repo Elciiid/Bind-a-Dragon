@@ -101,6 +101,7 @@ return {
 		CloneDistance = 320, -- a kit is cloned in while the camera is this close to the sanctuary's center ...
 		DropDistance = 380, -- ... and dropped again beyond this
 		LightDistance = 120, -- kit lights (PointLight) are on only this close to the camera
+		SpinDistance = 220, -- spinning kit models (armillary rings; attributes SpinAxis / SpinSpeed) turn only this close to the camera
 		OutSeconds = 1.6, -- look change: the old look sinks away over this long
 		InSeconds = 2.6, -- the new one grows in, piece after piece, over this long
 		PieceSeconds = 0.9, -- each piece takes this long to grow

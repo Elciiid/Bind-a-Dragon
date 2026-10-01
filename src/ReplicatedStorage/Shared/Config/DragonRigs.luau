@@ -145,6 +145,17 @@ return {
 	SimpleEvery = 3,
 	LowEffectsScale = 0.5, -- Low effects: both distances are multiplied by this, and full detail drops the legs/spine
 
+	-- Mesh detail by distance (RoostAnimationController, Valley rework). An Elder model may hold a second, low-poly skinned
+	-- MeshPart named LodPart (about 4k triangles instead of 10k; same bones, same pose; tools/glb_to_fbx.py --tris 4000
+	-- --flip makes it): beyond LodDistance it is drawn instead of the body (same bone animation). Beyond HideDistance no
+	-- dragon is drawn at all. With Low effects at most LowEffectsMaxVisible dragons of one sanctuary are drawn (the nearest
+	-- to the camera).
+	LodPart = "BodyLOD",
+	LodDistance = 120,
+	LodMargin = 10, -- hysteresis: the full mesh comes back this many studs inside LodDistance (and a dragon reappears inside HideDistance)
+	HideDistance = 260,
+	LowEffectsMaxVisible = 4,
+
 	-- Wings in flight: bursts of flaps with glides between (burst length varies per dragon), a fast continuous beat
 	-- while hovering (take off, landing), a sweep forward on the down-stroke, the elbow folding on the up-stroke, wings
 	-- swept back in dives, the inner wing lower in turns.

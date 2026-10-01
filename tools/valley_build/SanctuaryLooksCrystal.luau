@@ -323,4 +323,6 @@ function C.Build()
 	end
 end
 
+C.H = { crystal = crystal, openGround = openGround } -- shared with the other look modules
+
 return C

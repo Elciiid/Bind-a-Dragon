@@ -92,6 +92,14 @@ type Roamer = {
 	Climb: number, -- extra height while passing over a crowded neighbour (separation)
 	Crowded: boolean, -- set by separation() when a lower neighbour is too close
 	Frame: number,
+	-- mesh detail (Config/DragonRigs LodPart / LodDistance / HideDistance / LowEffectsMaxVisible)
+	Saved: { [BasePart]: number }, -- original Transparency of every part
+	Body: BasePart?, -- the full-detail mesh (PrimaryPart), when the model has a LOD mesh
+	Lod: BasePart?, -- the low-poly mesh
+	LodBones: { [string]: Bone },
+	Mode: string, -- "Full" | "Lod" | "Hidden" ("" = not set yet)
+	Distance: number, -- last distance to the camera
+	CapHidden: boolean, -- Low effects: not among the nearest LowEffectsMaxVisible of its sanctuary
 }
 
 local RoostAnimationController = {}
@@ -271,6 +279,35 @@ local function takeOff(roamer: Roamer)
 	roamer.Pose.Action = nil
 end
 
+-- Shows the full mesh, the LOD mesh or nothing (client-side Transparency; the server never sees it).
+local function copyLodBones(roamer: Roamer)
+	local rig = roamer.Rig
+	if rig == nil then
+		return
+	end
+	for name, lodBone in roamer.LodBones do
+		local bone = rig.Bones[name]
+		if bone then
+			lodBone.Transform = bone.Transform
+		end
+	end
+end
+
+local function setMode(roamer: Roamer, mode: string)
+	if roamer.Mode == mode then
+		return
+	end
+	roamer.Mode = mode
+	local lod, body = roamer.Lod, roamer.Body
+	for part, original in roamer.Saved do
+		local hide = mode == "Hidden" or (lod ~= nil and ((mode == "Lod" and part == body) or (mode ~= "Lod" and part == lod)))
+		part.Transparency = if hide then 1 else original
+	end
+	if mode == "Lod" then
+		copyLodBones(roamer)
+	end
+end
+
 local function register(model: Model, plot: Model)
 	local center = plot:GetAttribute("RoamCenter")
 	local radius = plot:GetAttribute("RoamRadius")
@@ -284,6 +321,21 @@ local function register(model: Model, plot: Model)
 		if part:IsA("BasePart") then
 			table.insert(parts, part)
 			table.insert(offsets, pivot:ToObjectSpace(part.CFrame))
+		end
+	end
+	local lodFound = model:FindFirstChild(RigConfig.LodPart, true)
+	local lodPart = if lodFound and lodFound:IsA("MeshPart") then lodFound else nil
+	local lodBones: { [string]: Bone } = {}
+	local saved: { [BasePart]: number } = {}
+	for _, part in parts do
+		saved[part] = part.Transparency
+	end
+	if lodPart then
+		for _, d in lodPart:GetDescendants() do
+			if d:IsA("Bone") then
+				d.Transform = CFrame.identity
+				lodBones[d.Name] = d
+			end
 		end
 	end
 	local look = pivot.LookVector
@@ -341,7 +393,7 @@ local function register(model: Model, plot: Model)
 		Pitch = 0,
 		Footprint = math.max(size.X, size.Z) / 2,
 		BodyHeight = size.Y,
-		Rig = if rigConfig then DragonRig.Build(model, rigConfig) else nil,
+		Rig = if rigConfig then DragonRig.Build(model, rigConfig, lodPart) else nil,
 		Pose = {
 			Air = 0,
 			Flap = rng:NextNumber(0, 5),
@@ -362,6 +414,13 @@ local function register(model: Model, plot: Model)
 		Climb = 0,
 		Crowded = false,
 		Frame = rng:NextInteger(0, 10),
+		Saved = saved,
+		Body = if lodPart then model.PrimaryPart else nil,
+		Lod = lodPart,
+		LodBones = lodBones,
+		Mode = "",
+		Distance = 0,
+		CapHidden = false,
 	}
 	roamer.Target = pickTarget(roamer)
 	if movement == "Fly" then
@@ -672,6 +731,9 @@ local function step(roamer: Roamer, dt: number)
 		* CFrame.Angles(0, roamer.Yaw, 0)
 		* CFrame.Angles(pitch, 0, bank + roll)
 
+	if roamer.Mode == "Hidden" then
+		return -- not drawn: the simulation goes on (perches, turns) but the parts are not moved
+	end
 	local cframes = table.create(#roamer.Parts)
 	for index, offset in roamer.Offsets do
 		cframes[index] = pivot * offset
@@ -679,13 +741,65 @@ local function step(roamer: Roamer, dt: number)
 	workspace:BulkMoveTo(roamer.Parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 end
 
+-- Low effects: only the nearest LowEffectsMaxVisible dragons of each sanctuary are drawn.
+local function rankVisible()
+	if not EffectsQuality.IsLow() then
+		for _, roamer in roamers do
+			roamer.CapHidden = false
+		end
+		return
+	end
+	local byPlot: { [Model]: { Roamer } } = {}
+	for model, roamer in roamers do
+		if model.Parent ~= nil then
+			local list = byPlot[roamer.Plot]
+			if list == nil then
+				list = {}
+				byPlot[roamer.Plot] = list
+			end
+			table.insert(list, roamer)
+		end
+	end
+	for _, list in byPlot do
+		table.sort(list, function(a, b)
+			return a.Distance < b.Distance
+		end)
+		for rank, roamer in list do
+			roamer.CapHidden = rank > RigConfig.LowEffectsMaxVisible
+		end
+	end
+end
+
+-- Full mesh, LOD mesh (Elders with a LodPart, beyond LodDistance) or hidden (beyond HideDistance, or over the Low-effects cap),
+-- with a little hysteresis so a dragon on the border does not flicker.
+local function wantedMode(roamer: Roamer, distance: number): string
+	local hideAt, lodAt = RigConfig.HideDistance, RigConfig.LodDistance
+	if roamer.Mode == "Hidden" then
+		hideAt -= RigConfig.LodMargin
+	elseif roamer.Mode == "Lod" then
+		lodAt -= RigConfig.LodMargin
+	end
+	if roamer.CapHidden or distance >= hideAt then
+		return "Hidden"
+	elseif roamer.Lod ~= nil and distance >= lodAt then
+		return "Lod"
+	end
+	return "Full"
+end
+
 function RoostAnimationController:Start()
 	local sinceScan = SCAN_INTERVAL
+	local sinceRank = 0
 	RunService.Heartbeat:Connect(function(dt)
 		sinceScan += dt
+		sinceRank += dt
 		if sinceScan >= SCAN_INTERVAL then
 			sinceScan = 0
 			scan()
+		end
+		if sinceRank >= 0.3 then
+			sinceRank = 0
+			rankVisible()
 		end
 		local camera = workspace.CurrentCamera
 		local cameraPosition = if camera then camera.CFrame.Position else Vector3.zero
@@ -696,17 +810,25 @@ function RoostAnimationController:Start()
 				continue
 			end
 			local distance = (roamer.Position - flat(cameraPosition)).Magnitude
+			roamer.Distance = (Vector3.new(roamer.Position.X, roamer.GroundY + roamer.Height, roamer.Position.Z) - cameraPosition).Magnitude
+			setMode(roamer, wantedMode(roamer, roamer.Distance))
 			if distance >= ANIMATE_DISTANCE then
 				continue
 			end
 			step(roamer, dt)
 			local rig = roamer.Rig
-			if rig then
+			if rig and roamer.Mode ~= "Hidden" then
 				roamer.Frame += 1
+				local applied = false
 				if distance < fullDistance then
 					DragonRig.Apply(rig, roamer.Pose, if scale < 1 then "Simple" else "Full")
+					applied = true
 				elseif distance < simpleDistance and roamer.Frame % RigConfig.SimpleEvery == 0 then
 					DragonRig.Apply(rig, roamer.Pose, "Simple")
+					applied = true
+				end
+				if applied and roamer.Mode == "Lod" then
+					copyLodBones(roamer)
 				end
 			end
 		end

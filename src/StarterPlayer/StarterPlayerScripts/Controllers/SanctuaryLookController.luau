@@ -31,6 +31,8 @@ type Sanctuary = {
 	Kit: Folder?,
 	Center: Vector3,
 	Lights: { PointLight },
+	Spinners: { Model }, -- kit models with SpinAxis / SpinSpeed attributes (the armillary rings)
+	Near: boolean, -- the camera is within SpinDistance
 }
 
 local SanctuaryLookController = {}
@@ -70,15 +72,18 @@ local function pieces(kit: Instance): { Model }
 end
 
 local function collectLights(sanctuary: Sanctuary)
-	local lights = {}
+	local lights, spinners = {}, {}
 	if sanctuary.Kit then
 		for _, d in sanctuary.Kit:GetDescendants() do
 			if d:IsA("PointLight") then
 				table.insert(lights, d)
+			elseif d:IsA("Model") and type(d:GetAttribute("SpinSpeed")) == "number" and d:GetAttribute("SpinSpeed") ~= 0 then
+				table.insert(spinners, d)
 			end
 		end
 	end
 	sanctuary.Lights = lights
+	sanctuary.Spinners = spinners
 end
 
 -- Clones the kit in. Animated: every piece starts tiny and grows, gate first, then outward.
@@ -121,6 +126,7 @@ local function hideKit(sanctuary: Sanctuary, animate: boolean)
 	sanctuary.Kit = nil
 	sanctuary.Look = nil
 	sanctuary.Lights = {}
+	sanctuary.Spinners = {}
 	if kit == nil then
 		return
 	end
@@ -204,7 +210,7 @@ local function register(plot: Model)
 	if typeof(center) ~= "Vector3" then
 		return
 	end
-	local sanctuary: Sanctuary = { Plot = plot, Look = nil, Kit = nil, Center = center, Lights = {} }
+	local sanctuary: Sanctuary = { Plot = plot, Look = nil, Kit = nil, Center = center, Lights = {}, Spinners = {}, Near = false }
 	sanctuaries[plot] = sanctuary
 	plot:GetAttributeChangedSignal("SanctuaryLook"):Connect(function()
 		onLookChanged(sanctuary)
@@ -229,6 +235,7 @@ local function update()
 	local from = if camera then camera.CFrame.Position else Vector3.zero
 	for _, sanctuary in sanctuaries do
 		local distance = (sanctuary.Center - from).Magnitude
+		sanctuary.Near = distance < Settings.SpinDistance
 		if sanctuary.Kit == nil and sanctuary.Look == nil and distance < Settings.CloneDistance then
 			showKit(sanctuary, wantedLook(sanctuary.Plot), false)
 		elseif sanctuary.Look ~= nil and distance > Settings.DropDistance then
@@ -239,6 +246,22 @@ local function update()
 			local on = parent ~= nil and parent:IsA("BasePart") and (parent.Position - from).Magnitude < Settings.LightDistance
 			if light.Enabled ~= on then
 				light.Enabled = on
+			end
+		end
+	end
+end
+
+-- Turns the spinning kit models (armillary rings) of sanctuaries near the camera around their world axis.
+local function stepSpin(dt: number)
+	for _, sanctuary in sanctuaries do
+		if sanctuary.Near then
+			for _, model in sanctuary.Spinners do
+				local axis = model:GetAttribute("SpinAxis")
+				local speed = model:GetAttribute("SpinSpeed")
+				if typeof(axis) == "Vector3" and type(speed) == "number" and model.Parent ~= nil then
+					local pivot = model:GetPivot()
+					model:PivotTo(CFrame.fromAxisAngle(axis, speed * dt) * pivot.Rotation + pivot.Position)
+				end
 			end
 		end
 	end
@@ -282,6 +305,7 @@ function SanctuaryLookController:Start()
 			update()
 		end
 		stepMoves()
+		stepSpin(dt)
 	end)
 end
 
