@@ -48,3 +48,26 @@ Images: `docs/img/valley_layout_adjusted_A79.png` (recommended) and `valley_layo
   W1/E1 (+-251, -49) back edge z -129 = level with the outer portals; W2/E2 (+-224, 123); W3/E3 (+-94, 238); the S pair leaves a 38-stud gap (rim to rim) for the entrance road.
 - **River:** runs in the W1/W2 gap (z ~37 at x -238) as a narrow stream, joins today's line at x ~ -112; side bridges (+-100, 60) now serve the W2/E2 roads; W1/E1 need no crossing.
 - **Costs:** valley wider by ~75 studs per side (to about +-350) and ~130 studs longer to the south (flat edge z 318); waterfall + ancient tree move ~50 out; market tents (shrine, merchant, forge) shift ~30 studs inward because the W3/E3 forecourts reach them; the old W1/E1 meadow behind the portal terrace becomes open ground.
+
+## 5. Option A-N (2026-10-02): even horseshoe + portal terrace moved north (mockup, not built)
+
+Image: `docs/img/valley_layout_adjusted_AN.png`. A-79 was rejected as too costly.
+
+- **Sanctuaries:** R 256, bearings 50 / 90 / 130: W1/E1 (+-196, -165), W2/E2 (+-256, 0), W3/E3 (+-196, 164); gate distance **181 for all six**; gaps 25 rim to rim (15 between flat edges); S pair 243 apart (entrance corridor wide open). W1/E1 hardly move (12 east, 19 south).
+- **Portals:** inner (+-90, -262), outer (+-150, -286), in unlock order west to east, each facing the altar, on a new terrace (top y 12) that wraps the Spire's south foot (front edge z -206 at the centre, -240 at the ends, themed ground disc in front of each gate). W1/E1 back edge z -245 is in front of the whole row (inner portals 17 behind it, outer 41 behind it); pads stay >= 13 studs clear of W1/E1.
+- **Spire:** stays at (0, -252); its hill slope gets steeper (foot radius ~70 instead of ~98) so the inner portals stand beside the foot. Spire court (0, -214) and entrance stay.
+- **River:** back in the W2/W3 gap (same topology as today); stream ~10 wide through a 15-stud gap between the terraces: (-352,128) -> (-262,95) -> (-226,82) -> (-190,68) -> joins today's line at (-112, 61); mirrored. Clear of every sanctuary by >= 7 studs. W1/E1 and W2/E2 need no crossing; the side bridges (+-100, 60) serve the W3/E3 roads as today.
+- **What moves:** portal terrace (retaining wall, walkway, themed discs, stairs) + 4 portal models with gate crystals; GrandStairs to the north-road end (0, -206), north road extended (0, -57) -> (0, -206); AreaSpawn (0, 13.5, -150) -> (0, 13.5, -196) facing the altar; TravelPoints `Portals` to the terrace front (0, -198) and the six sanctuary points; horizon landmarks / ridge saddles re-aimed to the new portal bearings (+-19 / +-28 degrees); all six plots, roads (straight spokes), bounds; the old terrace area (z -91..-180) becomes open meadow (north road avenue, lanterns, flowers).
+- **Does not move:** market (shrine / merchant / forge / ponds), entrance gate + spawn, plaza, altar.
+- **Valley edge (honest numbers from the edge code):** +64..78 studs at bearings 80-90 (W2/E2), +40 at 120-130 (W3/E3), south flanks +30, north corners +~55 for the outer portals; narrower (-24) behind W1/E1 at bearings 40-60. (Earlier "+35 per side" was too low.) Waterfall + ancient tree move ~60 studs (about (-48, +67)) to the new river lip.
+
+| | A-79 | A-N |
+| --- | --- | --- |
+| Valley sides | +75 | +65..78 |
+| Valley south | +105..165 at the south pair | +30 on the flanks |
+| Market / shrine / merchant / forge | move ~30 inward | stay |
+| Entrance | S pair 38 apart (crowded) | S pair 243 apart |
+| Portal terrace + stairs + Spire court | stay | **rebuilt** (new terrace, steeper hill, stairs, spawn, travel point) |
+| Waterfall + ancient tree | move ~50 | move ~60 |
+| Landmark / saddle re-aiming | no | yes (config) |
+| North | old W1/E1 meadow empty | W1/E1 stay about where they are, terrace behind them |
