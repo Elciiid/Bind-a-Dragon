@@ -150,6 +150,7 @@ return {
 	-- --flip makes it): beyond LodDistance it is drawn instead of the body (same bone animation). Beyond HideDistance no
 	-- dragon is drawn at all. With Low effects at most LowEffectsMaxVisible dragons of one sanctuary are drawn (the nearest
 	-- to the camera).
+	LodEnabled = false, -- OFF: the first generated LOD meshes had holes. With it off Elders always draw the full Body (a BodyLOD part is ignored; keep it out of the models)
 	LodPart = "BodyLOD",
 	LodDistance = 120,
 	LodMargin = 10, -- hysteresis: the full mesh comes back this many studs inside LodDistance (and a dragon reappears inside HideDistance)

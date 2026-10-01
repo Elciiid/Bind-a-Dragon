@@ -323,7 +323,7 @@ local function register(model: Model, plot: Model)
 			table.insert(offsets, pivot:ToObjectSpace(part.CFrame))
 		end
 	end
-	local lodFound = model:FindFirstChild(RigConfig.LodPart, true)
+	local lodFound = if RigConfig.LodEnabled then model:FindFirstChild(RigConfig.LodPart, true) else nil
 	local lodPart = if lodFound and lodFound:IsA("MeshPart") then lodFound else nil
 	local lodBones: { [string]: Bone } = {}
 	local saved: { [BasePart]: number } = {}
