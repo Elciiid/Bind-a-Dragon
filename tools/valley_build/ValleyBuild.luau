@@ -361,7 +361,9 @@ function B.BuildCrystalRing()
 end
 
 ---------------------------------------------------------------------------------------------------------------
--- Portal terrace: retaining wall, grand stairs, stairs up to the Spire, a themed ground disc under each gate
+-- Portal terrace (layout A-N, 2026-10-02): the flat polygon V.Terrace.Poly behind the sanctuaries, wrapping the Spire's
+-- south foot. Retaining wall along its front and side edges, grand stairs at the end of the north road (z -155 .. -176),
+-- stairs from the terrace up the Spire hill, a themed ground disc under each gate
 
 B.GateGrounds = {
 	Portal_VolcanoPeak = { M.Slate, Color3.fromRGB(64, 46, 42) },
@@ -372,30 +374,41 @@ B.GateGrounds = {
 
 function B.BuildTerrace()
 	local f = folder(SM, "PortalTerrace", true)
-	local R = 131.5
-	for b = -46, 46, 4 do
-		local r = rad(b)
-		local x, z = R * sin(r), -R * cos(r)
-		if math.abs(x) > 17 then
-			local w = 2 * R * sin(rad(2)) + 0.8
-			P(f, "Wall", Vector3.new(w, 14.2, 3), CFrame.lookAt(Vector3.new(x, 6, z), Vector3.new(0, 6, 0)), M.Cobblestone, C.Stone)
-			if b % 12 == 2 or b % 12 == -10 then
-				P(f, "Buttress", Vector3.new(2.6, 14.8, 4.4), CFrame.lookAt(Vector3.new(x, 6.3, z), Vector3.new(0, 6.3, 0)) * CFrame.new(0, 0, -0.8), M.Slate, C.Cap)
+	local poly = V.Terrace.Poly
+	local cx, cz = 0, -250 -- inside the polygon: walls face it
+	for i = 1, #poly do
+		local a, b = poly[i], poly[i % #poly + 1]
+		local backEdge = a[2] <= -299 and b[2] <= -299
+		local bay = math.abs(a[1]) <= 12 and math.abs(b[1]) <= 12 -- the stairs bay
+		if not backEdge and not bay then
+			local len = sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
+			local dx, dz = (b[1] - a[1]) / len, (b[2] - a[2]) / len
+			local nx, nz = -dz, dx
+			local mx, mz = (a[1] + b[1]) / 2, (a[2] + b[2]) / 2
+			if nx * (cx - mx) + nz * (cz - mz) < 0 then
+				nx, nz = -nx, -nz
+			end
+			local pos = Vector3.new(mx + nx * 1.5, 6, mz + nz * 1.5)
+			P(f, "Wall", Vector3.new(len + 1, 14.2, 3), CFrame.lookAt(pos, pos + Vector3.new(nx, 0, nz)), M.Cobblestone, C.Stone)
+			-- a buttress at the segment's start (and one in the middle of long segments)
+			for _, t in { 0, if len > 40 then 0.5 else nil } do
+				local bp = Vector3.new(a[1] + dx * len * t + nx * 1.4, 6.3, a[2] + dz * len * t + nz * 1.4)
+				P(f, "Buttress", Vector3.new(2.6, 14.8, 4.4), CFrame.lookAt(bp, bp + Vector3.new(nx, 0, nz)), M.Slate, C.Cap)
 			end
 		end
 	end
-	-- grand stairs from the plaza road up to the terrace
+	-- grand stairs from the north road up to the terrace bay
 	local stairs = model(f, "GrandStairs")
 	for k = 1, 8 do
 		local top = 0.8 + 1.4 * k
-		local front = 112 + 2.625 * (k - 1)
-		local back = 134
+		local front = 155 + 2.625 * (k - 1)
+		local back = 176
 		P(stairs, "Step", Vector3.new(24, top + 1, back - front), CFrame.new(0, (top - 1) / 2, -(front + back) / 2), M.Slate, C.Cap)
 	end
 	for _, side in { -1, 1 } do
-		W(stairs, "Cheek", Vector3.new(2, 12.4, 22), CFrame.new(side * 13, 0.8 + 6.2, -123) * CFrame.Angles(0, math.pi, 0), M.Cobblestone, C.Stone)
-		P(stairs, "Pedestal", Vector3.new(3.6, 3, 3.6), CFrame.new(side * 14.5, 2.3, -110), M.Slate, C.StoneDark)
-		lantern(stairs, Vector3.new(side * 14.5, 3.8, -110), 0)
+		W(stairs, "Cheek", Vector3.new(2, 12.4, 22), CFrame.new(side * 13, 0.8 + 6.2, -165.5) * CFrame.Angles(0, math.pi, 0), M.Cobblestone, C.Stone)
+		P(stairs, "Pedestal", Vector3.new(3.6, 3, 3.6), CFrame.new(side * 14.5, 2.3, -153), M.Slate, C.StoneDark)
+		lantern(stairs, Vector3.new(side * 14.5, 3.8, -153), 0)
 	end
 	-- stairs from the terrace up the Spire hill
 	local up = model(f, "SpireStairs")
@@ -1076,7 +1089,7 @@ function B.BuildTravelPoints()
 		P(f, name, Vector3.new(2, 1, 2), CFrame.lookAt(at, Vector3.new(lookX, at.Y, lookZ)), M.SmoothPlastic, Color3.new(1, 1, 1), { Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false })
 	end
 	point("Altar", 0, 34, 0, 0)
-	point("Portals", 0, -138, 0, -200)
+	point("Portals", 22, -193, 0, -252) -- terrace front, beside the Spire stairs, facing the Spire
 	point("Market", 0, 164, 0, 100)
 	for _, plot in SM.Pens:GetChildren() do
 		local center = plot:GetAttribute("RoamCenter")

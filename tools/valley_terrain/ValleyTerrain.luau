@@ -97,9 +97,9 @@ V.Roads = {
 V.SpawnPlaza = { X = 0, Z = 160, R = 12 }
 -- Portal terrace (layout A-N): a flat polygon (top y 12) wrapping the Spire's south foot; the portals stand on its back
 -- edge (z -262 / -286), the grand stairs climb to its front bay at (0, -176). The sides fall away steeply (retaining wall).
-V.Terrace = { Top = 12, Slope = 3, Poly = { { -12, -176 }, { 12, -176 }, { 30, -185 }, { 60, -206 }, { 100, -224 }, { 140, -240 }, { 166, -300 }, { -166, -300 }, { -140, -240 }, { -100, -224 }, { -60, -206 }, { -30, -185 } } }
+V.Terrace = { Top = 12, Slope = 3, Poly = { { -12, -176 }, { 12, -176 }, { 30, -185 }, { 60, -206 }, { 100, -224 }, { 140, -240 }, { 176, -300 }, { -176, -300 }, { -140, -240 }, { -100, -224 }, { -60, -206 }, { -30, -185 } } }
 -- paved promenade in front of the portals, joining the pads and the Spire stairs (polylines, half-width W)
-V.Walkway = { W = 7, Lines = { { { -139, -265 }, { -82, -239 }, { -30, -212 }, { 0, -200 }, { 0, -178 } }, { { 139, -265 }, { 82, -239 }, { 30, -212 }, { 0, -200 } } } }
+V.Walkway = { W = 7, Lines = { { { -135, -259 }, { -82, -231 }, { -40, -205 }, { -14, -186 }, { 0, -178 } }, { { 135, -259 }, { 82, -231 }, { 40, -205 }, { 14, -186 }, { 0, -178 } } } }
 V.SpireCourt = { X = 0, Z = -214, R = 16 } -- paved court at the Spire entrance
 V.WaterLevel = -1
 
@@ -141,7 +141,7 @@ end
 V.EdgeAt = edgeAt
 
 -- Ridge height by bearing, and how deep the saddles behind the four portal gates cut (landmarks show through them).
-local SADDLES = { -40, -15, 15, 40 }
+local SADDLES = { -35, -18, 18, 35 } -- dips behind the portal gates (landmarks stand there, Config/Horizon)
 local function peakAt(th: number): (number, number)
 	local a = abs(th)
 	local p = lerp(175, 235, smooth((a - 40) / 25))
@@ -483,6 +483,12 @@ function V.WriteChunk(cx: number, cz: number)
 		for iz = 1, nz + 1 do
 			local wx, wz = cx + (ix - 0.5) * RES, cz + (iz - 0.5) * RES
 			local h, level, hint = V.Height(wx, wz)
+			-- 4 samples per cell (the cell center plus a +-1 stud cross) -> fractional occupancy at the edges of flat areas, so
+			-- terrace rims come out round instead of in 4-stud steps (octagonal at ground level)
+			if not level and hint ~= "bed" and hint ~= "rockbed" then -- water cells keep their exact bed (water must not share a voxel with ground)
+				local h2 = (V.Height(wx - 1, wz - 1) + V.Height(wx + 1, wz - 1) + V.Height(wx - 1, wz + 1) + V.Height(wx + 1, wz + 1)) / 4
+				h = (h + h2 * 3) / 4
+			end
 			H[ix][iz], L[ix][iz], M[ix][iz] = h, level or false, hint or false
 		end
 	end

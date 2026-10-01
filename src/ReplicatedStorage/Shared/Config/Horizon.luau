@@ -24,13 +24,14 @@ return {
 	FlashOpacity = 0.9,
 
 	Landmarks = {
-		-- The Valley (Starter Meadow): each area's landmark stands 650 studs out behind its portal gate (gates on the
-		-- portal terrace at bearings -36°, -13°, 13°, 36° from north; landmarks fanned a little wider at -40°, -15°, 15°,
-		-- 40°), seen through the dips in the mountain ridge. Unlock order west to east.
+		-- The Valley (Starter Meadow): each area's landmark stands 650-720 studs out behind its portal gate (gates on the
+		-- portal terrace behind the Spire's foot, layout A-N, at bearings -28°, -19°, 19°, 28° from the altar; landmarks fanned
+		-- a little wider at -35°, -18°, 18°, 35°, matching the ridge dips in ValleyTerrain SADDLES), seen through the dips in
+		-- the mountain ridge. Unlock order west to east.
 		-- Behind Portal_VolcanoPeak: the volcano with its lava streams and smoke plume.
 		{
 			Model = "ValleyVolcano",
-			Position = Vector3.new(-463, 20, -552), -- a little farther out (720) so it doesn't crowd the ice spire
+			Position = Vector3.new(-413, 20, -590), -- 720 out at -35° (a little farther out so it doesn't crowd the ice spire)
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1.1, -- ~350 tall: towers over the ridge like in the concept image
 			ShowIn = { "StarterMeadow" },
@@ -38,7 +39,7 @@ return {
 		-- Behind Portal_FrozenCliffs: the ice crystal spire on its cliff.
 		{
 			Model = "IceSpire",
-			Position = Vector3.new(-168, 15, -628),
+			Position = Vector3.new(-204, 15, -628), -- 660 out at -18°
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1.3,
 			ShowIn = { "StarterMeadow" },
@@ -46,7 +47,7 @@ return {
 		-- Behind Portal_StormCanyon: the lightning tower on its mesa.
 		{
 			Model = "StormTower",
-			Position = Vector3.new(168, 15, -628),
+			Position = Vector3.new(204, 15, -628),
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1,
 			ShowIn = { "StarterMeadow" },
@@ -56,7 +57,7 @@ return {
 		-- Position = the island's grass top.
 		{
 			Model = "ValleyIsland",
-			Position = Vector3.new(418, 200, -498), -- floats above the east ridge
+			Position = Vector3.new(373, 200, -532), -- floats above the east ridge (650 out at 35°)
 			FaceTowards = MEADOW_CENTER,
 			Scale = 1.25,
 			ShowIn = { "StarterMeadow" },
