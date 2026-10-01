@@ -309,12 +309,13 @@ def tex_strata(colors, seed, band=22):
 # Painterly grass: near-white with soft, low-noise value washes and warm light patches; its green comes from the
 # terrain Grass (and Mud = forest/slope grass) color, so the grass blades match the ground.
 
-def tex_paint_grass(seed, wash=0.10, warm=0.08, strokes=0, stroke_len=16, stroke_w=2.2, stroke_k=0.10, flecks=0):
+def tex_paint_grass(seed, wash=0.10, warm=0.08, strokes=0, stroke_len=16, stroke_w=2.2, stroke_k=0.10, flecks=0,
+                    fleck_r=(1.2, 2.0), base=(236, 240, 232), fleck_color=(255, 255, 250), buds=0, bud_color=(255, 232, 120), bud_r=(1.6, 2.6)):
     big = [ValueNoise(2, seed), ValueNoise(4, seed + 1), ValueNoise(8, seed + 2)]
     warmth = [ValueNoise(2, seed + 5), ValueNoise(4, seed + 6)]
     sm = strokes_map(strokes, seed + 7, stroke_len, stroke_w, angle_spread=0.9) if strokes else {}
-    fl = speckle_map(flecks, seed + 8, 1.2, 2.0) if flecks else {}
-    base = (236, 240, 232)
+    fl = speckle_map(flecks, seed + 8, fleck_r[0], fleck_r[1]) if flecks else {}
+    bd = speckle_map(buds, seed + 9, bud_r[0], bud_r[1]) if buds else {}  # little warm flower buds
     px = []
     for y in range(N):
         for x in range(N):
@@ -328,7 +329,10 @@ def tex_paint_grass(seed, wash=0.10, warm=0.08, strokes=0, stroke_len=16, stroke
                 c = mix(c, (255, 255, 236), st * stroke_k * 4)
             f = fl.get(k)
             if f:
-                c = mix(c, (255, 255, 250), min(1, f * 1.4))
+                c = mix(c, fleck_color, min(1, f * 1.4))
+            b = bd.get(k)
+            if b:
+                c = mix(c, bud_color, min(1, b * 1.6))
             px.append(clamp8(c))
     return px
 
@@ -399,6 +403,8 @@ TEXTURES = {
     "valley_grass_a": lambda: tex_paint_grass(301, wash=0.07, warm=0.06),
     "valley_grass_b": lambda: tex_paint_grass(311, wash=0.10, warm=0.07, strokes=700, stroke_len=18, stroke_w=2.4, stroke_k=0.05),
     "valley_grass_c": lambda: tex_paint_grass(321, wash=0.08, warm=0.10, flecks=60),
+    # D (2026-10-02, kids restyle): clover dots + a few warm buds on a slightly deeper base, for the sunny lawn look
+    "valley_grass_d": lambda: tex_paint_grass(331, wash=0.07, warm=0.08, flecks=120, fleck_r=(3.5, 6.0), base=(214, 222, 204), fleck_color=(255, 252, 238), buds=34, bud_r=(5.0, 8.0)),
     "valley_road_a": lambda: tex_flagstone(slabs(5, 331), [hexc("EADCBE"), hexc("E2D0AE"), hexc("EFE4CC"), hexc("DCC8A4")], hexc("A88E6A"), 331),
     "valley_road_b": lambda: tex_flagstone(slabs(5, 341), [hexc("E4C99A"), hexc("D8B884"), hexc("ECD4A8"), hexc("CFAE7C")], hexc("8E7452"), 341, moss=hexc("7D8E5E"), moss_share=0.35),
     "valley_road_c": lambda: tex_flagstone(slabs(5, 351), [hexc("F1EADA"), hexc("E6DCC6"), hexc("DCD8CE"), hexc("EDE2C8")], hexc("B4A48A"), 351, grout_w=2.4),
