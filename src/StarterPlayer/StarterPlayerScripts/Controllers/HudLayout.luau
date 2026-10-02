@@ -161,7 +161,7 @@ local function layoutMenu()
 	menu.Size = UDim2.fromOffset(width, count * (iconSize + labelSize + 2) + math.max(0, count - 1) * gap)
 	-- the same arrangement on PC and phone: a column, vertically centered on the left
 	menu.AnchorPoint = Vector2.new(0, 0.5)
-	menu.Position = UDim2.new(0, if phone then sizes.PhoneLeftMargin else sizes.LeftMargin, 0.5, if phone then -6 else -10)
+	menu.Position = UDim2.new(0, if phone then sizes.PhoneLeftMargin else sizes.LeftMargin, 0.5, -(if phone then sizes.PhoneMenuRaise else sizes.MenuRaise))
 	updatePopupHiding()
 end
 
@@ -210,11 +210,12 @@ local function layoutPopups()
 	end
 end
 
--- Bottom-right timer stack: PC near the corner (RightMargin from the edge), phones above the jump button.
+-- Bottom-right timer stack: near the corner (RightMargin from the edge), PC and phone alike.
 local function layoutTimers()
 	local sizes = UITheme.Sizes
+	-- the same bottom-right spot on PC and phone
 	if phone then
-		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -sizes.PhoneTimersBottom)
+		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -sizes.PhoneMargin)
 	else
 		timerStack.Position = UDim2.new(1, -sizes.RightMargin, 1, -sizes.Margin)
 	end

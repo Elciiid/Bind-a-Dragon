@@ -212,6 +212,8 @@ return {
 		PhoneLuckPanelScale = 0.5, -- phones: the luck panel is the PC panel drawn this much smaller
 		LeftMargin = 64, -- left-side HUD (menu icons, currency) the same, mirrored
 		PhoneLeftMargin = 36,
+		MenuRaise = 50, -- the 4 left icons sit this many pixels above the vertical center (PC)
+		PhoneMenuRaise = 30,
 		Gap = 6,
 		MenuButton = Vector2.new(74, 74), -- PC: icon tiles in a 2-column grid, left middle
 		PhoneMenuButton = Vector2.new(58, 48), -- phone: smaller tiles (3 rows fit above the thumbstick)
@@ -294,7 +296,6 @@ return {
 		PhoneTravelTop = 2,
 		PotionTimer = 50, -- PC: active potion icons (time under each), a horizontal row under the day/night timer
 		PhonePotionTimer = 34,
-		PhoneTimersBottom = 100, -- phone: the timer stack stays above the jump button
 		TopbarGap = 6, -- the settings gear's distance from Roblox's own top-bar buttons
 	},
 
