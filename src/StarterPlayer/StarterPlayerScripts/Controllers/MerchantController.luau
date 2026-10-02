@@ -523,10 +523,12 @@ function MerchantController:Init()
 		{ words.SellItems, "Primary", "Potion_GildedDraught", function() showPage("Items") end },
 		{ words.Bye, "Cancel", nil, function() window:Close() end },
 	}
+	local menuButtons: { Button.Button } = {}
 	for order, choice in choices do
 		local button = Button.new(menuList, { Text = choice[1] :: string, Kind = choice[2] :: any, Icon = choice[3] :: string?, TextSize = 22, OnClick = choice[4] :: () -> () })
 		button.Instance.LayoutOrder = order
 		button.Instance.Size = UDim2.new(0.8, 0, 0, touch + 6)
+		table.insert(menuButtons, button)
 	end
 
 	-- Buy Stardust (Kyle's page)
@@ -643,6 +645,61 @@ function MerchantController:Init()
 	itemLayout.Parent = itemList
 	backButton(itemsPage)
 
+	-- Short windows (phones, about 270 px of content): the four menu buttons shrink to fit, the explanation lines drop out and the
+	-- Sell Dragons summary moves up beside the Select/Clear buttons, so the lists keep room for a few rows.
+	local COMPACT_BELOW = 330
+	local function applyCompact()
+		local height = window.Content.AbsoluteSize.Y
+		if height <= 0 then
+			return
+		end
+		local compact = height < COMPACT_BELOW
+		line.Size = UDim2.new(1, 0, 0, if compact then 34 else 56)
+		line.TextSize = if compact then 18 else 22
+		local top = if compact then 38 else 62
+		menuList.Position = UDim2.fromOffset(0, top)
+		menuList.Size = UDim2.new(1, 0, 1, -top)
+		local pad = gap + 4
+		local buttonHeight = if compact then math.clamp(math.floor((height - top - pad * 3) / #menuButtons), 34, touch + 6) else touch + 6
+		menuLayout.Padding = UDim.new(0, if compact then math.min(pad, 6) else pad)
+		for _, button in menuButtons do
+			button.Instance.Size = UDim2.new(0.8, 0, 0, buttonHeight)
+		end
+		info.Visible = not compact
+		itemInfo.Visible = not compact
+		if compact then
+			commons.Instance.Position = UDim2.fromOffset(0, 0)
+			commons.Instance.Size = UDim2.new(0.36, 0, 0, 34)
+			clear.Instance.Position = UDim2.new(0.38, 0, 0, 0)
+			clear.Instance.Size = UDim2.new(0.2, 0, 0, 34)
+			summary.AnchorPoint = Vector2.new(1, 0)
+			summary.Position = UDim2.new(1, 0, 0, 0)
+			summary.Size = UDim2.new(0.4, 0, 0, 34)
+			summary.TextSize = 14
+			summary.TextScaled = true
+			dragonList.Position = UDim2.fromOffset(0, 40)
+			dragonList.Size = UDim2.new(1, 0, 1, -40 - touch - gap)
+			itemList.Position = UDim2.fromOffset(0, 0)
+			itemList.Size = UDim2.new(1, 0, 1, -touch - gap)
+		else
+			commons.Instance.Position = UDim2.fromOffset(0, 40)
+			commons.Instance.Size = UDim2.new(0.62, 0, 0, 40)
+			clear.Instance.Position = UDim2.new(0.64, 0, 0, 40)
+			clear.Instance.Size = UDim2.new(0.36, 0, 0, 40)
+			summary.AnchorPoint = Vector2.new(0, 1)
+			summary.Position = UDim2.new(0, 0, 1, -touch - gap)
+			summary.Size = UDim2.new(1, 0, 0, 34)
+			summary.TextSize = 17
+			summary.TextScaled = false
+			dragonList.Position = UDim2.fromOffset(0, 88)
+			dragonList.Size = UDim2.new(1, 0, 1, -88 - touch - 40 - gap * 2)
+			itemList.Position = UDim2.fromOffset(0, 42)
+			itemList.Size = UDim2.new(1, 0, 1, -42 - touch - gap)
+		end
+	end
+	window.Content:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyCompact)
+	task.defer(applyCompact)
+
 	window:OnOpen(function()
 		showPage("Menu")
 		refreshBuy()
@@ -708,6 +765,7 @@ local function makeBubble(merchant: Instance): BillboardGui?
 	gui.Adornee = anchor
 	gui.Size = UDim2.fromOffset(230, 56)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, top - anchor.Position.Y + 2.2, 0)
+	gui.SizeOffset = Vector2.new(0, Economy.Merchant.BubbleRaise) -- in bubble heights: clears the price board under it at any distance
 	gui.AlwaysOnTop = false
 	gui.MaxDistance = 80
 	gui.Enabled = false

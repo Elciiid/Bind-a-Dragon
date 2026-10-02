@@ -16,6 +16,23 @@ return {
 		PurchaseRange = 16, -- server purchase and client menu-close boundary
 		RequestInterval = 0.25, -- server anti-spam interval
 		MenuUpdateInterval = 0.5, -- live price / departure polling
+		BubbleRaise = 1.15, -- the "Welcome, binder!" bubble sits this many bubble heights above the price board over the merchant's head
+
+		-- Idle motion of the merchant NPC (MerchantIdleController): the imported art keeps one working bone (the root), so the
+		-- whole body breathes, sways and turns toward the player. Angles are radians; periods are seconds per cycle.
+		Idle = {
+			BreathPeriod = 3.4,
+			BreathPitch = 0.028, -- forward/back rock of the body with each breath
+			BreathBob = 0.05, -- studs the root rises with each breath
+			SwayPeriod = 7.5,
+			SwayRoll = 0.045, -- slow side-to-side lean
+			NoticeRange = 22, -- studs: the merchant turns to face you inside this range
+			MaxTurn = 0.7, -- the most it turns (about 40 degrees)
+			TurnSpeed = 3.5, -- how quickly the turn eases (higher = snappier)
+			LookAwayPeriod = 11, -- with nobody near, now and then a small glance to one side
+			LookAwayTurn = 0.25,
+			AnimateDistance = 90, -- not animated beyond this (the model is client-side only, nobody sees it)
+		},
 	},
 
 	-- Selling at the Star Merchant (SellService; DragonStats.GetSellValue / GetSellProtection). PROPOSED numbers, waiting for approval

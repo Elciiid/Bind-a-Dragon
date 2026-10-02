@@ -19,7 +19,7 @@ local Icons: { [string]: string } = {
 	Stardust = "rbxassetid://79393071959270",
 	WyrmRune = "rbxassetid://112660725792759",
 	Dragonstone = "rbxassetid://89473820390429",
-	EchoSigil = "", -- assets/icons/EchoSigil.png; set creator-owned image ID after upload
+	EchoSigil = "rbxassetid://77787921617006", -- assets/icons/EchoSigil_512.png (uploaded by the creator)
 
 	Menu_Dragons = "rbxassetid://115314657694318",
 	Menu_Index = "rbxassetid://82066920142194",

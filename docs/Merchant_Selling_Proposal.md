@@ -1,6 +1,6 @@
 # Star Merchant: selling dragons and items (proposal, 2026-10-03)
 
-Status: **built with these numbers, waiting for approval.** Every number is in `Config/Economy.Selling`; the same shared functions
+Status: **approved 2026-10-03 as proposed (Epic+ stays out of "Select all"; Stardust stays unsellable).** Every number is in `Config/Economy.Selling`; the same shared functions
 (`DragonStats.GetSellValue`, `GetSellProtection`, `IsRiskySale`) price a sale on the client (what the dialog shows) and on the
 server (what is paid), so they cannot disagree.
 
