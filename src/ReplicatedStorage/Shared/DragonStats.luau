@@ -174,6 +174,25 @@ function DragonStats.GetFloorTier(power: number, enemyPower: number, alreadyClea
 	return SpireConfig.FightSeconds, 1
 end
 
+-- The player's record (highest floor cleared) in a difficulty.
+function DragonStats.GetSpireRecord(data: PlayerData, difficulty: string): number
+	return data.SpireRecords[difficulty] or 0
+end
+
+-- A difficulty is open when it has no UnlockFrom, or the floor MaxFloors of that difficulty was cleared.
+function DragonStats.IsDifficultyUnlocked(data: PlayerData, difficulty: string): boolean
+	local def = SpireConfig.Difficulties[difficulty]
+	if def == nil or difficulty == "Order" then
+		return false
+	end
+	local from = def.UnlockFrom
+	if from == nil then
+		return true
+	end
+	local fromDef = SpireConfig.Difficulties[from]
+	return fromDef ~= nil and DragonStats.GetSpireRecord(data, from) >= (fromDef.MaxFloors or math.huge)
+end
+
 -- Reward multiplier of a boss victory / first clear on `floor` of a difficulty (Infinite grows with depth).
 function DragonStats.GetSpireRewardMultiplier(difficulty: string, floor: number): number
 	local def = SpireConfig.Difficulties[difficulty]

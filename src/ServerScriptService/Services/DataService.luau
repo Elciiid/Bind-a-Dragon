@@ -26,7 +26,7 @@ type PlayerData = PlayerDataTypes.PlayerData
 
 -- Bump this and add a step to MIGRATIONS whenever existing saved data needs to be reshaped
 -- (renamed/moved/removed fields). Plain new fields don't need a migration: Reconcile() fills them in.
-local CURRENT_DATA_VERSION = 5
+local CURRENT_DATA_VERSION = 6
 
 local function defaultSettings(): PlayerDataTypes.Settings
 	local defaults = DataConfig.DefaultSettings
@@ -102,6 +102,22 @@ local MIGRATIONS: { [number]: (data: any) -> () } = {
 			end
 		end
 	end,
+	-- 5 -> 6: Spire difficulties. The single record becomes the Easy record; the others start at 0.
+	[5] = function(data)
+		local records = if type(data.SpireRecords) == "table" then data.SpireRecords else {}
+		-- Reconcile() runs before the migrations, so Easy may already be the template's 0: keep the larger of the two
+		records.Easy = math.max(if type(records.Easy) == "number" then records.Easy else 0, if type(data.SpireRecord) == "number" then data.SpireRecord else 0)
+		for _, id in { "Medium", "Hard", "Infinite" } do
+			if type(records[id]) ~= "number" then
+				records[id] = 0
+			end
+		end
+		data.SpireRecords = records
+		data.SpireRecord = nil
+		if type(data.SpireDifficulty) ~= "string" then
+			data.SpireDifficulty = "Easy"
+		end
+	end,
 }
 
 local TEMPLATE: PlayerData = {
@@ -139,7 +155,8 @@ local TEMPLATE: PlayerData = {
 	LoginDay = -1,
 	LoginStreak = 0,
 
-	SpireRecord = 0,
+	SpireRecords = { Easy = 0, Medium = 0, Hard = 0, Infinite = 0 },
+	SpireDifficulty = "Easy",
 	ElevatorSkips = 0,
 	EchoSigils = 0,
 	EchoSigilQuestDay = -1,

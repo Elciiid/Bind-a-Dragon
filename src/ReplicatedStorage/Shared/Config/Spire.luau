@@ -58,10 +58,10 @@ return {
 		{ Every = 10, Potion = "RunebrightTonic", Chance = 0.10 },
 	} :: { Drop },
 
-	-- ===== Difficulties (2026-10-03 update, checkpoint 4). PROPOSED numbers: not read by SpireService until approved. =====
+	-- ===== Difficulties (2026-10-03 update, checkpoint 4; numbers approved, sim in docs/Spire_Difficulties_Proposal.md). =====
 	-- Enemy power on a floor of a difficulty = EnemyBase x EnemyScale x EnemyGrowth ^ (floor + FloorOffset) (x BossMultiplier on bosses).
-	-- Unlock: the previous difficulty's floor MaxFloors was cleared (UnlockFrom). Infinite has no top floor (MaxFloors = nil):
-	-- it continues Hard's curve, so its floor 1 is about Hard's floor 101.
+	-- Unlock: the floor MaxFloors of the UnlockFrom difficulty was cleared. Infinite is unlocked by Medium 100 (so its weekly
+	-- leaderboard is active early) and has no top floor (MaxFloors = nil): it continues Medium's curve, its floor 1 = Medium floor 101.
 	-- RewardMultiplier multiplies the Wyrm Runes / Dragonstones / Stardust of every boss victory (Easy = the original values; potions
 	-- are never multiplied); FirstClearMultiplier does the same for a floor's first-clear drops. DepthRewardEvery (Infinite): the
 	-- boss multiplier grows by RewardMultiplier x floor / DepthRewardEvery, so deeper bosses pay more. ExtraFirstClearDrops / ExtraReclearDrops are added to
@@ -77,7 +77,7 @@ return {
 			UnlockFrom = "Easy", SkipBaseFirstClear = true,
 		},
 		Hard = {
-			Name = "Hard", EnemyScale = 400, FloorOffset = 0, MaxFloors = 100, RewardMultiplier = 4, FirstClearMultiplier = 1, FirstClearIncomeSeconds = 30,
+			Name = "Hard", EnemyScale = 100, FloorOffset = 0, MaxFloors = 100, RewardMultiplier = 4, FirstClearMultiplier = 1, FirstClearIncomeSeconds = 30,
 			UnlockFrom = "Medium", SkipBaseFirstClear = true,
 			ExtraFirstClearDrops = {
 				{ Every = 25, Potion = "MoonfireTonic" },
@@ -89,8 +89,8 @@ return {
 			} :: { Drop },
 		},
 		Infinite = {
-			Name = "Infinite", EnemyScale = 400, FloorOffset = 100, MaxFloors = nil, RewardMultiplier = 4, FirstClearMultiplier = 1, DepthRewardEvery = 50,
-			FirstClearIncomeSeconds = 30, UnlockFrom = "Hard", SkipBaseFirstClear = true,
+			Name = "Infinite", EnemyScale = 20, FloorOffset = 100, MaxFloors = nil, RewardMultiplier = 4, FirstClearMultiplier = 1, DepthRewardEvery = 50,
+			FirstClearIncomeSeconds = 30, UnlockFrom = "Medium", SkipBaseFirstClear = true,
 			ExtraFirstClearDrops = {
 				{ Every = 25, Potion = "MoonfireTonic" },
 				{ Every = 10, Potion = "RunebrightTonic", Chance = 0.25 },
@@ -108,8 +108,23 @@ return {
 	-- the enemy's) is reached sets the fight time; RewardShare scales the boss Wyrm Runes / Dragonstones / Stardust of that floor, so
 	-- repeat runs stay worth about what the original 20-minute run was. A floor you have not cleared always takes FightSeconds at full pay.
 	FastFloors = {
-		{ PowerRatio = 25, Seconds = 1.5, RewardShare = 0.25 },
-		{ PowerRatio = 4, Seconds = 5, RewardShare = 0.5 },
+		{ PowerRatio = 25, Seconds = 6, RewardShare = 0.25 },
+	},
+
+	-- Spire Haste game pass (Config/Products.SpireHaste): fights take FightSeconds / FightSpeed (fast floors too). Convenience only.
+	Haste = { FightSpeed = 2 },
+
+	-- Weekly Infinite leaderboard (SpireLeaderboardService): the deepest Infinite floor reached this week, an OrderedDataStore with one
+	-- scope per week (weeks start Monday 00:00 UTC). "_Studio" is added to the store name in Studio so tests never touch the live board.
+	Leaderboard = {
+		Difficulty = "Infinite",
+		StoreName = "SpireInfinite_Weekly",
+		TopCount = 10, -- rows shown in the HUD (PhoneRows on phones)
+		PhoneRows = 5,
+		CacheSeconds = 60, -- the server refreshes the top list at most this often
+		WriteIntervalSeconds = 20, -- a player's new weekly best is written at most this often (and when they leave)
+		WeekStartOffsetDays = 4, -- Unix day 0 was a Thursday: Monday 00:00 UTC = day 4 of each 7-day cycle
+		RefreshSeconds = 30, -- the HUD asks for the board this often while it is showing
 	},
 
 	EntranceRange = 60, -- studs from the Spire (tag "DragonSpire") the player must stay within while climbing

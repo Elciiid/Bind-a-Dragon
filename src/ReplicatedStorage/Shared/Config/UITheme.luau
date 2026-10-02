@@ -172,6 +172,7 @@ return {
 	ShopIcons = {
 		ElevatorPass = "rbxassetid://134740752067580",
 		ElevatorSkip = "rbxassetid://100198617713618",
+		SpireHaste = "rbxassetid://134740752067580", -- stand-in (the old elevator icon) until the Haste art exists
 		AfkIncome2x = "rbxassetid://121189065531863",
 		AutoBind = "rbxassetid://129574556776206",
 	} :: { [string]: string },
@@ -283,6 +284,8 @@ return {
 		SpireFloorBadge = Vector2.new(170, 46), -- the big "Floor 40" badge on the HUD's top edge
 		SpireMini = Vector2.new(150, 46), -- the HUD minimized (Hide): just the floor badge
 		SpireDropIcon = 40, -- drops flying to the Inventory button
+		SpireBoard = Vector2.new(236, 0), -- the weekly Infinite leaderboard panel beside the HUD (height follows the row count)
+		SpireBoardRow = 24, -- one leaderboard row
 
 		-- UI renewal HUD (pixels). Icons are ~1.5x the old tile icons; labels in the title font.
 		HudIcon = 80, -- PC: left column icons (Inventory, Quests, Shop, Rebirth)

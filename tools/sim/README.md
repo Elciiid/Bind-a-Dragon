@@ -47,7 +47,7 @@ The Studio MCP's own threads can't `require` game modules any more, so run cohor
 `tools/sim/CohortSim.luau` to `src/ReplicatedStorage/TempCohortSim.luau` (git-ignored, delete it afterwards), start Play, then set the
 Workspace attribute `DevCommand` (see `DevService`): `{"Op":"SimStart","Job":"x","Profile":"Dedicated","Runs":24,"Days":30,
 "Variants":{"SellSurplus":true}}` and read `{"Op":"SimResult","Job":"x"}` until it is not "running". Run one job at a time (a job
-reads the variants set when it started, and `SimStart` resets them). `Variants.SellSurplus` = the Star Merchant selling model
+reads the variants set when it started, and `SimStart` resets them). `Variants.SpireDifficulties` = the Spire difficulties + fast floors (`Config/Spire`; the player climbs the unlocked difficulty paying the most runes + stones per second; results `Clear<Difficulty>DayMedian`, `Record<Difficulty>Median`, `InfiniteDepthMedian`; pass `"Weeks": 16` to release a weekly update as soon as the cap is hit, so it overstates speed: real updates come weekly, see `docs/Spire_Difficulties_Proposal.md`). `Variants.SellSurplus` = the Star Merchant selling model
 (`docs/Merchant_Selling_Proposal.md`).
 
 ## The model (what is and is not simulated)

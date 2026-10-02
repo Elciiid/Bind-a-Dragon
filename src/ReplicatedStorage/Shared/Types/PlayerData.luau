@@ -57,7 +57,8 @@ export type PlayerData = {
 	LoginDay: number, -- UTC day of the last counted login
 	LoginStreak: number, -- current streak day (1..#StreakRewards)
 
-	SpireRecord: number, -- highest Dragon Spire floor cleared
+	SpireRecords: { [string]: number }, -- highest Dragon Spire floor cleared per difficulty (Config/Spire.Difficulties: Easy, Medium, Hard, Infinite)
+	SpireDifficulty: string, -- the difficulty the next climb uses (the HUD picker)
 	ElevatorSkips: number, -- Single Elevator Skip developer products owned (one climb each)
 	EchoSigils: number, -- earned extra binds, capped by Config/Binding
 	EchoSigilQuestDay: number, -- UTC day the all-dailies sigil was awarded

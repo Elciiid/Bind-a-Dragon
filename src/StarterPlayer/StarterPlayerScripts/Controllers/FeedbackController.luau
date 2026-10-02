@@ -106,6 +106,14 @@ local function countKeys(t: { [string]: any }): number
 	return n
 end
 
+local function spireRecordTotal(data: any): number
+	local total = 0
+	for _, floor in data.SpireRecords do
+		total += floor
+	end
+	return total
+end
+
 local function snapshot(data: any): { [string]: any }
 	local levels = {}
 	for id, dragon in data.Dragons do
@@ -122,7 +130,7 @@ local function snapshot(data: any): { [string]: any }
 		Stardust = data.Stardust,
 		Index = countKeys(data.Index),
 		Rebirths = data.Rebirths,
-		SpireRecord = data.SpireRecord,
+		SpireRecord = spireRecordTotal(data), -- floors cleared over every difficulty: any new record plays the sound
 	}
 end
 
@@ -203,7 +211,7 @@ function FeedbackController:Start()
 	task.spawn(function()
 		local data = DataController:WaitForData()
 		last = snapshot(data)
-		for _, key in { "Dragons", "MerchantPurchases", "RoostSlotUpgrades", "RoostIncomeLevel", "ArmedLuckPotion", "WyrmRunes", "Dragonstones", "Potions", "Stardust", "Index", "Rebirths", "SpireRecord" } do
+		for _, key in { "Dragons", "MerchantPurchases", "RoostSlotUpgrades", "RoostIncomeLevel", "ArmedLuckPotion", "WyrmRunes", "Dragonstones", "Potions", "Stardust", "Index", "Rebirths", "SpireRecords" } do
 			DataController:OnChanged(key, compare)
 		end
 	end)

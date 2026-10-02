@@ -21,6 +21,12 @@ return {
 			Description = "Start Spire climbs above your record floor",
 			Robux = 300,
 		},
+		SpireHaste = {
+			Id = 0, -- create the pass in the Creator Dashboard, then paste its Id here
+			Name = "Spire Haste",
+			Description = "Dragon Spire fights take half the time (2x fight speed) on every difficulty. Convenience only: same floors, same drops per win.",
+			Robux = 249,
+		},
 		AfkIncome2x = {
 			Id = 0,
 			Name = "2x AFK Income",
@@ -46,7 +52,7 @@ return {
 	} :: { [string]: Item },
 
 	-- Display order in the shop.
-	ShopOrder = { "AfkIncome2x", "AutoBind" }, -- elevator is retired; stored entitlements are preserved
+	ShopOrder = { "SpireHaste", "AfkIncome2x", "AutoBind" }, -- the elevator is retired (Spire Haste replaces it in the shop); stored entitlements are preserved
 
 	AfkIncomeMultiplier = 2, -- 2x AFK Income: offline and idle roost income only
 	AutoBindSecondsLeft = 60, -- Auto-bind binds for you when this many seconds of night are left (bind yourself earlier for better luck)

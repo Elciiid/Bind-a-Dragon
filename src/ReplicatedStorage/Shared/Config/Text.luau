@@ -55,6 +55,29 @@ local Text = {
 		Stop = "Stop",
 		AutoRepeatOn = "Auto-Repeat ON",
 		AutoRepeatOff = "Auto-Repeat OFF",
+		AutoRepeatOnShort = "Auto ON", -- phones: the buttons are narrow
+		AutoRepeatOffShort = "Auto OFF",
+		-- difficulty picker + leaderboard (CP4). {difficulty}, {floor}, {record}, {time} are filled in.
+		Difficulty = {
+			Easy = "Easy",
+			Medium = "Medium",
+			Hard = "Hard",
+			Infinite = "Infinite",
+		} :: { [string]: string },
+		Locked = "Clear {difficulty} floor {floor} to unlock",
+		LockedShort = "Locked",
+		DifficultyRecord = "{difficulty} · Record {record}",
+		DifficultyReady = "{difficulty} difficulty",
+		HasteTag = "HASTE x2",
+		Board = {
+			Title = "Weekly Infinite",
+			Mine = "Your best: floor {floor}",
+			MineNone = "No floors yet this week",
+			Reset = "Resets in {time}",
+			Offline = "Test board (offline)",
+			Empty = "Be the first!",
+			Floor = "F{floor}",
+		},
 	},
 	-- The Star Merchant NPC (MerchantController): a speech bubble with the merchant's line, and the choices as big numbered lines on
 	-- the screen (no window). {placeholders} are filled with Text.Format.
@@ -228,6 +251,7 @@ local Text = {
 		Short = {
 			ElevatorPass = "Climbs start above your record",
 			ElevatorSkip = "One climb above your record",
+			SpireHaste = "Spire fights take half the time",
 			AfkIncome2x = "x2 gold while you're away",
 			AutoBind = "Binds for you every night",
 		} :: { [string]: string },

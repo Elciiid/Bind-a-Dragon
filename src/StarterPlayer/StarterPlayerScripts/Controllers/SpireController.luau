@@ -6,13 +6,16 @@
 --  * no text log: each cleared floor pops a "Floor 39 cleared!" chip that fades (first clears sparkle), and the drops
 --    fly as small icons into the Inventory button;
 --  * Stop = a small rose button; Hide (–) minimizes the HUD to a small floor badge (tap it to open again).
--- Between climbs, near the Spire: your best dragon with Climb and Auto-Repeat. Every run starts at stage 1.
+-- Between climbs, near the Spire: your best dragon with Climb and Auto-Repeat, and the difficulty picker (Easy / Medium / Hard /
+-- Infinite; one that is not unlocked is greyed and says what clears it). Every run starts at stage 1. With Infinite picked a small
+-- panel beside the HUD shows this week's top floors (the server's SpireLeaderboardService, asked for with SpireAction("Board")).
 -- Floor clears never use the toast queue. Sizes/motion in UITheme, words in Text.Spire.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
 local DataController = require(script.Parent.DataController)
@@ -59,6 +62,18 @@ local repeatButton: Button.Button
 local buttonRow: Frame
 local autoRepeat = false
 local chip: TextLabel? = nil
+local pickerRow: Frame
+local pickerButtons: { [string]: Button.Button } = {}
+local pickerCovers: { [string]: TextButton } = {}
+local boardPanel: Frame
+local boardTitle: TextLabel
+local boardRows: { { Row: Frame, Rank: TextLabel, Name: TextLabel, Floor: TextLabel } } = {}
+local boardMine: TextLabel
+local boardReset: TextLabel
+local boardEmpty: TextLabel
+local lastBoard: { [string]: any }? = nil
+local lastBoardRequest = -1e9
+local difficulty = "Easy" -- the picked difficulty (data.SpireDifficulty; the server's pick while climbing)
 
 local mode: Mode = "Ready"
 local record = 0
@@ -78,6 +93,27 @@ end
 
 local function tween(instance: Instance, time: number, props: { [string]: any }, style: Enum.EasingStyle?, direction: Enum.EasingDirection?)
 	TweenService:Create(instance, TweenInfo.new(time, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out), props):Play()
+end
+
+local function formatDuration(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	local days, hours, minutes = seconds // 86400, (seconds % 86400) // 3600, (seconds % 3600) // 60
+	if days > 0 then
+		return `{days}d {hours}h`
+	elseif hours > 0 then
+		return `{hours}h {minutes}m`
+	end
+	return `{minutes}m`
+end
+
+local function difficultyName(id: string): string
+	return words.Difficulty[id] or id
+end
+
+-- The record of the picked difficulty.
+local function recordOf(id: string): number
+	local data = DataController:Get()
+	return if data then DragonStats.GetSpireRecord(data, id) else 0
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -262,10 +298,22 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- States
 
+-- Sets a button label to `size` (HUD units), shrunk until the text fits `width` (HUD units).
+local function fitLabel(button: Button.Button, size: number, width: number)
+	local label = button.Label
+	while size > 9 and TextService:GetTextSize(label.Text, size, label.Font, Vector2.new(1000, 200)).X > width do
+		size -= 1
+	end
+	label.TextSize = size
+end
+
 local function updateRepeat()
-	repeatButton:SetText(if autoRepeat then words.AutoRepeatOn else words.AutoRepeatOff)
+	repeatButton:SetText(if phone then (if autoRepeat then words.AutoRepeatOnShort else words.AutoRepeatOffShort) else (if autoRepeat then words.AutoRepeatOn else words.AutoRepeatOff))
 	local height = if phone then Layout.DetailsSize.Y / hudScale.Scale else 42
 	climbButton.Instance.Size = UDim2.new(0.5, -4, 0, height)
+	local sizes = Theme.Sizes
+	local rightWidth = sizes.SpireHud.X - (12 + sizes.SpirePortrait + 12) - 16
+	fitLabel(repeatButton, 18 * (if phone then 1 / hudScale.Scale else 1), (if mode == "Fight" then sizes.SpireHud.X * 0.44 else rightWidth / 2) - 18)
 end
 
 local function setFloorBadge(text: string, boss: boolean)
@@ -279,13 +327,30 @@ local function setMode(newMode: Mode)
 	local fighting = newMode == "Fight"
 	local height = if phone then Layout.DetailsSize.Y / hudScale.Scale else 34
 	local rowHeight = if phone then height else 42
-	repeatButton.Label.TextSize = 18 / (if phone then hudScale.Scale else 1)
-	stopButton.Label.TextSize = 16 / (if phone then hudScale.Scale else 1)
-	climbButton.Label.TextSize = 22 / (if phone then hudScale.Scale else 1)
+	local unit = if phone then 1 / hudScale.Scale else 1 -- phones: sizes are written in screen pixels, the HUD is scaled down
+	local sizes = Theme.Sizes
+	local rightWidth = sizes.SpireHud.X - (12 + sizes.SpirePortrait + 12) - 16 -- the space right of the portrait
+	fitLabel(climbButton, 22 * unit, rightWidth / 2 - 18)
+	fitLabel(repeatButton, 18 * unit, (if fighting then sizes.SpireHud.X * 0.44 else rightWidth / 2) - 18)
+	fitLabel(stopButton, 16 * unit, 92 - 14)
 	enemy.Root.Visible = fighting
 	vsLabel.Visible = fighting
 	recordLabel.Visible = fighting
 	message.Visible = not fighting
+	local rightEdge = 12 + Theme.Sizes.SpirePortrait + 12
+	message.Position = UDim2.fromOffset(rightEdge, if phone then 22 else 26)
+	message.Size = UDim2.new(1, -(rightEdge + 16), 0, if phone then 40 else 30)
+	pickerRow.Visible = not fighting
+	pickerRow.Position = UDim2.fromOffset(rightEdge, if phone then 72 else 70)
+	pickerRow.Size = UDim2.new(1, -(rightEdge + 16), 0, if phone then height else 44)
+	local smallest = math.huge
+	for _, button in pickerButtons do
+		fitLabel(button, (if phone then 17 else 18) * unit, (rightWidth - 24) / 4 - 14)
+		smallest = math.min(smallest, button.Label.TextSize)
+	end
+	for _, button in pickerButtons do
+		button.Label.TextSize = smallest -- one size for all four
+	end
 	stopButton.Instance.Visible = fighting
 	climbButton.Instance.Visible = newMode == "Ready" or newMode == "Ended"
 	repeatButton.Instance.Parent = if fighting then hud else buttonRow
@@ -323,7 +388,8 @@ end
 -- Between climbs, near the Spire: your best dragon, Climb and Auto-Repeat.
 local function showReady()
 	local data = DataController:Get()
-	record = if data then data.SpireRecord else record
+	difficulty = if data and SpireConfig.Difficulties[data.SpireDifficulty] ~= nil and DragonStats.IsDifficultyUnlocked(data, data.SpireDifficulty) then data.SpireDifficulty else "Easy"
+	record = recordOf(difficulty)
 	local best = if data then DragonStats.GetBestDragon(data) else nil
 	local species = if best then Dragons[best.SpeciesId] else nil
 	local mutation = if best then Mutations.Get(best.MutationId) else Mutations.Get(nil)
@@ -346,7 +412,21 @@ local function onUpdate(update: { [string]: any })
 		autoRepeat = update.AutoRepeat
 		updateRepeat()
 	end
-	if update.Phase == "State" then return end
+	if typeof(update.Difficulty) == "string" and SpireConfig.Difficulties[update.Difficulty] ~= nil then
+		difficulty = update.Difficulty
+	end
+	if update.Phase == "Board" then
+		SpireController.OnBoard(update)
+		return
+	end
+	if update.Phase == "State" then
+		SpireController.RefreshPicker()
+		if mode ~= "Fight" then
+			record = recordOf(difficulty)
+			setFloorBadge(format(words.Best, { record = record }), false)
+		end
+		return
+	end
 	if update.Phase == "Ended" and not HudLayout.HasFocus() then
 		hiddenByWindow = false
 	end
@@ -355,7 +435,8 @@ local function onUpdate(update: { [string]: any })
 	end
 	climbing = update.Phase ~= "Ended"
 	record = update.Record or record
-	recordLabel.Text = format(words.Record, { record = record })
+	recordLabel.Text = format(words.DifficultyRecord, { difficulty = difficultyName(difficulty), record = record })
+		.. (if update.Haste == true then ` · {words.HasteTag}` else "")
 	local phase = update.Phase
 	if phase == "Fight" then
 		setFloorBadge(format(words.Floor, { floor = update.Floor }), update.Boss == true)
@@ -385,6 +466,10 @@ local function onUpdate(update: { [string]: any })
 		setFloorBadge(format(words.Best, { record = record }), false)
 		climbButton:SetText(words.Again)
 		setMode("Ended")
+		SpireController.RefreshPicker()
+		if difficulty == SpireConfig.Leaderboard.Difficulty then
+			SpireController.RequestBoard() -- your new best floor
+		end
 	end
 end
 
@@ -421,6 +506,187 @@ local function smallRoundButton(parent: Instance, text: string, color: Color3): 
 	Style.AttachPress(b)
 	b.Parent = parent
 	return b
+end
+
+---------------------------------------------------------------------------------------------------------------
+-- Difficulty picker + weekly board
+
+-- Which difficulty is shown as picked / unlocked / locked.
+function SpireController.RefreshPicker()
+	local data = DataController:Get()
+	if data == nil then
+		return
+	end
+	local picked = if climbing then difficulty else data.SpireDifficulty
+	for id, button in pickerButtons do
+		local unlocked = DragonStats.IsDifficultyUnlocked(data, id)
+		button:SetEnabled(unlocked)
+		if unlocked then
+			button:SetKind(if id == picked then "Confirm" else "Neutral")
+		end
+		pickerCovers[id].Visible = not unlocked
+	end
+end
+
+local flashToken = 0
+local readyMessage = ""
+
+-- Says what unlocks a greyed difficulty (in the message line, for a few seconds).
+function SpireController.FlashLocked(id: string)
+	local def = SpireConfig.Difficulties[id]
+	local from = def and def.UnlockFrom
+	if from == nil then
+		return
+	end
+	if flashToken == 0 then
+		readyMessage = message.Text
+	end
+	flashToken += 1
+	local token = flashToken
+	message.Text = format(words.Locked, { difficulty = difficultyName(from), floor = SpireConfig.Difficulties[from].MaxFloors })
+	task.delay(3, function()
+		if flashToken == token then
+			flashToken = 0
+			message.Text = readyMessage
+		end
+	end)
+end
+
+function SpireController.Pick(id: string)
+	local data = DataController:Get()
+	if climbing or data == nil or not DragonStats.IsDifficultyUnlocked(data, id) then
+		return
+	end
+	difficulty = id
+	record = recordOf(id)
+	setFloorBadge(format(words.Best, { record = record }), false)
+	for other, button in pickerButtons do
+		if DragonStats.IsDifficultyUnlocked(data, other) then
+			button:SetKind(if other == id then "Confirm" else "Neutral")
+		end
+	end
+	spireAction:FireServer("Difficulty", id)
+	if id == SpireConfig.Leaderboard.Difficulty then
+		SpireController.RequestBoard()
+	end
+end
+
+function SpireController.RequestBoard()
+	lastBoardRequest = os.clock()
+	spireAction:FireServer("Board")
+end
+
+local function boardRowCount(): number
+	return if phone then SpireConfig.Leaderboard.PhoneRows else SpireConfig.Leaderboard.TopCount
+end
+
+function SpireController.BuildBoard()
+	local sizes = Theme.Sizes
+	boardPanel = Instance.new("Frame")
+	boardPanel.Name = "SpireBoard"
+	boardPanel.AnchorPoint = Vector2.new(0, 1)
+	boardPanel.Position = UDim2.new(1, 14, 1, 0) -- beside the HUD (a child of it, so it scales with it and hides with it)
+	boardPanel.Size = UDim2.fromOffset(sizes.SpireBoard.X, sizes.SpireBoard.Y)
+	boardPanel.Visible = false
+	Style.PanelLook(boardPanel, 4)
+	boardPanel.Parent = hud
+	local scale = Instance.new("UIScale")
+	scale.Name = "BoardScale"
+	scale.Parent = boardPanel
+	boardTitle = Style.Label(boardPanel, words.Board.Title, "Title", 22, Theme.Colors.Title)
+	boardTitle.Position = UDim2.fromOffset(10, 8)
+	boardTitle.Size = UDim2.new(1, -20, 0, 26)
+	boardTitle.ZIndex = 3
+	Style.Outline(boardTitle, 2)
+	boardReset = Style.Label(boardPanel, "", "Bold", 13, Theme.Colors.TextMuted)
+	boardReset.Position = UDim2.fromOffset(10, 34)
+	boardReset.Size = UDim2.new(1, -20, 0, 16)
+	boardReset.ZIndex = 3
+	for index = 1, SpireConfig.Leaderboard.TopCount do
+		local row = Instance.new("Frame")
+		row.Name = `Row{index}`
+		row.BackgroundColor3 = Theme.Colors.Gold
+		row.BackgroundTransparency = 1
+		row.Visible = false -- shown by renderBoard for the rows the server sent
+		row.Position = UDim2.fromOffset(8, 54 + (index - 1) * sizes.SpireBoardRow)
+		row.Size = UDim2.new(1, -16, 0, sizes.SpireBoardRow - 2)
+		row.ZIndex = 3
+		Style.Round(row)
+		row.Parent = boardPanel
+		local rank = Style.Label(row, tostring(index), "Title", 15, Theme.Colors.Title)
+		rank.Size = UDim2.new(0, 26, 1, 0)
+		rank.ZIndex = 4
+		local name = Style.Label(row, "", "Bold", 15, Theme.Colors.Text)
+		name.Position = UDim2.fromOffset(30, 0)
+		name.Size = UDim2.new(1, -86, 1, 0)
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.ZIndex = 4
+		local floor = Style.Label(row, "", "Title", 15, Theme.Colors.Title)
+		floor.AnchorPoint = Vector2.new(1, 0)
+		floor.Position = UDim2.fromScale(1, 0)
+		floor.Size = UDim2.new(0, 54, 1, 0)
+		floor.TextXAlignment = Enum.TextXAlignment.Right
+		floor.ZIndex = 4
+		boardRows[index] = { Row = row, Rank = rank, Name = name, Floor = floor }
+	end
+	boardEmpty = Style.Label(boardPanel, words.Board.Empty, "Bold", 15, Theme.Colors.TextMuted)
+	boardEmpty.Position = UDim2.fromOffset(10, 70)
+	boardEmpty.Size = UDim2.new(1, -20, 0, 24)
+	boardEmpty.ZIndex = 3
+	boardMine = Style.Label(boardPanel, "", "Title", 16, Theme.Colors.Text)
+	boardMine.AnchorPoint = Vector2.new(0, 1)
+	boardMine.Position = UDim2.new(0, 10, 1, -8)
+	boardMine.Size = UDim2.new(1, -20, 0, 20)
+	boardMine.ZIndex = 3
+	Style.Outline(boardMine, 1.5)
+end
+
+-- Draws the last board the server sent.
+local function renderBoard()
+	local board = lastBoard
+	if board == nil then
+		return
+	end
+	local entries: { any } = board.Entries or {}
+	local shown = boardRowCount()
+	for index, row in boardRows do
+		local entry = entries[index]
+		local visible = entry ~= nil and index <= shown
+		row.Row.Visible = visible
+		if visible then
+			row.Rank.Text = tostring(entry.Rank)
+			row.Name.Text = entry.Name
+			row.Floor.Text = format(words.Board.Floor, { floor = entry.Score })
+			local mineRow = entry.UserId == Players.LocalPlayer.UserId
+			row.Row.BackgroundTransparency = if mineRow then 0.72 else 1
+			row.Name.TextColor3 = if mineRow then Theme.Colors.Title else Theme.Colors.Text
+		end
+	end
+	boardEmpty.Visible = #entries == 0
+	boardReset.Text = (if board.Offline == true then `{words.Board.Offline} · ` else "") .. format(words.Board.Reset, { time = formatDuration(board.SecondsLeft or 0) })
+	boardMine.Text = if (board.MyBest or 0) > 0 then format(words.Board.Mine, { floor = board.MyBest }) else words.Board.MineNone
+end
+
+function SpireController.OnBoard(update: { [string]: any })
+	lastBoard = update
+	renderBoard()
+end
+
+-- Beside the HUD, only with Infinite picked and the HUD open; as tall as its rows (at least 3).
+function SpireController.LayoutBoard()
+	local show = difficulty == SpireConfig.Leaderboard.Difficulty and hud.Visible
+	boardPanel.Visible = show
+	if not show then
+		return
+	end
+	local sizes = Theme.Sizes
+	local scale = boardPanel:FindFirstChild("BoardScale") :: UIScale
+	scale.Scale = if phone then 1.15 else 1 -- phones: the HUD is at 0.6, keep the rows readable
+	local count = if lastBoard and lastBoard.Entries then #lastBoard.Entries else 0
+	local rows = math.clamp(count, 3, boardRowCount())
+	boardPanel.Size = UDim2.fromOffset(sizes.SpireBoard.X, 54 + rows * sizes.SpireBoardRow + 34)
+	renderBoard()
 end
 
 function SpireController:Init()
@@ -475,7 +741,7 @@ function SpireController:Init()
 	recordLabel = Style.Label(hud, "", "Title", 14, Theme.Colors.TextMuted)
 	recordLabel.AnchorPoint = Vector2.new(0.5, 0)
 	recordLabel.Position = UDim2.new(0.5, 0, 0, 26)
-	recordLabel.Size = UDim2.fromOffset(160, 16)
+	recordLabel.Size = UDim2.fromOffset(240, 16)
 	recordLabel.ZIndex = 3
 	Style.Outline(recordLabel, 1.2)
 
@@ -492,13 +758,13 @@ function SpireController:Init()
 	-- between climbs / while zooming up: a message, a progress bar, the buttons
 	local portraitRight = 12 + sizes.SpirePortrait + 12
 	message = Style.Label(hud, "", "Title", 22, Theme.Colors.Text)
-	message.Position = UDim2.fromOffset(portraitRight, 30)
-	message.Size = UDim2.new(1, -(portraitRight + 16), 0, 40)
+	message.Position = UDim2.fromOffset(portraitRight, 26)
+	message.Size = UDim2.new(1, -(portraitRight + 16), 0, 30)
 	message.TextScaled = true
 	message.ZIndex = 3
 	Style.Outline(message, 2)
 	local messageLimit = Instance.new("UITextSizeConstraint")
-	messageLimit.MaxTextSize = 24
+	messageLimit.MaxTextSize = 22
 	messageLimit.Parent = message
 	Tooltip.Attach(message, function()
 		return Text.SpireStuckTip
@@ -533,6 +799,43 @@ function SpireController:Init()
 	end })
 	stopButton.Instance.Size = UDim2.fromOffset(92, 34)
 	stopButton.Instance.ZIndex = 4
+
+	-- difficulty picker: four buttons in a row between the message and Climb
+	pickerRow = Instance.new("Frame")
+	pickerRow.Name = "Difficulty"
+	pickerRow.BackgroundTransparency = 1
+	pickerRow.Position = UDim2.fromOffset(portraitRight, 70)
+	pickerRow.Size = UDim2.new(1, -(portraitRight + 16), 0, 44)
+	pickerRow.ZIndex = 3
+	pickerRow.Parent = hud
+	local pickerList = Instance.new("UIListLayout")
+	pickerList.FillDirection = Enum.FillDirection.Horizontal
+	pickerList.Padding = UDim.new(0, 8)
+	pickerList.SortOrder = Enum.SortOrder.LayoutOrder
+	pickerList.Parent = pickerRow
+	for order, id in SpireConfig.Difficulties.Order do
+		local button = Button.new(pickerRow, { Text = difficultyName(id), Kind = "Neutral", TextSize = 18, OnClick = function()
+			SpireController.Pick(id)
+		end })
+		button.Instance.LayoutOrder = order
+		button.Instance.Size = UDim2.new(0.25, -6, 1, 0)
+		button.Instance.ZIndex = 4
+		pickerButtons[id] = button
+		-- a greyed button still answers a tap with what unlocks it (touch has no hover)
+		local cover = Instance.new("TextButton")
+		cover.Name = "LockCover"
+		cover.BackgroundTransparency = 1
+		cover.Text = ""
+		cover.Size = UDim2.fromScale(1, 1)
+		cover.ZIndex = 12
+		cover.Visible = false
+		cover.Parent = button.Instance
+		cover.Activated:Connect(function()
+			SpireController.FlashLocked(id)
+		end)
+		pickerCovers[id] = cover
+	end
+	SpireController.BuildBoard()
 
 	-- Hide: a small round button on the top-right corner; the HUD shrinks into the mini floor badge
 	local hide = smallRoundButton(hud, "–", Theme.Colors.Neutral)
@@ -602,6 +905,23 @@ function SpireController:Init()
 
 	spireUpdate.OnClientEvent:Connect(onUpdate)
 	setMode("Ready")
+	task.spawn(function()
+		DataController:WaitForData()
+		SpireController.RefreshPicker()
+		for _, key in { "SpireDifficulty", "SpireRecords" } do
+			DataController:OnChanged(key, function()
+				SpireController.RefreshPicker()
+				if mode ~= "Fight" then
+					local data = DataController:Get()
+					if data and SpireConfig.Difficulties[data.SpireDifficulty] ~= nil then
+						difficulty = data.SpireDifficulty
+					end
+					record = recordOf(difficulty)
+					setFloorBadge(format(words.Best, { record = record }), false)
+				end
+			end)
+		end
+	end)
 end
 
 function SpireController:Start()
@@ -653,6 +973,12 @@ function SpireController:Start()
 			end
 		end
 		wasNear = near
+		-- the weekly board: asked for while the HUD shows with Infinite picked
+		local wantBoard = difficulty == SpireConfig.Leaderboard.Difficulty and (hud.Visible or mini.Visible)
+		if wantBoard and os.clock() - lastBoardRequest >= SpireConfig.Leaderboard.RefreshSeconds then
+			SpireController.RequestBoard()
+		end
+		SpireController.LayoutBoard()
 		task.wait(0.5)
 	end
 end

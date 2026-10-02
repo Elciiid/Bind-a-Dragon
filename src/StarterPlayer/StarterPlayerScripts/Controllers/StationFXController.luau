@@ -64,7 +64,7 @@ local function refresh()
 		board:Set(`{Economy.Merchant.BundleSize} Stardust`, `{Format.Number(price)} gold · {Stations.MerchantResetText}`)
 	end
 	for _, board in spires do
-		board:Set(`Best floor {data.SpireRecord}`, Stations.SpireClimbText)
+		board:Set(`Best floor {DragonStats.GetSpireRecord(data, data.SpireDifficulty)}`, Stations.SpireClimbText)
 	end
 end
 
@@ -231,7 +231,7 @@ function StationFXController:Start()
 	watch("DragonSpire", function(instance)
 		setupBoard(instance, spires, Stations.SpireBoardSize, "Menu_Rebirth")
 	end)
-	for _, key in { "WyrmRunes", "Dragonstones", "Gold", "Rebirths", "SpireRecord", "MerchantPurchases", "MerchantDay" } do
+	for _, key in { "WyrmRunes", "Dragonstones", "Gold", "Rebirths", "SpireRecords", "SpireDifficulty", "MerchantPurchases", "MerchantDay" } do
 		DataController:OnChanged(key, refresh)
 	end
 	EffectsQuality.OnChanged(function()
