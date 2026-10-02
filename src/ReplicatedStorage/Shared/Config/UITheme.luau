@@ -209,6 +209,7 @@ return {
 		PhoneMargin = 8,
 		RightMargin = 64, -- right-side HUD (timer stack, luck panel) keeps well clear of the screen's right edge
 		PhoneRightMargin = 36,
+		PhoneLuckPanelScale = 0.5, -- phones: the luck panel is the PC panel drawn this much smaller
 		LeftMargin = 64, -- left-side HUD (menu icons, currency) the same, mirrored
 		PhoneLeftMargin = 36,
 		Gap = 6,
@@ -218,7 +219,8 @@ return {
 		MenuLabelSize = 13,
 		PhoneMenuLabelSize = 11,
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
-		PhoneCurrencyRow = 18, -- phone: small pills top-left under the Roblox top bar
+		PhoneCurrency = Vector2.new(130, 22), -- phone: the same stacked pills as PC (bottom-left), scaled down
+		PhoneCurrencyRow = 22,
 		PhoneCurrencyTextSize = 13,
 		SkyCard = Vector2.new(440, 52), -- PC: day/night card, top-center (max size; 90% of the width on narrow screens)
 		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
@@ -292,7 +294,7 @@ return {
 		PhoneTravelTop = 2,
 		PotionTimer = 50, -- PC: active potion icons (time under each), a horizontal row under the day/night timer
 		PhonePotionTimer = 34,
-		PhoneTimersBottom = 150, -- phone: the timer stack stays above the jump button
+		PhoneTimersBottom = 100, -- phone: the timer stack stays above the jump button
 		TopbarGap = 6, -- the settings gear's distance from Roblox's own top-bar buttons
 	},
 

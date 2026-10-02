@@ -131,11 +131,6 @@ function HudLayout.TopReserved(): number
 	return HudLayout.TravelBottom() + UITheme.Sizes.Gap
 end
 
--- Phone: the currency row's top (the Hud gui already starts under Roblox's top bar).
-local function phoneCurrencyTop(): number
-	return UITheme.Sizes.Gap
-end
-
 local function layoutTopbar()
 	local inset = GuiService.TopbarInset
 	local height = if inset.Height > 0 then inset.Height else 44
@@ -164,37 +159,25 @@ local function layoutMenu()
 	end
 	local width = math.max(iconSize, labelSize * 5)
 	menu.Size = UDim2.fromOffset(width, count * (iconSize + labelSize + 2) + math.max(0, count - 1) * gap)
-	if phone then
-		menu.AnchorPoint = Vector2.new(0, 0)
-		menu.Position = UDim2.fromOffset(sizes.PhoneLeftMargin, phoneCurrencyTop() + sizes.PhoneCurrencyRow + sizes.Gap)
-	else
-		menu.AnchorPoint = Vector2.new(0, 0.5)
-		menu.Position = UDim2.new(0, sizes.LeftMargin, 0.5, -10)
-	end
+	-- the same arrangement on PC and phone: a column, vertically centered on the left
+	menu.AnchorPoint = Vector2.new(0, 0.5)
+	menu.Position = UDim2.new(0, if phone then sizes.PhoneLeftMargin else sizes.LeftMargin, 0.5, if phone then -6 else -10)
 	updatePopupHiding()
 end
 
 local function layoutCurrency()
 	local sizes = UITheme.Sizes
 	local list = currency:FindFirstChildOfClass("UIListLayout") :: UIListLayout
-	if phone then
-		-- one row under the top bar (and the gear)
-		list.FillDirection = Enum.FillDirection.Horizontal
-		list.Padding = UDim.new(0, 14)
-		list.VerticalAlignment = Enum.VerticalAlignment.Center
-		currency.AnchorPoint = Vector2.new(0, 0)
-		currency.Position = UDim2.fromOffset(sizes.PhoneLeftMargin + 8, phoneCurrencyTop())
-		currency.AutomaticSize = Enum.AutomaticSize.X
-		currency.Size = UDim2.fromOffset(0, sizes.PhoneCurrencyRow)
-	else
-		list.FillDirection = Enum.FillDirection.Vertical
-		list.Padding = UDim.new(0, sizes.Gap)
-		list.VerticalAlignment = Enum.VerticalAlignment.Bottom
-		currency.AnchorPoint = Vector2.new(0, 1)
-		currency.Position = UDim2.new(0, sizes.LeftMargin + 10, 1, -sizes.Margin)
-		currency.AutomaticSize = Enum.AutomaticSize.None
-		currency.Size = UDim2.fromOffset(sizes.Currency.X, #pills * sizes.Currency.Y + math.max(0, #pills - 1) * sizes.Gap)
-	end
+	-- stacked bottom-left on PC and phone alike (phones use smaller pills)
+	local size = if phone then sizes.PhoneCurrency else sizes.Currency
+	local edge = if phone then sizes.PhoneLeftMargin else sizes.LeftMargin
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.Padding = UDim.new(0, sizes.Gap)
+	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	currency.AnchorPoint = Vector2.new(0, 1)
+	currency.Position = UDim2.new(0, edge + 10, 1, -(if phone then sizes.PhoneMargin else sizes.Margin))
+	currency.AutomaticSize = Enum.AutomaticSize.None
+	currency.Size = UDim2.fromOffset(size.X, #pills * size.Y + math.max(0, #pills - 1) * sizes.Gap)
 	for _, pill in pills do
 		pill:Layout(phone)
 	end

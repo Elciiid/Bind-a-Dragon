@@ -87,25 +87,16 @@ function CurrencyPill.Layout(self: CurrencyPill, phone: boolean)
 	local left = math.floor(iconSize * 0.72)
 	local pad = self.Instance:FindFirstChildOfClass("UIPadding") or Instance.new("UIPadding")
 	pad.Parent = self.Instance
-	if phone then
-		self.Instance.AutomaticSize = Enum.AutomaticSize.X
-		self.Instance.Size = UDim2.fromOffset(0, height)
-		self.Label.AutomaticSize = Enum.AutomaticSize.X
-		self.Label.Size = UDim2.fromScale(0, 1)
-		self.Label.Position = UDim2.fromOffset(left, 0)
-		self.Label.TextSize = sizes.PhoneCurrencyTextSize
-		pad.PaddingRight = UDim.new(0, left + 8)
-		self.Label:FindFirstChildOfClass("UIStroke").Thickness = 1.5
-	else
-		self.Instance.AutomaticSize = Enum.AutomaticSize.None
-		self.Instance.Size = UDim2.fromOffset(sizes.Currency.X, height)
-		self.Label.AutomaticSize = Enum.AutomaticSize.None
-		self.Label.Position = UDim2.fromOffset(left, 0)
-		self.Label.Size = UDim2.new(1, -(left + 8), 1, 0)
-		self.Label.TextSize = 22
-		pad.PaddingRight = UDim.new(0, 0)
-		self.Label:FindFirstChildOfClass("UIStroke").Thickness = 2
-	end
+	-- the same stacked pill on PC and phone (phones just scale it down)
+	local width = if phone then sizes.PhoneCurrency.X else sizes.Currency.X
+	self.Instance.AutomaticSize = Enum.AutomaticSize.None
+	self.Instance.Size = UDim2.fromOffset(width, height)
+	self.Label.AutomaticSize = Enum.AutomaticSize.None
+	self.Label.Position = UDim2.fromOffset(left, 0)
+	self.Label.Size = UDim2.new(1, -(left + 8), 1, 0)
+	self.Label.TextSize = if phone then sizes.PhoneCurrencyTextSize else 22
+	pad.PaddingRight = UDim.new(0, 0)
+	self.Label:FindFirstChildOfClass("UIStroke").Thickness = if phone then 1.5 else 2
 end
 
 return CurrencyPill

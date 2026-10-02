@@ -1,6 +1,6 @@
 --!strict
--- At night, near a Star Altar: shows the player's current bind luck with a breakdown of every source (on phones a
--- "Bind luck x…" pill top-right that opens the panel), and keeps
+-- At night, near a Star Altar: shows the player's current bind luck with a breakdown of every source (right side, vertically
+-- centered; phones draw the same panel smaller), and keeps
 -- the altar prompts up to date for this player (offer cost, hidden once they've bound). Styled with the UI kit.
 -- Uses Shared/Luck, the same math the server rolls with. A button cycles which luck charge (Config/Boosts) is
 -- armed for this bind: none -> each owned charge -> none.
@@ -42,6 +42,7 @@ local pillButton: TextButton
 local active = false -- at an altar at night
 local expanded = false -- phone: pill tapped open
 local phone = false
+local panelScale: UIScale
 local rowsFrame: Frame
 local luckRows: { { Frame: Frame, Name: TextLabel, Value: TextLabel } } = {}
 local armButton: Button.Button
@@ -103,12 +104,11 @@ local function favoredHint(constellation: { Element: string? }): string
 	return if area then `Tonight favors {area.Name}` else "Tonight favors no area"
 end
 
--- PC: the panel shows whenever the player is at an altar at night. Phone: a small pill (top-right) shows instead,
--- and tapping it opens the full panel below it.
+-- The panel shows whenever the player is at an altar at night, on PC and phone alike (phones draw it smaller).
 local function setActive(on: boolean)
 	active = on
-	pill.Visible = phone and active
-	panel.Visible = active and (not phone or expanded)
+	pill.Visible = false -- the phone pill is retired: phones show the same panel as PC, scaled down
+	panel.Visible = active
 	pillButton.Text = `{title.Text}  {if expanded then "-" else "+"}` -- ASCII: the fonts have no arrow glyphs
 end
 
@@ -284,7 +284,10 @@ function LuckController:Init()
 	armButton.Instance.Position = UDim2.new(0, 0, 1, 0)
 	armButton.Instance.Size = UDim2.new(1, 0, 0, 36)
 
-	-- Phone pill: gradient pill with the Stardust icon; the whole pill is the tap target.
+	panelScale = Instance.new("UIScale")
+	panelScale.Parent = panel
+
+	-- (retired) Phone pill: gradient pill with the Stardust icon; the whole pill is the tap target.
 	pill = Instance.new("Frame")
 	pill.Name = "LuckPill"
 	pill.AnchorPoint = Vector2.new(1, 0)
@@ -314,32 +317,19 @@ function LuckController:Init()
 	HudLayout.OnLayoutChanged(function(isPhone)
 		phone = isPhone
 		local sizes = Theme.Sizes
-		pill.Position = UDim2.new(1, -sizes.PhoneRightMargin, 0, sizes.PhoneMargin)
-		pill.Size = UDim2.fromOffset(sizes.PhonePillWidth, sizes.PhonePillHeight)
-		-- Phone: shorter panel under the pill, so it ends well above the jump button.
-		if isPhone then
-			panel.AnchorPoint = Vector2.new(1, 0)
-			panel.Position = UDim2.new(1, -sizes.PhoneRightMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap + 14)
-			panel.Size = UDim2.fromOffset(250, 190)
-			banner:Layout(28, 17, 18)
-			inner.Position, inner.Size = UDim2.fromOffset(12, 18), UDim2.new(1, -24, 1, -28)
-			title.Size = UDim2.new(1, 0, 0, 22)
-			details.Position, details.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -54)
-			rowsFrame.Position, rowsFrame.Size = UDim2.fromOffset(0, 24), UDim2.new(1, 0, 1, -56)
-			details.TextSize = 13
-			armButton.Instance.Size = UDim2.new(1, 0, 0, 30)
-		else
-			panel.AnchorPoint = Vector2.new(1, 0.5)
-			panel.Position = UDim2.new(1, -sizes.RightMargin, 0.5, 0)
-			panel.Size = UDim2.fromOffset(260, 270)
-			banner:Layout(38, 22, 26)
-			inner.Position, inner.Size = UDim2.fromOffset(14, 26), UDim2.new(1, -28, 1, -40)
-			title.Size = UDim2.new(1, 0, 0, 34)
-			details.Position, details.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -80)
-			rowsFrame.Position, rowsFrame.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -86)
-			details.TextSize = 16
-			armButton.Instance.Size = UDim2.new(1, 0, 0, 36)
-		end
+		-- the same panel on PC and phone, right side, scaled down on phones (PC: vertically centered; phones: from the top,
+		-- so it never covers the timer stack above the jump button on a short screen)
+		panel.AnchorPoint = Vector2.new(1, if isPhone then 0 else 0.5)
+		panel.Position = UDim2.new(1, -(if isPhone then sizes.PhoneRightMargin else sizes.RightMargin), if isPhone then 0 else 0.5, if isPhone then sizes.PhoneMargin + 12 else 0) -- + room for the banner hanging over the panel's top edge
+		panel.Size = UDim2.fromOffset(260, 270)
+		panelScale.Scale = if isPhone then sizes.PhoneLuckPanelScale else 1
+		banner:Layout(38, 22, 26)
+		inner.Position, inner.Size = UDim2.fromOffset(14, 26), UDim2.new(1, -28, 1, -40)
+		title.Size = UDim2.new(1, 0, 0, 34)
+		details.Position, details.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -80)
+		rowsFrame.Position, rowsFrame.Size = UDim2.fromOffset(0, 40), UDim2.new(1, 0, 1, -86)
+		details.TextSize = 16
+		armButton.Instance.Size = UDim2.new(1, 0, 0, 36)
 		setActive(active)
 	end)
 end
