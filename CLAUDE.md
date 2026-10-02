@@ -220,7 +220,7 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   `SetRoostSlots:Invoke(player, n)` sets their roost to n slots.
 - Dev (Studio only): the MCP's `execute_luau` threads can no longer invoke our BindableFunctions, fire our remotes or `require` our modules
   (Capabilities restriction), so `DevService` also listens to the Workspace string attribute `DevCommand` (JSON, answers in `DevResult`): ops
-  `Items`, `Dragons`, `Slots`, `UseBoost`, `Level`, `Hotbar`, `Carry`, `SellDragons`, `SellItems`, `Favorite`, `AutoSell`, `AutoSellNew`, `SellInventory`, `SimStart`/`SimResult` (cohort sim on the server, `tools/sim/README.md`), `SpireAction`, `FireClient` (e.g. a fake `BindResult`), `Config` (change a Config value in the
+  `Items`, `Dragons`, `Slots`, `UseBoost`, `Level`, `Hotbar`, `Carry`, `SellDragons`, `Favorite`, `AutoSell`, `AutoSellNew`, `SellInventory`, `SimStart`/`SimResult` (cohort sim on the server, `tools/sim/README.md`), `SpireAction`, `FireClient` (e.g. a fake `BindResult`), `Config` (change a Config value in the
   running server, e.g. Spire `FightSeconds` to speed a loop test), `Get`, `Teleport`, `Set` (header of `DevService.luau`). Real input:
   `user_keyboard_input` (hold E at the altar), `user_mouse_input` (use `instance_path` for GUI buttons; `UI/Button` strips spaces from its instance name, e.g. `...Menu.Frame.SellDragons`; coordinate clicks are unreliable).
 - Hakai handoff notes from Kyle: `docs/Hakai_Handoff.md` (ignore its branch/merge rules; use the open place and the isolated test profile).
