@@ -8,7 +8,7 @@
 -- A BindableFunction in ServerStorage can't be reached by clients; it is never created outside Studio.
 -- Studio tools whose thread may not invoke the bindables (the MCP's execute_luau) set the Workspace string attribute
 -- "DevCommand" to JSON instead: { "Op": "Items", "Args": {...} } | { "Op": "Dragons", "Ids": [..], "Level": n, "Place": true,
--- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "Hotbar", "Slot": 1, "Id": dragonId } | { "Op": "Carry", "Slot": 1 } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
+-- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "Hotbar", "Slot": 1, "Id": dragonId } | { "Op": "Carry", "Slot": 1 } | { "Op": "SellDragons", "Ids": [..], "Confirmed": false } | { "Op": "SellItems", "Kind": "Potion", "Id": "GildedDraught", "Count": 1 } | { "Op": "Lock", "Id": dragonId, "Locked": true } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "SimStart", "Job": "x", "Profile": "Dedicated", "Runs": 10, "Days": 60, "Variants": { "SellSurplus": true } } | { "Op": "SimResult", "Job": "x" } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
 -- player and answers in the attribute "DevResult" (JSON).
 
 local HttpService = game:GetService("HttpService")
@@ -21,6 +21,7 @@ local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local DragonService = require(script.Parent.DragonService)
 local HotbarService = require(script.Parent.HotbarService)
+local SellService = require(script.Parent.SellService)
 local SpireService = require(script.Parent.SpireService)
 local IndexService = require(script.Parent.IndexService)
 local MilestoneService = require(script.Parent.MilestoneService)
@@ -162,6 +163,15 @@ function DevService:Start()
 			elseif cmd.Op == "Hotbar" then
 				HotbarService.HandleSet(player, cmd.Slot, cmd.Id)
 				return cmd.Slot
+			elseif cmd.Op == "SellDragons" then
+				SellService.HandleSellDragons(player, cmd.Ids, cmd.Confirmed == true)
+				return cmd.Ids
+			elseif cmd.Op == "SellItems" then
+				SellService.HandleSellItems(player, cmd.Kind, cmd.Id, cmd.Count)
+				return cmd.Id
+			elseif cmd.Op == "Lock" then
+				SellService.HandleSetLocked(player, cmd.Id, cmd.Locked == true)
+				return cmd.Id
 			elseif cmd.Op == "Carry" then
 				HotbarService.HandleCarry(player, cmd.Slot)
 				return cmd.Slot
@@ -191,6 +201,24 @@ function DevService:Start()
 				assert(root and root:IsA("BasePart"), "no character")
 				player.Character:PivotTo(CFrame.new(cmd.X, cmd.Y, cmd.Z))
 				return "ok"
+			elseif cmd.Op == "SimStart" then
+				-- tools/sim/CohortSim.luau copied to ReplicatedStorage.TempCohortSim (never committed): a background cohort run
+				local Sim = require(ReplicatedStorage:WaitForChild("TempCohortSim")) :: any
+				local folder = ServerStorage:FindFirstChild("SimTools") or Instance.new("Folder")
+				folder.Name = "SimTools"
+				folder.Parent = ServerStorage
+				Sim.Reset()
+				for key, value in cmd.Variants or {} do
+					Sim.SetVariant(key, value)
+				end
+				for _, change in cmd.Config or {} do
+					Sim.Set(change.Module, change.Key, change.Value)
+				end
+				Sim.Start(cmd.Job, cmd.Profile, cmd.Runs, cmd.Days, cmd.Weeks)
+				return cmd.Job
+			elseif cmd.Op == "SimResult" then
+				local box = ServerStorage:FindFirstChild("SimTools") and ServerStorage.SimTools:FindFirstChild("Result_" .. cmd.Job)
+				return if box then (box :: StringValue).Value else "no such job"
 			elseif cmd.Op == "Set" then
 				local data = DataService:GetData(player)
 				assert(data and type(cmd.Key) == "string", "bad Set")

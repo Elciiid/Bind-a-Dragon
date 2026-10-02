@@ -79,7 +79,7 @@ do
 end
 
 -- Switches for the "Old" preset (the economy approved before the mutation branch); all off = the live Config.
-local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false, FlatLevelCost = false }
+local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false, FlatLevelCost = false, SellSurplus = false }
 local progress: (any, string, number) -> ()
 
 local DAY = 86400
@@ -390,6 +390,27 @@ local function highestArea(S: State): string
 	return best
 end
 
+-- Star Merchant selling (Config/Economy.Selling), Variant.SellSurplus: after each bind the player sells every dragon that is not
+-- in the roost and is a plain Common or Rare (the "sell all Commons" habit); Epic+ and mutated dragons are kept. Gold and the
+-- Wyrm Runes / Dragonstones that come with a sale are real (DragonStats.GetSellValue). Selling potions/items is not modelled.
+local function sellSurplus(S: State)
+	local data = S.Data
+	local inRoost: { [string]: boolean } = {}
+	for _, id in data.RoostDragonIds do
+		inRoost[id] = true
+	end
+	for id, d in data.Dragons do
+		local species = (Dragons :: any)[d.SpeciesId]
+		if not inRoost[id] and species and (species.Rarity == "Common" or species.Rarity == "Rare") and d.MutationId == nil then
+			local gold, rewards = DragonStats.GetSellValue(d :: any, data)
+			data.Gold += gold
+			S.Runes += rewards.WyrmRunes
+			S.Stones += rewards.Dragonstones
+			data.Dragons[id] = nil
+		end
+	end
+end
+
 local function bind(S: State, t: number, auto: boolean, extra: boolean?)
 	local night = nightIndex(t)
 	if not extra and S.LastBindNight == night then
@@ -445,6 +466,9 @@ local function bind(S: State, t: number, auto: boolean, extra: boolean?)
 	local d = newDragon(S, outcome.SpeciesId, mutationId)
 	recordIndex(S, d)
 	equip(S, d)
+	if Variant.SellSurplus then
+		sellSurplus(S)
+	end
 end
 
 ---------------------------------------------------------------------------------------------------------------------

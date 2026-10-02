@@ -33,6 +33,7 @@ local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 local returnFromRoost = ReplicatedStorage.Remotes.ReturnFromRoost :: RemoteEvent
 local equipBest = ReplicatedStorage.Remotes.EquipBest :: RemoteEvent
 local setHotbarSlot = ReplicatedStorage.Remotes.SetHotbarSlot :: RemoteEvent
+local setDragonLocked = ReplicatedStorage.Remotes.SetDragonLocked :: RemoteEvent
 local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
 local NotificationController = require(script.Parent.NotificationController)
 
@@ -73,6 +74,9 @@ type Card = {
 	Hotbar: TextButton, -- "Add to hotbar" / "Remove from bar"
 	HotbarScale: UIScale,
 	HotbarSlot: number?, -- the slot the dragon sits in, nil = not on the bar
+	Lock: TextButton, -- the lock toggle (a locked dragon can't be sold)
+	LockScale: UIScale,
+	Locked: boolean?,
 }
 
 local cards: { [string]: Card } = {}
@@ -81,6 +85,7 @@ local function layoutCard(card: Card, phone: boolean)
 	card.Scale.Scale = cardScale
 	card.DetailsScale.Scale = 1 / cardScale
 	card.HotbarScale.Scale = 1 / cardScale
+	card.LockScale.Scale = 1 / cardScale
 	card.Card.Size = UDim2.fromOffset(CARD.X, if phone then Layout.PhoneDragonCardHeight else CARD.Y)
 	local controlHeight = if phone then Layout.TouchTarget / cardScale else 40
 	local switchHeight = if phone then Layout.TouchTarget / cardScale else 24
@@ -275,6 +280,9 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		Hotbar = nil :: any,
 		HotbarScale = nil :: any,
 		HotbarSlot = nil,
+		Lock = nil :: any,
+		LockScale = nil :: any,
+		Locked = nil,
 	}
 	switch.Activated:Connect(function()
 		if entry.InRoost then
@@ -345,6 +353,32 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		end
 		NotificationController:Show(Text.Hotbar.Full, nil, "error")
 	end)
+	-- Lock toggle: next to the level, top-right
+	local lock = Instance.new("TextButton")
+	lock.Name = "LockToggle"
+	lock.Text = Text.Merchant.Lock
+	lock.Font = name.Font
+	lock.TextSize = 11
+	lock.TextColor3 = colors.TextMuted
+	lock.BackgroundColor3 = colors.PanelBottom
+	lock.AnchorPoint = Vector2.new(1, 0)
+	lock.Position = UDim2.new(1, -62, 0, 8)
+	lock.Size = UDim2.fromOffset(52, 24)
+	lock.ZIndex = 6
+	lock.Parent = card
+	local lockScale = Instance.new("UIScale")
+	lockScale.Scale = 1 / cardScale
+	lockScale.Parent = lock
+	Style.Corner(lock, 6)
+	Style.Stroke(lock, colors.Trim, 1.25)
+	entry.Lock = lock
+	entry.LockScale = lockScale
+	Tooltip.Attach(lock, function()
+		return Text.Merchant.LockTip
+	end)
+	lock.Activated:Connect(function()
+		setDragonLocked:FireServer(dragonId, not entry.Locked)
+	end)
 	layoutCard(entry, HudLayout.IsPhone())
 	return entry
 end
@@ -389,6 +423,13 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 		card.Upgrade:SetEnabled(enabled)
 	end
 
+	local locked = dragon.Locked == true
+	if card.Locked ~= locked then
+		card.Locked = locked
+		card.Lock.Text = if locked then Text.Merchant.Locked else Text.Merchant.Lock
+		card.Lock.TextColor3 = if locked then colors.Gold else colors.TextMuted
+		card.Lock.BackgroundColor3 = if locked then colors.Cancel else colors.PanelBottom
+	end
 	local barSlot: number? = nil
 	for slot = 1, HotbarConfig.Slots do
 		if data.Hotbar[slot] == dragon.Id then

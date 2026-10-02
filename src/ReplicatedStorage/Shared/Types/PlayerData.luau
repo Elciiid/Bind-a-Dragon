@@ -12,6 +12,7 @@ export type Dragon = {
 	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
 	MutationId: string?, -- Config/Mutations; nil is the backward-compatible Normal state
 	Champion: boolean?, -- the rebirth champion dragon (Config/RebirthMilestones Champion)
+	Locked: boolean?, -- the player locked it: it can't be sold at the Star Merchant (SetDragonLocked)
 }
 
 export type QuestState = {

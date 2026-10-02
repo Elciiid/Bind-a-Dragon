@@ -61,6 +61,8 @@ type Slot = {
 local root: Frame
 local slots: { Slot } = {}
 local isPhone = false
+local phonePage = 1 -- phones show one page of PhoneSlotsPerPage slots at a time
+local arrow: TextButton
 
 local function rarityColor(rarityId: string): Color3
 	local rarity = (UITheme.Rarity :: any)[rarityId]
@@ -139,16 +141,29 @@ local function layout(phone: boolean)
 	local width = if camera then camera.ViewportSize.X else 1280
 	local gap = if phone then HotbarConfig.PhoneSlotGap else HotbarConfig.SlotGap
 	local base = if phone then HotbarConfig.PhoneSlotSize else HotbarConfig.SlotSize
+	-- phones: one page of PhoneSlotsPerPage slots + a page arrow; PC: all slots
+	local perPage = if phone then HotbarConfig.PhoneSlotsPerPage else HotbarConfig.Slots
+	local first = if phone then (phonePage - 1) * perPage + 1 else 1
+	local count = if phone then perPage else HotbarConfig.Slots
+	local cells = count + (if phone then 1 else 0) -- the arrow takes the width of one narrower cell
 	local usable = if phone then width - 2 * HotbarConfig.PhoneSideReserve else width - 2 * 48
-	local size = math.clamp(math.floor((usable - (HotbarConfig.Slots - 1) * gap) / HotbarConfig.Slots), HotbarConfig.MinSlotSize, base)
-	root.Size = UDim2.fromOffset(HotbarConfig.Slots * size + (HotbarConfig.Slots - 1) * gap, size)
+	local minimum = if phone then HotbarConfig.PhoneMinSlotSize else HotbarConfig.MinSlotSize
+	local size = math.clamp(math.floor((usable - (cells - 1) * gap) / cells), minimum, base)
+	local arrowWidth = math.floor(size * 0.62)
+	local total = count * size + (count - 1) * gap + (if phone then gap + arrowWidth else 0)
+	root.Size = UDim2.fromOffset(total, size)
 	root.Position = UDim2.new(0.5, 0, 1, -(if phone then HotbarConfig.PhoneBottomMargin else HotbarConfig.BottomMargin))
 	local list = root:FindFirstChildOfClass("UIListLayout") :: UIListLayout
 	list.Padding = UDim.new(0, gap)
-	for _, slot in slots do
+	for index, slot in slots do
+		slot.Button.Visible = index >= first and index < first + count
 		slot.Button.Size = UDim2.fromOffset(size, size)
 		slot.Number.TextSize = math.max(10, math.floor(size * 0.3))
 	end
+	arrow.Visible = phone
+	arrow.Size = UDim2.fromOffset(arrowWidth, size)
+	arrow.Text = if phonePage == 1 then ">" else "<"
+	arrow.TextSize = math.floor(size * 0.5)
 end
 
 local function press(index: number)
@@ -239,6 +254,26 @@ function HotbarController:Init()
 			return slot.Tip
 		end)
 	end
+
+	-- phones: the page arrow flips between slots 1-5 and 6-10
+	arrow = Instance.new("TextButton")
+	arrow.Name = "PageArrow"
+	arrow.LayoutOrder = HotbarConfig.Slots + 1
+	arrow.AutoButtonColor = false
+	arrow.Text = ">"
+	arrow.Font = UITheme.Fonts.Title
+	arrow.TextColor3 = UITheme.Colors.Gold
+	arrow.BackgroundColor3 = UITheme.Colors.PanelBottom
+	arrow.BackgroundTransparency = 0.1
+	arrow.Visible = false
+	arrow.Parent = root
+	Style.Round(arrow)
+	Style.Stroke(arrow, UITheme.Colors.Trim, 2)
+	Style.AttachPress(arrow)
+	arrow.Activated:Connect(function()
+		phonePage = if phonePage == 1 then 2 else 1
+		layout(isPhone)
+	end)
 
 	-- the Spire HUD sits in the same place: hide the bar while it is open
 	local function refreshSpire()

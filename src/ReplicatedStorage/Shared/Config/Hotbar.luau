@@ -8,13 +8,15 @@ return {
 
 	-- Hotbar look (pixels)
 	SlotSize = 58,
-	PhoneSlotSize = 34, -- phones: also shrunk to fit between the thumbstick and the jump button (PhoneSideReserve)
+	PhoneSlotSize = 46, -- phones show PhoneSlotsPerPage slots at a time (big enough to tap) and a page arrow for the rest
+	PhoneMinSlotSize = 44, -- never smaller than this on phones (the page arrow takes the squeeze instead)
+	PhoneSlotsPerPage = 5,
 	MinSlotSize = 26,
 	SlotGap = 6,
-	PhoneSlotGap = 3,
+	PhoneSlotGap = 4,
 	BottomMargin = 14,
 	PhoneBottomMargin = 8,
-	PhoneSideReserve = 232, -- phones: free width kept on each side (the thumbstick zone is ~220 wide on the left)
+	PhoneSideReserve = 232, -- phones: free width kept on each side (the thumbstick zone is ~220 wide on the left; 5 slots + arrow fit between)
 	CarriedColor = Color3.fromRGB(255, 214, 96), -- outline of the slot whose dragon is being carried
 	EmptyTransparency = 0.55,
 

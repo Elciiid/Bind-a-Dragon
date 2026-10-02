@@ -44,7 +44,7 @@ function Button.new(parent: Instance, props: Props): Button
 	local kind: Kind = props.Kind or "Primary"
 
 	local instance = Instance.new("TextButton")
-	instance.Name = props.Text
+	instance.Name = (string.gsub(props.Text, "%s+", "")) -- no spaces, so tools can address it by path (Players.X.PlayerGui.Gui.Window.SellDragons)
 	instance.Text = ""
 	instance.AutoButtonColor = false
 	instance.BackgroundTransparency = 1

@@ -354,6 +354,54 @@ end
 
 -- Total gold/sec from every dragon placed in the roost, including the roost income upgrade, the rebirth bonus
 -- and the Dragon Index.
+-- Selling to the Star Merchant (Config/Economy.Selling), shared so the client shows exactly what the server pays.
+-- Gold = the dragon's own earning rate with every permanent multiplier x seconds for its rarity x mutation multiplier;
+-- Wyrm Runes / Dragonstones by rarity (doubled for mutated dragons).
+function DragonStats.GetSellValue(dragon: Dragon, data: PlayerData): (number, { WyrmRunes: number, Dragonstones: number })
+	local selling = Economy.Selling.Dragons
+	local species = Dragons[dragon.SpeciesId]
+	if species == nil then
+		return 0, { WyrmRunes = 0, Dragonstones = 0 }
+	end
+	local rate = DragonStats.GetGoldPerSecond(dragon)
+		* DragonStats.GetRoostIncomeMultiplier(data)
+		* DragonStats.GetRebirthBonus(data.Rebirths)
+		* DragonStats.GetIndexMultiplier(data)
+	local mutation = Mutations.Get(dragon.MutationId)
+	local mutated = mutation.Id ~= Mutations.NormalId
+	local gold = math.floor(rate * (selling.Seconds[species.Rarity] or 0) * (if mutated then selling.MutationMultiplier[mutation.Id] or 1 else 1))
+	local base = selling.Rewards[species.Rarity]
+	local factor = if mutated then selling.RewardMutatedMultiplier else 1
+	return gold, {
+		WyrmRunes = math.floor((if base then base.WyrmRunes else 0) * factor),
+		Dragonstones = math.floor((if base then base.Dragonstones else 0) * factor),
+	}
+end
+
+-- Why a dragon can't be sold (nil = it can): "Roost", "Hotbar", "Carried", "Locked" or "Champion".
+function DragonStats.GetSellProtection(dragon: Dragon, data: PlayerData, carriedId: string?): string?
+	if dragon.Champion then
+		return "Champion"
+	elseif dragon.Locked then
+		return "Locked"
+	elseif carriedId ~= nil and carriedId == dragon.Id then
+		return "Carried"
+	elseif table.find(data.RoostDragonIds, dragon.Id) then
+		return "Roost"
+	elseif data.Hotbar and table.find(data.Hotbar, dragon.Id) then
+		return "Hotbar"
+	end
+	return nil
+end
+
+-- Does selling this dragon need the extra confirmation (Epic or better, or mutated)?
+function DragonStats.IsRiskySale(dragon: Dragon): boolean
+	local species = Dragons[dragon.SpeciesId]
+	local selling = Economy.Selling.Dragons
+	return (species ~= nil and selling.ConfirmRarities[species.Rarity] == true)
+		or (selling.ConfirmMutated and Mutations.Get(dragon.MutationId).Id ~= Mutations.NormalId)
+end
+
 function DragonStats.GetRoostIncome(data: PlayerData): number
 	local total = 0
 	for _, dragonId in data.RoostDragonIds do

@@ -41,6 +41,15 @@ print(table.concat(Sim.Trace("Casual", 1, 30), "\n")) -- one player, one line pe
 
 Profiles: `Dedicated`, `Casual`, `AfkOnly`, `PaidAfk` (`Sim.Profiles`; edit the numbers there).
 
+## Running it through the Studio dev channel
+
+The Studio MCP's own threads can't `require` game modules any more, so run cohorts on the server during Play: copy
+`tools/sim/CohortSim.luau` to `src/ReplicatedStorage/TempCohortSim.luau` (git-ignored, delete it afterwards), start Play, then set the
+Workspace attribute `DevCommand` (see `DevService`): `{"Op":"SimStart","Job":"x","Profile":"Dedicated","Runs":24,"Days":30,
+"Variants":{"SellSurplus":true}}` and read `{"Op":"SimResult","Job":"x"}` until it is not "running". Run one job at a time (a job
+reads the variants set when it started, and `SimStart` resets them). `Variants.SellSurplus` = the Star Merchant selling model
+(`docs/Merchant_Selling_Proposal.md`).
+
 ## The model (what is and is not simulated)
 
 - Day by day; active sessions step 60 s (income x potions, a bind each night, spending every 5 min); away time is

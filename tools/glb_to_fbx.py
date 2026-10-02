@@ -2,7 +2,7 @@
 
 Run with Blender in background mode:
     D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <input.glb> <output.fbx> [--stage Elder]
-        [--tris 10000] [--max-tris 20000] [--texture 1024] [--flip]
+        [--tris 10000] [--max-tris 20000] [--texture 1024] [--flip] [--length STUDS]
 
 What it does:
   1. imports the GLB, deletes helper meshes (meshes not skinned to the armature, e.g. Meshy's "Icosphere");
@@ -33,7 +33,7 @@ def parse_args():
     if len(argv) < 2:
         raise SystemExit("usage: blender -b --python glb_to_fbx.py -- <input.glb> <output.fbx> [--stage Elder] ...")
     opts = {"input": argv[0], "output": argv[1], "stage": "Elder", "tris": 10000, "max_tris": 20000,
-            "texture": 1024, "flip": None}
+            "texture": 1024, "flip": None, "length": None}
     i = 2
     while i < len(argv):
         key = argv[i]
@@ -47,6 +47,8 @@ def parse_args():
             opts["texture"] = int(argv[i + 1]); i += 2
         elif key == "--flip":
             opts["flip"] = True; i += 1
+        elif key == "--length":  # custom body length in studs (NPCs etc.), overrides --stage's length
+            opts["length"] = float(argv[i + 1]); i += 2
 
         else:
             raise SystemExit(f"unknown option {key}")
@@ -199,7 +201,7 @@ def main():
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     lo, hi = mesh_bounds()
     length = hi.y - lo.y
-    s = STAGE_LENGTH[opts["stage"]] / length
+    s = (opts["length"] or STAGE_LENGTH[opts["stage"]]) / length
     offset = mathutils.Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
     for o in [arm, *skinned]:
         if o.parent is None:
@@ -258,7 +260,7 @@ def main():
     print("\n=== glb_to_fbx report ===")
     print("input:", opts["input"])
     print("output:", opts["output"])
-    print("stage:", opts["stage"], STAGE_LENGTH[opts["stage"]], "studs")
+    print("stage:", opts["stage"], opts["length"] or STAGE_LENGTH[opts["stage"]], "studs")
     print("triangles before:", tris_before)
     for k, v in report.items():
         if isinstance(v, list) and v and isinstance(v[0], tuple):

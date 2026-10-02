@@ -48,6 +48,11 @@ local function nearMerchant(player: Player): boolean
 	return false
 end
 
+-- Is the player alive and within PurchaseRange of a Star Merchant? (also used by SellService)
+function EconomyService:NearMerchant(player: Player): boolean
+	return nearMerchant(player)
+end
+
 local function allowRequest(player: Player): boolean
 	local now = os.clock()
 	if now - (lastRequest[player] or 0) < Economy.Merchant.RequestInterval then
