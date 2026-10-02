@@ -80,6 +80,10 @@ export type PlayerData = {
 	AfkCreditSeconds: number, -- offline + idle seconds already paid today (capped by Config/Roost OfflineCapHours)
 	PurchaseIds: { string }, -- recent developer product receipt IDs, oldest first
 	Settings: Settings, -- the player's Settings window choices (Config/Data DefaultSettings)
+	LifetimeGold: number, -- credited earnings since this counter was introduced; historical spending cannot be recovered
+	RarestOneIn: number, -- best server base pair odds ever bound; owned-dragon fallback for old saves
+	RarestSpecies: string,
+	RarestMutation: string,
 }
 
 export type Settings = {

@@ -139,6 +139,11 @@ local TEMPLATE: PlayerData = {
 	AfkCreditSeconds = 0,
 	PurchaseIds = {},
 	Settings = defaultSettings(),
+	-- New fields appended; ProfileStore Reconcile fills these without a version change.
+	LifetimeGold = 0,
+	RarestOneIn = 0,
+	RarestSpecies = "",
+	RarestMutation = "Normal",
 }
 
 -- Top-level keys that stay on the server and are never sent to the client.

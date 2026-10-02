@@ -411,6 +411,12 @@ return {
 		TriggerSparkles = 8, -- sparkles out of the key badge when a prompt is used
 	},
 
+	Leaderboards = {
+		CanvasSize = Vector2.new(700, 880), MaxDistance = 100,
+		Margin = 24, HeaderHeight = 86, RowHeight = 65, AvatarSize = 48,
+		TitleSize = 30, RowSize = 22, DetailSize = 16, FooterSize = 19,
+		Medals = {Color3.fromRGB(255, 210, 90), Color3.fromRGB(200, 215, 235), Color3.fromRGB(200, 140, 90)},
+	},
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
 	WorldLabels = {

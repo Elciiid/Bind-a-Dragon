@@ -31,6 +31,7 @@ local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
+local LeaderboardStats = require(ReplicatedStorage.Shared.LeaderboardStats)
 local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -137,6 +138,7 @@ local function performBind(
 		MutationId = if mutationId ~= Mutations.NormalId then mutationId else nil,
 	}
 	data.LastBindNight = state.NightIndex
+	LeaderboardStats.RecordBind(data, speciesId, mutationId, outcome.BaseOneIn)
 	if usePotion then
 		BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
 	end

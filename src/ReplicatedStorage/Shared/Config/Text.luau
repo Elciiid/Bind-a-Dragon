@@ -329,4 +329,15 @@ function Text.Format(template: string, values: { [string]: any }): string
 	end))
 end
 
+Text.Leaderboards = {
+	Titles = {Rebirths = "MOST REBIRTHS", Gold = "LIFETIME GOLD", Rarest = "RAREST DRAGON BOUND"},
+	UnknownPlayer = "Unknown player",
+	Loading = "Loading global scores…",
+	Empty = "No scores yet",
+	Own = "YOU · #{rank} · {value}",
+	OwnUnranked = "YOU · rank unavailable · {value}",
+	Odds = "1 in {value}",
+	GoldApprox = "≈{value}",
+	RankNote = "Cached global ranks · tied scores use store order",
+}
 return Text
