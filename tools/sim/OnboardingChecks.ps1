@@ -8,7 +8,10 @@ local function node(path) return setmetatable({Path=path}, {__index=function(t,k
 local env = setmetatable({
  game={GetService=function(_,n) return node(n) end}, script={Parent=node("ServerScriptService/Services")},
  Color3={fromRGB=function(...) return {...} end,new=function(...) return {...} end},
- Vector2={new=function(...) return {...} end}, Vector3={new=function(...) return {...} end},
+ Vector2={new=function(x,y) return {X=x,Y=y} end}, Vector3={new=function(...) return {...} end},
+ Enum=setmetatable({}, {__index=function(_,group) return setmetatable({}, {__index=function(_,key) return group.."."..key end}) end}),
+ Font={new=function(...) return {...} end}, Rect={new=function(...) return {...} end},
+ UDim2={fromOffset=function(x,y) return {X={Scale=0,Offset=x},Y={Scale=0,Offset=y}} end},
 }, {__index=getfenv()})
 local function loadModule(n)
  local path=n.Path; if cache[path] then return cache[path] end
@@ -31,6 +34,21 @@ $chunks.Add('sources["ServerScriptService/Services/OnboardingService"]=[====['+(
 $chunks.Add(@'
 local service=loadModule(node("ServerScriptService/Services/OnboardingService"))
 local config=loadModule(node("ReplicatedStorage/Shared/Config/Onboarding"))
+local view=loadModule(node("ReplicatedStorage/Shared/Config/UITheme")).Onboarding
+assert(config.TrailGroundOffset>=2 and config.TrailMaxDistance>config.TrailCount*config.TrailSpacing)
+assert(config.NightHintSeconds>=30 and view.TrailPixels.X>=30 and view.TrailPixels.Y>=30)
+assert(view.HintTop+view.HintLineHeight<view.ProgressTop)
+assert(view.ProgressTop+view.ProgressHeight<view.PanelSize.Y-view.Padding-view.ActionHeight)
+assert(view.ActionHeight>=44)
+for _,safeWidth in {240,288,320,375,430,800} do
+ local width=math.min(view.PanelSize.X,safeWidth*view.HintWidth)
+ local actionWidth=math.min(view.ActionWidth,width/2-view.Padding*2)
+ local segmentWidth=(width-view.Padding*2-view.ProgressGap*(config.Steps.Complete-1))/config.Steps.Complete
+ assert(actionWidth>0 and segmentWidth>0)
+ assert(width/4-actionWidth/2>=view.Padding)
+ assert(width*3/4+actionWidth/2<=width-view.Padding)
+end
+print("PASS: raised-star config and hint layout geometry at six usable widths; rendering requires Studio")
 local dragons=loadModule(node("ReplicatedStorage/Shared/Config/Dragons"))
 local function fresh()
  return {OnboardingStep=0,OnboardingFirstBindUsed=false,OnboardingFreeLevelUsed=false,OnboardingHints={},Rebirths=0,LastBindNight=-1,Dragons={starter={SpeciesId="Cinderwing",Level=1}}}

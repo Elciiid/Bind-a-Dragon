@@ -8,7 +8,7 @@ Read `Onboarding_Proposal.md` for the step/wording contract. Server owns classif
 - First-bind result uses normalized **conditional** pair probabilities and labeled “First-bind pool” details. The existing leaderboard hook receives the actual conditional base odds, not inflated ordinary-pool odds. Normal binding is unchanged.
 - A local isolated altar viewport shows the star falling before the existing ceremony. This runs inside BindingController's existing serialized reveal queue, behind the spoiler cover; no CeremonyController edit. Reduced Motion/Quick Binds use a brief static star. No world model replacement, terrain edit or asset upload.
 - Sanctuary proximity is checked on the server; the existing RoostService autofills the granted dragon. Step three has an explicit touch-sized **Free upgrade** action using the normal owned-dragon LevelUpDragon request. Exactly its first level costs zero; later levels in the same bulk purchase cost normally. Auto-Upgrade cannot spend the free entitlement.
-- NightIndex refers to the upcoming night during day: a daylight first bind is eligible for that same-index night's hint; a night bind waits for a later night. The final trail/hint remains for eight seconds, and completed profiles do not replay it on rejoin.
+- NightIndex refers to the upcoming night during day: a daylight first bind is eligible for that same-index night's hint; a night bind waits for a later night. The final trail/hint remains for 30 seconds, and completed profiles do not replay it on rejoin.
 - Quests, 25%-cost Rebirth and level-10 Spire hints have independent saved once-only flags. Skip accepts only true, has a one-second rate limit, revokes unused tutorial grants and hides all further tutorial hints.
 
 ## Saved fields
@@ -57,8 +57,20 @@ No Studio playtest was performed for Task C; the owner requested manual testing.
 2. Attempt another daylight bind and spoof SkipTutorial values/spam: no duplicate free bind; skip only valid boolean, cooldown enforced. Armed luck potion/sigil counts remain unchanged by the special bind.
 3. Home: follow trail or use Home; verify actual granted dragon is placed and income pops. Verify server advances only near owned sanctuary, not another player's plot.
 4. With zero gold, use **Free upgrade**: exactly one owned-dragon level gained, gold unchanged; second purchase requires normal gold. Try bulk purchase and Auto-Upgrade separately; neither duplicates the free entitlement.
-5. Advance to upcoming night after daylight bind; verify hint and eight-second trail without an extra-cycle delay. For a first bind at night, verify next night instead. Rejoin after completion: final hint must not replay.
+5. Advance to upcoming night after daylight bind; verify hint and 30-second trail without an extra-cycle delay. For a first bind at night, verify next night instead. Rejoin after completion: final hint must not replay.
 6. Skip at every step and rejoin: all grants/hints remain revoked. Load progressed profiles (rebirth > 0, two dragons, previous bind): no special bind/free level.
 7. Verify Quests once after reveal, Rebirth only at 25% cost, Spire only at level 10. Confirm no UI/name spoiler during star or queued reveals.
 8. Reduced Motion, Quick Binds, Low Effects, missing/unstreamed altar/plot, respawn, narrow portrait and landscape: no console error, movement remains free, touch actions do not overlap or clip. Verify unused cloned UI/world objects are destroyed.
 9. Save/rejoin with API Services permitted in the isolated test experience: flags/progress persist. If APIs unavailable, report mock-only persistence limitation.
+
+## Owner testing and presentation follow-up (2026-10-03)
+
+The owner initially observed a fresh step-1 profile and up to ten generated guide parts, but no visible ground stars. Home arrival advanced the hint; Sparkscale advanced from level 1 to 2, the free entitlement became used, and the tutorial reached step 5. Concurrent income means the supplied before/after balances alone do not prove the free level's exact cost.
+
+The visibility fix replaces low, top-facing image decals with camera-facing, outlined gold star glyphs: three studs above the raycast surface, always on top, with a 90-stud visibility limit and the existing ten-star cap. No image upload/preload is required. These are local directional guide stars, not pathfinding; they may show through nearby foliage/walls and do not promise a walkable route. World geometry and terrain are untouched.
+
+The hint now uses the existing themed world-panel kit with gradient, gold border, ornaments, a step-specific title, five-segment progress, and scalable text/action labels. It is static for Reduced Motion/Low Effects; no new flashes, camera effects or repeating animation. The final guide lasts 30 seconds instead of eight. Only presentation/config changed; saved state and server reward rules did not.
+
+Portable geometry checks cover six usable widths (240–800 pixels), positive progress/action sizes, nonoverlapping action margins, 44-pixel action height and separated content rows. These checks do not certify rendering.
+
+After syncing the fix, the owner confirmed visible trails, the improved hint, and no tutorial return after skipping or completing and rejoining. The owner subsequently reported completing all remaining guided tests, including mobile layout, Reduced Motion and the once-only free upgrade, and authorized pushing the follow-up. These are owner-operated Hakai Test results, not agent-operated Studio verification. No detailed output was supplied for the final tests; exact zero-cost accounting, malformed-request/bulk/Auto-Upgrade edge cases and missing/streamed assets are not independently certified by that general confirmation.

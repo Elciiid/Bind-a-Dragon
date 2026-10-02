@@ -24,7 +24,7 @@ One-time relevance hints: Quests after the tutorial bind/reveal; Rebirth when cu
 
 ## Accessibility / cleanup
 
-The trail is a bounded handful of noncolliding local stars, raycast onto nearby ground, refreshed slowly. It does not modify world assets. Low Effects disables glow animation; Reduced Motion substitutes a brief static star rather than a falling animation. RevealGate protects the falling star from name spoilers and restores the normal reveal flow. Missing altar/plot/UI targets fall back to the hint; leaving/skipping destroys local trail/pointer.
+The trail is a bounded handful of noncolliding local star billboards, positioned three studs above nearby raycast ground, refreshed slowly, with a 90-stud visibility limit. Always-on-top, outlined glyphs remain readable through grass without image-asset dependencies. They indicate direction, not a guaranteed walkable path. The hint uses the existing gradient/gold-trim card style, step titles and five progress segments; the final night guide remains for 30 seconds. It does not modify world assets. The card/trail are static; Reduced Motion substitutes a brief static star rather than a falling animation. RevealGate protects the falling star from name spoilers and restores the normal reveal flow. Missing altar/plot/UI targets fall back to the hint; leaving/skipping destroys local trail/pointer.
 
 ## Acceptance checks
 

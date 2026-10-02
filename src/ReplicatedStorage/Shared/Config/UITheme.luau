@@ -420,10 +420,22 @@ return {
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
 	Onboarding = {
-		PanelSize = Vector2.new(390, 112), -- Hint plus touch-sized action row; never blocks movement.
+		PanelSize = Vector2.new(430, 170), -- Compact title, instruction, progress and touch action row.
 		HintWidth = 0.9,
-		Padding = 10,
+		Padding = 12,
+		TitleSize = 20,
+		TitleMinSize = 12,
+		TitleHeight = 28,
+		StepBadgeWidth = 60,
+		StepBadgeTextSize = 13,
+		HintTop = 48,
+		ProgressTop = 100,
+		ProgressHeight = 4,
+		ProgressGap = 6,
+		ActionTextSize = 16,
+		ActionMinTextSize = 11,
 		HintTextSize = 17,
+		HintMinTextSize = 12,
 		HintLineHeight = 44,
 		SkipSize = UDim2.fromOffset(142, 44),
 		ActionWidth = 142,
@@ -432,8 +444,10 @@ return {
 		PointerSize = 28,
 		PointerOffset = 18,
 		PointerBounds = UDim2.fromOffset(34, 34),
-		TrailSize = Vector3.new(2, 0.05, 2),
-		TrailPixels = Vector2.new(64, 64),
+		TrailSize = Vector3.new(0.1, 0.1, 0.1), -- Invisible, non-queryable billboard anchor, not a floor decal.
+		TrailPixels = Vector2.new(34, 34),
+		TrailTextSize = 32,
+		TrailOutline = 2,
 		FallingStarSize = Vector3.new(4, 4, 4),
 		StarCameraPosition = Vector3.new(0, 35, 95),
 		StarLabelY = 0.78,

@@ -9,12 +9,13 @@ return {
 	SpireHintLevel = 10, -- First evolution makes the combat hint relevant.
 	RequestInterval = 1, -- Minimum seconds between skip requests.
 	PollSeconds = 1, -- Server progression / client trail refresh cadence.
-	NightHintSeconds = 8, -- Brief final hint rather than a permanent tutorial overlay.
+	NightHintSeconds = 30, -- Give players time to notice the final hint and follow its guide stars.
 	HintSeconds = 6, -- Duration for the three once-only relevance hints.
 	TrailCount = 10, -- Bounded client-only trail parts; never a full map path.
 	TrailSpacing = 5, -- Studs between local guide stars.
 	TrailStartDistance = 5, -- Keep the nearest star out from under the player.
-	TrailGroundOffset = 0.12, -- Raise stars slightly above the raycast ground.
+	TrailGroundOffset = 3, -- Float guides above grass; camera-facing icons also remain readable through foliage.
+	TrailMaxDistance = 90, -- Keep always-on-top guidance local rather than visible across the map.
 	RayHeight = 30, -- Ground raycast starts above the player.
 	RayDepth = 90, -- Ground raycast length.
 	StarFallHeight = 60, -- Studs above the altar, locally rendered only.

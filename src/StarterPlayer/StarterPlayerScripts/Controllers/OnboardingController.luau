@@ -64,19 +64,22 @@ local function drawTrail(target: Vector3?)
 		part.Material = Enum.Material.Neon
 		part.Transparency = 1
 		part.Color = Theme.Colors.Gold
-		part.CFrame = CFrame.new(hit.Position + Vector3.yAxis * Config.TrailGroundOffset) * CFrame.Angles(0, math.pi / 4, 0)
+		part.Position = hit.Position + Vector3.yAxis * Config.TrailGroundOffset
 		part.Parent = trail
-		local surface = Instance.new("SurfaceGui")
-		surface.Face = Enum.NormalId.Top
-		surface.CanvasSize = Theme.Onboarding.TrailPixels
-		surface.LightInfluence = 0
-		surface.Parent = part
-		local image = Instance.new("ImageLabel")
-		image.BackgroundTransparency = 1
-		image.Image = Ceremony.Burst.SparkleImage
-		image.ImageColor3 = Theme.Colors.Gold
-		image.Size = UDim2.fromScale(1, 1)
-		image.Parent = surface
+		-- A top-facing decal was hidden by grass and grazing camera angles. These bounded
+		-- camera-facing stars need no asset preload and remain legible above the terrain.
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "GuideStarIcon"
+		billboard.Adornee = part
+		billboard.Size = UDim2.fromOffset(Theme.Onboarding.TrailPixels.X, Theme.Onboarding.TrailPixels.Y)
+		billboard.AlwaysOnTop = true
+		billboard.LightInfluence = 0
+		billboard.MaxDistance = Config.TrailMaxDistance
+		billboard.Parent = part
+		local star = Style.Label(billboard, Text.Onboarding.TrailStar, "Heavy", Theme.Onboarding.TrailTextSize, Theme.Colors.Gold)
+		star.Size = UDim2.fromScale(1, 1)
+		star.TextScaled = true
+		Style.Outline(star, Theme.Onboarding.TrailOutline)
 	end
 end
 
@@ -145,16 +148,41 @@ function controller:Start()
 	rootFrame.BackgroundTransparency = 1
 	rootFrame.Parent = screen
 	local panel = Instance.new("Frame")
-	panel.BackgroundColor3 = Theme.Colors.PanelBottom
 	panel.BorderSizePixel = 0
 	panel.AnchorPoint = Vector2.new(0.5, 0)
 	panel.Parent = rootFrame
-	Style.Corner(panel, Theme.SmallCorner)
-	Style.Stroke(panel, Theme.Colors.Gold, Theme.Onboarding.BorderThickness)
+	Style.WorldPanel(panel, Theme.Colors.Gold, true)
+	local title = Style.Label(panel, "", "Title", Theme.Onboarding.TitleSize, Theme.Colors.Gold)
+	title.Position = UDim2.fromOffset(Theme.Onboarding.Padding, Theme.Onboarding.Padding)
+	title.Size = UDim2.new(1, -Theme.Onboarding.Padding * 3 - Theme.Onboarding.StepBadgeWidth, 0, Theme.Onboarding.TitleHeight)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextWrapped = false
+	title.TextScaled = true
+	Style.Outline(title)
+	local titleSize = Instance.new("UITextSizeConstraint")
+	titleSize.MinTextSize, titleSize.MaxTextSize = Theme.Onboarding.TitleMinSize, Theme.Onboarding.TitleSize
+	titleSize.Parent = title
+	local stepBadge = Style.Label(panel, "", "Bold", Theme.Onboarding.StepBadgeTextSize, Theme.Colors.Gold)
+	stepBadge.AnchorPoint = Vector2.new(1, 0)
+	stepBadge.Position = UDim2.new(1, -Theme.Onboarding.Padding, 0, Theme.Onboarding.Padding)
+	stepBadge.Size = UDim2.fromOffset(Theme.Onboarding.StepBadgeWidth, Theme.Onboarding.TitleHeight)
 	local label = Style.Label(panel, "", "Body", Theme.Onboarding.HintTextSize, Theme.Colors.Text)
 	label.TextWrapped = true
-	label.Position = UDim2.fromOffset(Theme.Onboarding.Padding, Theme.Onboarding.Padding)
+	label.TextScaled = true
+	label.Position = UDim2.fromOffset(Theme.Onboarding.Padding, Theme.Onboarding.HintTop)
 	label.Size = UDim2.new(1, -Theme.Onboarding.Padding * 2, 0, Theme.Onboarding.HintLineHeight)
+	local hintSize = Instance.new("UITextSizeConstraint")
+	hintSize.MinTextSize, hintSize.MaxTextSize = Theme.Onboarding.HintMinTextSize, Theme.Onboarding.HintTextSize
+	hintSize.Parent = label
+	local progress = {}
+	for index = 1, Config.Steps.Complete do
+		local segment = Instance.new("Frame")
+		segment.Name = `Step{index}`
+		segment.BorderSizePixel = 0
+		segment.Parent = panel
+		Style.Corner(segment, Theme.Onboarding.ProgressHeight / 2)
+		progress[index] = segment
+	end
 	local skip = Button.new(panel, { Text = Text.Onboarding.Skip, Kind = "Neutral", OnClick = function()
 		(ReplicatedStorage.Remotes.SkipTutorial :: RemoteEvent):FireServer(true)
 	end })
@@ -176,6 +204,14 @@ function controller:Start()
 	free.Instance.AnchorPoint = Vector2.new(0.5, 1)
 	free.Instance.Size = Theme.Onboarding.SkipSize
 	free.Instance.Position = UDim2.new(0.25, 0, 1, -Theme.Onboarding.Padding)
+	for _, button in { skip, free } do
+		button.Label.AutomaticSize = Enum.AutomaticSize.None
+		button.Label.Size = UDim2.new(1, -Theme.Onboarding.Padding, 1, 0)
+		button.Label.TextScaled = true
+		local constraint = Instance.new("UITextSizeConstraint")
+		constraint.MinTextSize, constraint.MaxTextSize = Theme.Onboarding.ActionMinTextSize, Theme.Onboarding.ActionTextSize
+		constraint.Parent = button.Label
+	end
 	local pointer = Style.Label(rootFrame, Text.Onboarding.Pointer, "Title", Theme.Onboarding.PointerSize, Theme.Colors.Gold)
 	pointer.Size = Theme.Onboarding.PointerBounds
 	pointer.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -209,10 +245,18 @@ function controller:Start()
 		panel.Size = UDim2.fromOffset(width, size.Y)
 		local top = math.clamp(math.max(bounds.Min.Y, HudLayout.TopReserved()) + Theme.Onboarding.Padding, bounds.Min.Y, math.max(bounds.Min.Y, bounds.Max.Y - size.Y))
 		panel.Position = UDim2.fromOffset(bounds.Min.X + bounds.Width / 2 - rootFrame.AbsolutePosition.X, top - rootFrame.AbsolutePosition.Y)
-		local actionWidth = if free.Instance.Visible then math.min(Theme.Onboarding.ActionWidth, width / 2 - Theme.Onboarding.Padding * 1.5) else math.min(Theme.Onboarding.ActionWidth, width - Theme.Onboarding.Padding * 2)
+		local actionWidth = if free.Instance.Visible then math.min(Theme.Onboarding.ActionWidth, width / 2 - Theme.Onboarding.Padding * 2) else math.min(Theme.Onboarding.ActionWidth, width - Theme.Onboarding.Padding * 2)
 		skip.Instance.Size = UDim2.fromOffset(actionWidth, Theme.Onboarding.ActionHeight)
 		free.Instance.Size = skip.Instance.Size
+		title.Text = Text.Onboarding.Titles[step] or ""
+		stepBadge.Text = Text.Format(Text.Onboarding.StepCount, { step = step, total = Config.Steps.Complete })
 		label.Text = Text.Onboarding.Steps[step] or ""
+		local progressWidth = (width - Theme.Onboarding.Padding * 2 - Theme.Onboarding.ProgressGap * (Config.Steps.Complete - 1)) / Config.Steps.Complete
+		for index, segment in progress do
+			segment.Position = UDim2.fromOffset(Theme.Onboarding.Padding + (index - 1) * (progressWidth + Theme.Onboarding.ProgressGap), Theme.Onboarding.ProgressTop)
+			segment.Size = UDim2.fromOffset(progressWidth, Theme.Onboarding.ProgressHeight)
+			segment.BackgroundColor3 = if index <= step then Theme.Colors.Gold else Theme.Colors.PanelBottom
+		end
 		pointer.Visible = false
 		if visible and step == Config.Steps.Upgrade then
 			local button = HudLayout.GetMenuButton("Inventory")

@@ -341,6 +341,15 @@ Text.Leaderboards = {
 	RankNote = "Cached global ranks · tied scores use store order",
 }
 Text.Onboarding = {
+	Titles = {
+		[1] = "YOUR FIRST DRAGON",
+		[2] = "YOUR DRAGON'S HOME",
+		[3] = "A FREE UPGRADE",
+		[4] = "WATCH THE NIGHT SKY",
+		[5] = "ANOTHER STAR AWAITS",
+	},
+	StepCount = "{step} / {total}",
+	TrailStar = "★",
 	Steps = {
 		[1] = "Bind your first dragon!",
 		[2] = "Head Home to meet your dragon!",
