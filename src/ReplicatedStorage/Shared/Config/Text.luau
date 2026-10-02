@@ -156,6 +156,17 @@ local Text = {
 		LookTag = "Your sanctuary is transformed",
 	},
 
+	-- Dragon Hotbar (HotbarController, Inventory cards) and the carried companion. {n} = a slot number, {name} = a dragon.
+	Hotbar = {
+		Add = "Add to" .. string.char(10) .. "hotbar",
+		Remove = "Remove" .. string.char(10) .. "from bar",
+		Full = "Your hotbar is full. Remove a dragon from it first.",
+		EmptySlot = "Empty slot. Open Inventory > Dragons and add a dragon to your hotbar.",
+		TipCarry = "Press {key} or tap to carry it",
+		TipPutAway = "Carrying · press {key} or tap to put it away",
+		TipEmpty = "Empty slot {n}",
+	},
+
 	-- Dragons tab of the Inventory (InventoryController) and the Equip best button (RoostService). {n} = a count.
 	Dragons = {
 		Details = "Details",

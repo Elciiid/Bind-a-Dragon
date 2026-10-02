@@ -36,6 +36,7 @@ export type PlayerData = {
 	NextDragonId: number,
 	RoostDragonIds: { string }, -- dragons placed in the roost (earn gold)
 	RoostUnplacedDragonIds: { string }, -- dragons explicitly picked up; kept out of automatic slot filling
+	Hotbar: { string }, -- Dragon Hotbar: Config/Hotbar.Slots dragon ids ("" = empty slot), slot 1 first
 	RoostSlotUpgrades: number, -- extra roost slots bought
 	RoostIncomeLevel: number, -- roost income upgrade level
 

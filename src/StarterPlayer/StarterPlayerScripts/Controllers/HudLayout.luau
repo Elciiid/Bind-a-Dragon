@@ -18,6 +18,7 @@
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local Style = require(script.Parent.UI.Style)
@@ -210,12 +211,33 @@ local function layoutPopups()
 	end
 end
 
--- Bottom-right timer stack: near the corner (RightMargin from the edge), PC and phone alike.
+-- Roblox's own jump button on touch devices (PlayerGui.TouchGui.TouchControlFrame.JumpButton), if it exists yet.
+local function findJumpButton(): GuiObject?
+	local touchGui = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("TouchGui")
+	local frame = touchGui and touchGui:FindFirstChild("TouchControlFrame")
+	local jump = frame and frame:FindFirstChild("JumpButton")
+	return if jump and jump:IsA("GuiObject") then jump else nil
+end
+
+-- Pixels kept free above the bottom edge on phones, so the timer stack sits above the jump button: the real button's top
+-- (touch devices) plus a gap, else the Config reserve (Studio / the phone mock).
+local function jumpReserve(): number
+	local sizes = UITheme.Sizes
+	local jump = findJumpButton()
+	local camera = workspace.CurrentCamera
+	if UserInputService.TouchEnabled and jump and camera and jump.Visible and jump.AbsoluteSize.Y > 0 then
+		local _, bottomInset = GuiService:GetGuiInset()
+		return math.max(sizes.PhoneMargin, camera.ViewportSize.Y - jump.AbsolutePosition.Y - bottomInset.Y + sizes.PhoneJumpGap)
+	end
+	return sizes.PhoneJumpReserve
+end
+
+-- Bottom-right timer stack: near the corner (RightMargin from the edge), PC and phone alike; on phones lifted above the
+-- jump button.
 local function layoutTimers()
 	local sizes = UITheme.Sizes
-	-- the same bottom-right spot on PC and phone
 	if phone then
-		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -sizes.PhoneMargin)
+		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -jumpReserve())
 	else
 		timerStack.Position = UDim2.new(1, -sizes.RightMargin, 1, -sizes.Margin)
 	end
@@ -315,6 +337,22 @@ local function ensure(): ScreenGui
 	end
 	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
 	watchCamera()
+	-- touch devices: Roblox creates its jump button a little later; follow it so the timer stack stays above it
+	if UserInputService.TouchEnabled then
+		task.spawn(function()
+			for _ = 1, 60 do
+				local jump = findJumpButton()
+				if jump then
+					jump:GetPropertyChangedSignal("AbsolutePosition"):Connect(relayout)
+					jump:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
+					jump:GetPropertyChangedSignal("Visible"):Connect(relayout)
+					relayout()
+					return
+				end
+				task.wait(0.5)
+			end
+		end)
+	end
 	return screen
 end
 

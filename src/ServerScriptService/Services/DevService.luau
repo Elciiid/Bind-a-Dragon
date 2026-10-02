@@ -8,7 +8,7 @@
 -- A BindableFunction in ServerStorage can't be reached by clients; it is never created outside Studio.
 -- Studio tools whose thread may not invoke the bindables (the MCP's execute_luau) set the Workspace string attribute
 -- "DevCommand" to JSON instead: { "Op": "Items", "Args": {...} } | { "Op": "Dragons", "Ids": [..], "Level": n, "Place": true,
--- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
+-- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "Hotbar", "Slot": 1, "Id": dragonId } | { "Op": "Carry", "Slot": 1 } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
 -- player and answers in the attribute "DevResult" (JSON).
 
 local HttpService = game:GetService("HttpService")
@@ -20,6 +20,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local DragonService = require(script.Parent.DragonService)
+local HotbarService = require(script.Parent.HotbarService)
 local SpireService = require(script.Parent.SpireService)
 local IndexService = require(script.Parent.IndexService)
 local MilestoneService = require(script.Parent.MilestoneService)
@@ -158,6 +159,12 @@ function DevService:Start()
 				local before = data.Gold
 				local leveled = DragonService:BuyLevels(player, data, data.Dragons[cmd.Id], cmd.Count or 1)
 				return { Leveled = leveled, Spent = before - data.Gold, Level = data.Dragons[cmd.Id].Level }
+			elseif cmd.Op == "Hotbar" then
+				HotbarService.HandleSet(player, cmd.Slot, cmd.Id)
+				return cmd.Slot
+			elseif cmd.Op == "Carry" then
+				HotbarService.HandleCarry(player, cmd.Slot)
+				return cmd.Slot
 			elseif cmd.Op == "SpireAction" then
 				SpireService.HandleAction(player, cmd.Action, cmd.Value)
 				return cmd.Action

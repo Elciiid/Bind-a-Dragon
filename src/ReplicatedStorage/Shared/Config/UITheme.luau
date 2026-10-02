@@ -212,6 +212,8 @@ return {
 		PhoneLuckPanelScale = 0.5, -- phones: the luck panel is the PC panel drawn this much smaller
 		LeftMargin = 64, -- left-side HUD (menu icons, currency) the same, mirrored
 		PhoneLeftMargin = 36,
+		PhoneJumpReserve = 104, -- phone: pixels kept free above the bottom edge for Roblox's jump button when its real position isn't known (Studio mock)
+		PhoneJumpGap = 10, -- phone: gap between the jump button's top and the timer stack
 		MenuRaise = 50, -- the 4 left icons sit this many pixels above the vertical center (PC)
 		PhoneMenuRaise = 30,
 		Gap = 6,

@@ -18,13 +18,14 @@ local ProfileStore = require(ServerScriptService.Packages.ProfileStore)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
+local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
 
 -- Bump this and add a step to MIGRATIONS whenever existing saved data needs to be reshaped
 -- (renamed/moved/removed fields). Plain new fields don't need a migration: Reconcile() fills them in.
-local CURRENT_DATA_VERSION = 3
+local CURRENT_DATA_VERSION = 4
 
 local function defaultSettings(): PlayerDataTypes.Settings
 	local defaults = DataConfig.DefaultSettings
@@ -68,6 +69,16 @@ local MIGRATIONS: { [number]: (data: any) -> () } = {
 			end
 		end
 	end,
+	-- 3 -> 4: the Dragon Hotbar (a fixed list of Config/Hotbar.Slots dragon ids, "" = empty). Keep ids of dragons the player owns.
+	[3] = function(data)
+		local old = if type(data.Hotbar) == "table" then data.Hotbar else {}
+		local fixed = {}
+		for slot = 1, HotbarConfig.Slots do
+			local id = old[slot]
+			fixed[slot] = if type(id) == "string" and type(data.Dragons) == "table" and data.Dragons[id] ~= nil then id else ""
+		end
+		data.Hotbar = fixed
+	end,
 }
 
 local TEMPLATE: PlayerData = {
@@ -85,6 +96,7 @@ local TEMPLATE: PlayerData = {
 	NextDragonId = 1,
 	RoostDragonIds = {},
 	RoostUnplacedDragonIds = {},
+	Hotbar = table.create(HotbarConfig.Slots, ""),
 	RoostSlotUpgrades = 0,
 	RoostIncomeLevel = 0,
 

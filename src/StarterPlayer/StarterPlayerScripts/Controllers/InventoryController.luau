@@ -32,6 +32,9 @@ local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 local returnFromRoost = ReplicatedStorage.Remotes.ReturnFromRoost :: RemoteEvent
 local equipBest = ReplicatedStorage.Remotes.EquipBest :: RemoteEvent
+local setHotbarSlot = ReplicatedStorage.Remotes.SetHotbarSlot :: RemoteEvent
+local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
+local NotificationController = require(script.Parent.NotificationController)
 
 local REFRESH_INTERVAL = 0.25 -- seconds; while open, changed values are written into the existing cards
 local CARD = Vector2.new(200, 246) -- design size of a card (phones scale it by UITheme.Sizes.PhoneCardScale)
@@ -67,6 +70,9 @@ type Card = {
 	Tooltip: string,
 	Details: TextButton,
 	DetailsScale: UIScale,
+	Hotbar: TextButton, -- "Add to hotbar" / "Remove from bar"
+	HotbarScale: UIScale,
+	HotbarSlot: number?, -- the slot the dragon sits in, nil = not on the bar
 }
 
 local cards: { [string]: Card } = {}
@@ -74,6 +80,7 @@ local cards: { [string]: Card } = {}
 local function layoutCard(card: Card, phone: boolean)
 	card.Scale.Scale = cardScale
 	card.DetailsScale.Scale = 1 / cardScale
+	card.HotbarScale.Scale = 1 / cardScale
 	card.Card.Size = UDim2.fromOffset(CARD.X, if phone then Layout.PhoneDragonCardHeight else CARD.Y)
 	local controlHeight = if phone then Layout.TouchTarget / cardScale else 40
 	local switchHeight = if phone then Layout.TouchTarget / cardScale else 24
@@ -265,6 +272,9 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		Tooltip = "",
 		Details = nil :: any,
 		DetailsScale = nil :: any,
+		Hotbar = nil :: any,
+		HotbarScale = nil :: any,
+		HotbarSlot = nil,
 	}
 	switch.Activated:Connect(function()
 		if entry.InRoost then
@@ -296,6 +306,44 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 	Style.Corner(details, 6)
 	details.Activated:Connect(function()
 		Tooltip.Toggle(card, function() return entry.Tooltip end, details.AbsolutePosition + Vector2.new(0, details.AbsoluteSize.Y))
+	end)
+	-- Add to hotbar / Remove: under the rarity icon, top-left
+	local bar = Instance.new("TextButton")
+	bar.Name = "HotbarToggle"
+	bar.Text = Text.Hotbar.Add
+	bar.Font = name.Font
+	bar.TextSize = 11
+	bar.TextWrapped = true
+	bar.TextColor3 = colors.Text
+	bar.BackgroundColor3 = colors.PanelBottom
+	bar.AnchorPoint = Vector2.new(0, 0)
+	bar.Position = UDim2.fromOffset(4, 42)
+	bar.Size = UDim2.fromOffset(Layout.DetailsSize.X, Layout.DetailsSize.Y)
+	bar.ZIndex = 6
+	bar.Parent = card
+	local barScale = Instance.new("UIScale")
+	barScale.Scale = 1 / cardScale
+	barScale.Parent = bar
+	Style.Corner(bar, 6)
+	Style.Stroke(bar, colors.Trim, 1.25)
+	entry.Hotbar = bar
+	entry.HotbarScale = barScale
+	bar.Activated:Connect(function()
+		local data = DataController:Get()
+		if data == nil then
+			return
+		end
+		if entry.HotbarSlot then
+			setHotbarSlot:FireServer(entry.HotbarSlot, "")
+			return
+		end
+		for slot = 1, HotbarConfig.Slots do
+			if data.Hotbar[slot] == "" then
+				setHotbarSlot:FireServer(slot, dragonId)
+				return
+			end
+		end
+		NotificationController:Show(Text.Hotbar.Full, nil, "error")
 	end)
 	layoutCard(entry, HudLayout.IsPhone())
 	return entry
@@ -339,6 +387,18 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 	local enabled = not atCap and data.Gold >= cost
 	if card.Upgrade.Enabled ~= enabled then
 		card.Upgrade:SetEnabled(enabled)
+	end
+
+	local barSlot: number? = nil
+	for slot = 1, HotbarConfig.Slots do
+		if data.Hotbar[slot] == dragon.Id then
+			barSlot = slot
+		end
+	end
+	if card.HotbarSlot ~= barSlot or card.Hotbar.Text == "" then
+		card.HotbarSlot = barSlot
+		card.Hotbar.Text = if barSlot then Text.Hotbar.Remove else Text.Hotbar.Add
+		card.Hotbar.BackgroundColor3 = if barSlot then colors.Confirm else colors.PanelBottom
 	end
 
 	if card.InRoost ~= inRoost then
@@ -514,7 +574,7 @@ function InventoryController:Init()
 	local function markDirty()
 		dirty = true
 	end
-	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "LevelingIncomeAnchor", "RoostSlotUpgrades", "RoostIncomeLevel", "Index", "WyrmRunes", "Dragonstones" } do
+	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "LevelingIncomeAnchor", "RoostSlotUpgrades", "RoostIncomeLevel", "Index", "WyrmRunes", "Dragonstones", "Hotbar" } do
 		DataController:OnChanged(key, markDirty)
 	end
 end
