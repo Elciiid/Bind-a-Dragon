@@ -314,12 +314,12 @@ function LuckController:Init()
 	HudLayout.OnLayoutChanged(function(isPhone)
 		phone = isPhone
 		local sizes = Theme.Sizes
-		pill.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin)
+		pill.Position = UDim2.new(1, -sizes.PhoneRightMargin, 0, sizes.PhoneMargin)
 		pill.Size = UDim2.fromOffset(sizes.PhonePillWidth, sizes.PhonePillHeight)
 		-- Phone: shorter panel under the pill, so it ends well above the jump button.
 		if isPhone then
 			panel.AnchorPoint = Vector2.new(1, 0)
-			panel.Position = UDim2.new(1, -sizes.PhoneMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap + 14)
+			panel.Position = UDim2.new(1, -sizes.PhoneRightMargin, 0, sizes.PhoneMargin + sizes.PhonePillHeight + sizes.Gap + 14)
 			panel.Size = UDim2.fromOffset(250, 190)
 			banner:Layout(28, 17, 18)
 			inner.Position, inner.Size = UDim2.fromOffset(12, 18), UDim2.new(1, -24, 1, -28)
@@ -330,7 +330,7 @@ function LuckController:Init()
 			armButton.Instance.Size = UDim2.new(1, 0, 0, 30)
 		else
 			panel.AnchorPoint = Vector2.new(1, 0.5)
-			panel.Position = UDim2.new(1, -sizes.Margin, 0.5, 0)
+			panel.Position = UDim2.new(1, -sizes.RightMargin, 0.5, 0)
 			panel.Size = UDim2.fromOffset(260, 270)
 			banner:Layout(38, 22, 26)
 			inner.Position, inner.Size = UDim2.fromOffset(14, 26), UDim2.new(1, -28, 1, -40)

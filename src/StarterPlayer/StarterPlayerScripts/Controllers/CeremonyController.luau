@@ -425,18 +425,19 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 			banner.Holder.Position = UDim2.fromScale(0.5, 0.5)
 			local odds = OddsText.Line(request.EffectiveOneIn)
-			local tag = Style.Label(reveal, `{species.Rarity} · {species.Element}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
+			local tag = Style.Label(reveal, `{if mutation.Id ~= Mutations.NormalId then mutation.Name .. " · " else ""}{species.Rarity} · {species.Element}`, "Title", if phone then 15 else 20, UITheme.Colors.Text)
 			tag.AnchorPoint = Vector2.new(0.5, 0)
 			tag.Position = UDim2.new(0.5, 0, 0.5, (if phone then 42 else 64) / 2 + 8)
 			tag.BackgroundTransparency = 0.15
 			tag.BackgroundColor3 = UITheme.Colors.GlassBottom
 			tag.TextStrokeTransparency = 1
-			tag.Size = UDim2.new(0.9, 0, 0, if phone then 22 else 28)
-			tag.TextScaled = true
-			tag.TextWrapped = true
+			local tagHeight = if phone then 22 else 28
+			tag.AutomaticSize = Enum.AutomaticSize.X -- a compact chip, not a bar across the screen
+			tag.Size = UDim2.fromOffset(0, tagHeight)
+			tag.TextWrapped = false
 			local oddsLabel = Style.Label(reveal, odds, "Title", if phone then 24 else 32, OddsText.Color(request.EffectiveOneIn))
 			oddsLabel.AnchorPoint = Vector2.new(0.5, 0)
-			oddsLabel.Position = UDim2.new(0.5, 0, 0.5, 62)
+			oddsLabel.Position = UDim2.new(0.5, 0, 0.5, (if phone then 42 else 64) / 2 + 8 + tagHeight + 6) -- right under the chip
 			oddsLabel.Size = UDim2.new(1, 0, 0, 36)
 			oddsLabel.TextScaled = true
 			Style.Round(tag)

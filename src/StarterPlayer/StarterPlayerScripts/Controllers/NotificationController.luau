@@ -1,6 +1,6 @@
 --!strict
 -- Notifications (UI renewal part 2).
---   * Toasts (UI/Toast): ONE queue, top-center under the sky pill (HudLayout.TopReserved). At most
+--   * Toasts (UI/Toast): ONE queue, top-center under the travel row (HudLayout.TopReserved). At most
 --     UITheme.Toasts.MaxVisible on screen; the rest wait. The same message again merges into the one showing or
 --     waiting ("... x5") and restarts its time; rare things (announcements, rewards) jump the queue. Each toast gets an
 --     icon picked from its text (potions, currencies, quests, Index, rebirth).
@@ -198,14 +198,14 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			if payload.Auto then
 				table.insert(chips, { Text = "Auto-bind", Color = UITheme.Colors.TextMuted })
 			end
-			local rows = { { odds.RowSpecies, OddsText.OneIn(payload.SpeciesOneIn or n) } }
+			local rows = { { odds.RowSpecies, OddsText.OneInExact(payload.SpeciesOneIn or n) } }
 			if mutation.Id ~= Mutations.NormalId then
-				table.insert(rows, { odds.RowMutation, OddsText.OneIn(payload.MutationOneIn or 1) })
+				table.insert(rows, { odds.RowMutation, OddsText.OneInExact(payload.MutationOneIn or 1) })
 			end
-			table.insert(rows, { odds.RowTogether, OddsText.OneIn(n) })
+			table.insert(rows, { odds.RowTogether, OddsText.OneInExact(n) })
 			table.insert(rows, { odds.RowProbability, OddsText.Probability(n) })
 			if type(payload.BaseOneIn) == "number" and math.abs(payload.BaseOneIn - n) > 0.01 then
-				table.insert(rows, { odds.RowBase, OddsText.OneIn(payload.BaseOneIn) })
+				table.insert(rows, { odds.RowBase, OddsText.OneInExact(payload.BaseOneIn) })
 			end
 			if type(payload.Luck) == "number" then
 				table.insert(rows, { odds.RowLuck, Format.Multiplier(payload.Luck) })
@@ -304,7 +304,7 @@ function NotificationController:Init()
 	Toast.SetContainer(container)
 	HudLayout.OnLayoutChanged(function(isPhone)
 		Toast.SetPhone(isPhone)
-		-- top-center, under the sky pill
+		-- top-center, under the travel row
 		container.Position = UDim2.new(0.5, 0, 0, HudLayout.TopReserved() + UITheme.Toasts.Gap)
 	end)
 end

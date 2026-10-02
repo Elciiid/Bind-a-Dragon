@@ -42,7 +42,7 @@ local EXTRA_HEIGHT = 56 -- the card grows by this much when it has a Line / Chip
 
 local RewardPopup = {}
 
--- HudLayout.TopReserved (the top bar + sky pill), looked up lazily (HudLayout requires the UI kit).
+-- HudLayout.TopReserved (the travel row), looked up lazily (HudLayout requires the UI kit).
 local function hud(): any
 	return require(script.Parent.Parent.HudLayout)
 end
@@ -294,6 +294,7 @@ local function showNext()
 	dim.BackgroundColor3 = theme.Colors.TextStroke
 	dim.BackgroundTransparency = 1
 	dim.BorderSizePixel = 0
+	dim.Active = true -- sinks the pointer, so tooltips of the windows underneath don't show over the pop-up
 	dim.Parent = layer
 	dim.ClipsDescendants = true -- the turning rays stay below the top bar too
 	local root, scale, button = RewardPopup.Build(dim, props)

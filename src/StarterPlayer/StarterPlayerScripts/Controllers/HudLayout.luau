@@ -6,8 +6,10 @@
 -- icons under the currency row, ending above Roblox's thumbstick (bottom-left); the jump button owns bottom-right.
 -- Currencies (UI/CurrencyPill): bottom-left on PC; one row top-left under the top bar (and the gear) on phones.
 -- Top bar: AddTopbarButton puts a round button (the Settings gear) right after Roblox's own top-bar buttons, lined up
--- with GuiService.TopbarInset. Both portrait and landscape use Roblox safe bounds. Studio: "ForceLayout" = "Phone"
--- or "PC".
+-- with GuiService.TopbarInset. Layout (PC and phone alike; phones just scale down): travel row top-center, the 4 menu
+-- icons left (margin from the device safe area: every gui uses ScreenInsets.CoreUISafeInsets), the timer stack bottom-right
+-- (GetTimerStack: day/night timer above the potion timers), bottom-center free for the Dragon Hotbar. Landscape only.
+-- Studio: LocalPlayer attribute "ForceLayout" = "Phone" or "PC".
 --
 -- Controllers don't place their own HUD buttons: they call AddMenuButton / AddCurrency / AddTopbarButton, register
 -- popups (UI/Window does this: drawn above the HUD, full size on phones, menu hidden while one is open on phones)
@@ -18,7 +20,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
-local Layout = require(ReplicatedStorage.Shared.Config.Layout)
 local Style = require(script.Parent.UI.Style)
 local HudIcon = require(script.Parent.UI.HudIcon)
 local CurrencyPill = require(script.Parent.UI.CurrencyPill)
@@ -33,6 +34,7 @@ local player = Players.LocalPlayer
 local gui: ScreenGui? = nil
 local topbarGui: ScreenGui
 local topbarRow: Frame
+local timerStack: Frame
 local menu: Frame
 local currency: Frame
 local phone = false
@@ -116,23 +118,22 @@ function HudLayout.TopbarBottom(): number
 	return if inset.Height > 0 then inset.Max.Y else 44
 end
 
--- The timer sits at the top of the usable area; navigation is at the bottom.
-function HudLayout.SkyPillTop(): number
-	return Layout.SkyTopGap
+-- The bottom of the travel row (screen pixels from the top): windows and toasts start below it.
+function HudLayout.TravelBottom(): number
+	local sizes = UITheme.Sizes
+	return if phone
+		then sizes.PhoneTravelTop + sizes.PhoneTravelHomeIcon + sizes.PhoneHudLabel
+		else sizes.TravelTop + sizes.TravelHomeIcon + sizes.HudLabel
 end
 
--- The bottom of the top bar + the sky pill at its tallest (night), in screen pixels. Windows and toasts start below
--- it, so they never cover the travel buttons or the pill.
+-- Where windows and toasts may start (screen pixels): under the travel row with a gap.
 function HudLayout.TopReserved(): number
-	local sizes = UITheme.Sizes
-	local pill = if phone then sizes.PhoneSkyPillV2.Y + sizes.PhoneSkyPillExtraLine else sizes.SkyPillV2.Y + sizes.SkyPillExtraLine
-	return (if safeProbe then safeProbe.AbsolutePosition.Y else HudLayout.TopbarBottom()) + HudLayout.SkyPillTop() + pill
+	return HudLayout.TravelBottom() + UITheme.Sizes.Gap
 end
 
--- Phone: the currency row's top (under the top bar).
+-- Phone: the currency row's top (the Hud gui already starts under Roblox's top bar).
 local function phoneCurrencyTop(): number
-	local sizes = UITheme.Sizes
-	return HudLayout.SkyPillTop() + sizes.PhoneSkyPillV2.Y + sizes.PhoneSkyPillExtraLine + sizes.Gap
+	return UITheme.Sizes.Gap
 end
 
 local function layoutTopbar()
@@ -153,7 +154,8 @@ local function layoutMenu()
 	local iconSize = if phone then sizes.PhoneHudIcon else sizes.HudIcon
 	local labelSize = if phone then sizes.PhoneHudLabel else sizes.HudLabel
 	local gap = if phone then sizes.PhoneHudGap else sizes.HudGap
-	local list = menu:FindFirstChildOfClass("UIGridLayout") :: UIGridLayout
+	local list = menu:FindFirstChildOfClass("UIListLayout") :: UIListLayout
+	list.Padding = UDim.new(0, gap)
 	local count = 0
 	for _, entry in entries do
 		count += 1
@@ -161,18 +163,13 @@ local function layoutMenu()
 		entry.Icon:SetLabel(if phone then entry.PhoneText else entry.Text)
 	end
 	local width = math.max(iconSize, labelSize * 5)
-	local columns = if phone then sizes.PhoneMenuColumns else 1
-	list.FillDirectionMaxCells = columns
-	list.CellSize = UDim2.fromOffset(width, iconSize + labelSize + 2)
-	list.CellPadding = UDim2.fromOffset(gap, gap)
-	local rows = math.ceil(count / columns)
-	menu.Size = UDim2.fromOffset(columns * width + (columns - 1) * gap, rows * (iconSize + labelSize + 2) + math.max(0, rows - 1) * gap)
+	menu.Size = UDim2.fromOffset(width, count * (iconSize + labelSize + 2) + math.max(0, count - 1) * gap)
 	if phone then
 		menu.AnchorPoint = Vector2.new(0, 0)
-		menu.Position = UDim2.fromOffset(Layout.SafeMargin, phoneCurrencyTop() + sizes.PhoneCurrencyRow + sizes.Gap)
+		menu.Position = UDim2.fromOffset(sizes.PhoneLeftMargin, phoneCurrencyTop() + sizes.PhoneCurrencyRow + sizes.Gap)
 	else
 		menu.AnchorPoint = Vector2.new(0, 0.5)
-		menu.Position = UDim2.new(0, sizes.Margin, 0.5, -10)
+		menu.Position = UDim2.new(0, sizes.LeftMargin, 0.5, -10)
 	end
 	updatePopupHiding()
 end
@@ -186,7 +183,7 @@ local function layoutCurrency()
 		list.Padding = UDim.new(0, 14)
 		list.VerticalAlignment = Enum.VerticalAlignment.Center
 		currency.AnchorPoint = Vector2.new(0, 0)
-		currency.Position = UDim2.fromOffset(sizes.PhoneMargin + 8, phoneCurrencyTop())
+		currency.Position = UDim2.fromOffset(sizes.PhoneLeftMargin + 8, phoneCurrencyTop())
 		currency.AutomaticSize = Enum.AutomaticSize.X
 		currency.Size = UDim2.fromOffset(0, sizes.PhoneCurrencyRow)
 	else
@@ -194,7 +191,7 @@ local function layoutCurrency()
 		list.Padding = UDim.new(0, sizes.Gap)
 		list.VerticalAlignment = Enum.VerticalAlignment.Bottom
 		currency.AnchorPoint = Vector2.new(0, 1)
-		currency.Position = UDim2.new(0, sizes.Margin + 10, 1, -sizes.Margin)
+		currency.Position = UDim2.new(0, sizes.LeftMargin + 10, 1, -sizes.Margin)
 		currency.AutomaticSize = Enum.AutomaticSize.None
 		currency.Size = UDim2.fromOffset(sizes.Currency.X, #pills * sizes.Currency.Y + math.max(0, #pills - 1) * sizes.Gap)
 	end
@@ -203,25 +200,40 @@ local function layoutCurrency()
 	end
 end
 
--- Windows sit below the top bar and the sky pill (TopReserved), with room for the banner hanging over their top edge.
--- Window guis start under Roblox's top bar, so the reserve is measured from there.
+-- Windows sit below the travel row (TopReserved), with room for the banner hanging over their top edge; on phones they are
+-- 94% of the safe width. The window guis start under Roblox's top bar (CoreUISafeInsets), so the reserve is measured from
+-- there. Each window's UISizeConstraint still caps its size.
 local function layoutPopups()
 	local sizes = UITheme.Sizes
 	local overhang = if phone then sizes.PhoneBanner / 2 + sizes.PhoneBannerStar * 0.62 else sizes.Banner / 2 + sizes.BannerStar * 0.62
 	local available = safeProbe.AbsoluteSize
-	local margin = Layout.SafeMargin
+	local margin = if phone then sizes.PhoneMargin else sizes.Margin
+	local top = math.max(0, HudLayout.TopReserved() - GuiService:GetGuiInset().Y) + sizes.PopupTopGap
+	local space = available.Y - top - margin
 	for _, popup in popups do
 		local pc = popup.PcSize
-		local width = math.max(1, math.min(available.X - margin * 2, available.X * pc.X.Scale + pc.X.Offset))
-		local height = math.max(1, math.min(available.Y - margin * 2 - overhang, available.Y * pc.Y.Scale + pc.Y.Offset))
+		local wanted = if phone then available.X * 0.94 else available.X * pc.X.Scale + pc.X.Offset
+		local width = math.max(1, math.min(available.X - margin * 2, wanted))
+		local height = math.max(1, space - overhang)
 		local limit = popup.Panel:FindFirstChildOfClass("UISizeConstraint")
 		if limit then
 			width = math.min(width, limit.MaxSize.X)
 			height = math.min(height, limit.MaxSize.Y)
 		end
 		popup.Panel.Size = UDim2.fromOffset(width, height)
-		-- Center the complete envelope, including the title ornament above the frame.
-		popup.Panel.Position = UDim2.fromOffset(available.X / 2, (available.Y + overhang) / 2)
+		-- center the whole envelope (panel + the ornament above it) in the free area
+		local envelopeTop = top + (space - height - overhang) / 2
+		popup.Panel.Position = UDim2.fromOffset(available.X / 2, envelopeTop + overhang + height / 2)
+	end
+end
+
+-- Bottom-right timer stack: PC near the corner (RightMargin from the edge), phones above the jump button.
+local function layoutTimers()
+	local sizes = UITheme.Sizes
+	if phone then
+		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -sizes.PhoneTimersBottom)
+	else
+		timerStack.Position = UDim2.new(1, -sizes.RightMargin, 1, -sizes.Margin)
 	end
 end
 
@@ -232,6 +244,7 @@ local function relayout()
 	layoutTopbar()
 	layoutCurrency()
 	layoutMenu()
+	layoutTimers()
 	layoutPopups()
 	for _, listener in listeners do
 		task.spawn(listener, phone)
@@ -243,7 +256,7 @@ local function ensure(): ScreenGui
 		return gui
 	end
 	local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
-	playerGui.ScreenOrientation = Enum.ScreenOrientation.Sensor
+	playerGui.ScreenOrientation = Enum.ScreenOrientation.LandscapeSensor -- landscape only
 
 	local screen = HudLayout.MakeScreenGui("Hud", "Hud")
 	gui = screen
@@ -266,11 +279,27 @@ local function ensure(): ScreenGui
 	rowList.SortOrder = Enum.SortOrder.LayoutOrder
 	rowList.Parent = topbarRow
 
+	local timersGui = HudLayout.MakeScreenGui("Timers", "Cards")
+	timerStack = Instance.new("Frame")
+	timerStack.Name = "TimerStack"
+	timerStack.AnchorPoint = Vector2.new(1, 1)
+	timerStack.AutomaticSize = Enum.AutomaticSize.XY
+	timerStack.Size = UDim2.fromOffset(0, 0)
+	timerStack.BackgroundTransparency = 1
+	timerStack.Parent = timersGui
+	local stackList = Instance.new("UIListLayout")
+	stackList.FillDirection = Enum.FillDirection.Vertical
+	stackList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	stackList.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	stackList.Padding = UDim.new(0, UITheme.Sizes.TimerGap)
+	stackList.SortOrder = Enum.SortOrder.LayoutOrder
+	stackList.Parent = timerStack
+
 	menu = Instance.new("Frame")
 	menu.Name = "Menu"
 	menu.BackgroundTransparency = 1
 	menu.Parent = screen
-	local column = Instance.new("UIGridLayout")
+	local column = Instance.new("UIListLayout")
 	column.SortOrder = Enum.SortOrder.LayoutOrder
 	column.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	column.Parent = menu
@@ -308,15 +337,24 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- API
 
+-- The bottom-right stack of timer rows (UI/TimerRow): LayoutOrder 0 = the day/night timer on top, potions below it.
+function HudLayout.GetTimerStack(): Frame
+	ensure()
+	return timerStack
+end
+
 function HudLayout.IsPhone(): boolean
 	ensure()
 	return phone
 end
 
--- Screen coordinates for pointer UI; ScreenGuis created here already use this same safe rectangle.
+-- The safe rectangle in SCREEN pixels (for guis with ScreenInsets.None, e.g. the dim and the pointer tooltip). Children of a
+-- CoreUISafeInsets gui report positions from the inset corner (AbsolutePosition of the probe is always 0, 0), so the
+-- top-left inset (GuiService:GetGuiInset) is added back.
 function HudLayout.GetUsableRect(): Rect
 	ensure()
-	return Rect.new(safeProbe.AbsolutePosition, safeProbe.AbsolutePosition + safeProbe.AbsoluteSize)
+	local topLeft = GuiService:GetGuiInset()
+	return Rect.new(topLeft, topLeft + safeProbe.AbsoluteSize)
 end
 
 function HudLayout.SetRevealActive(active: boolean)

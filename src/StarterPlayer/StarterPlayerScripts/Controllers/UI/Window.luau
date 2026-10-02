@@ -2,7 +2,7 @@
 -- Window: the standard popup panel (UI renewal part 2). An indigo -> violet panel with a sparkle pattern, a soft glow
 -- and a gold ornamental border (Style.PanelLook), a jewel title banner with a star hanging on the top edge
 -- (UI/Banner), a big round 3D rose close button on the top-right corner, and a pop-in (scale + fade) with sounds and
--- a sparkle burst out of the banner. HudLayout places windows below the travel bar and the sky pill.
+-- a sparkle burst out of the banner. HudLayout places windows below the travel row.
 -- Windows register with HudLayout, so they draw above the HUD and fill the screen on phones. Only one window is open
 -- at a time: opening one closes any other window or station panel (HudLayout.ClaimFocus).
 --

@@ -2,9 +2,6 @@
 -- Geometry shared by HUD, windows and details; safe-area bounds come from Roblox, never guessed device models.
 return {
 	SafeMargin = 16, -- includes the window close-button overhang inside Roblox's safe bounds
-	SkyTopGap = 6, -- timer gap under Roblox controls
-	TouchControlReserve = 110, -- navigation clearance above thumbstick and jump regions
-	NavigationGap = 6, -- compact bottom navigation spacing
 	TooltipWidth = 340, -- maximum wrapped details width
 	TooltipPadding = 10, -- inner details padding
 	TooltipOffset = Vector2.new(14, 10), -- cursor clearance

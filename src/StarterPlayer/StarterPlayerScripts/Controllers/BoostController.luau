@@ -1,8 +1,9 @@
 --!strict
 -- Potions: the Potions tab of the Inventory window (InventoryWindow) lists every potion (icon, count, effect, time
 -- left) with a Use / Arm / Disarm button. Active boosts and the armed luck charge show bottom-right as the potion
--- icons themselves with the time under each (phones: above the jump button, at most UITheme.PhoneMaxTimers, then a
--- "+N"); tapping one opens the Potions tab. The tab (and the Inventory icon) shows a count and pulses while there
+-- icons themselves with the time under each, in a horizontal row growing to the left, directly under the day/night timer
+-- in the bottom-right stack (HudLayout.GetTimerStack; phones: above the jump button, at most UITheme.PhoneMaxTimers, then
+-- a "+N"); tapping one opens the Potions tab. The tab (and the Inventory icon) shows a count and pulses while there
 -- are unused potions. The server checks everything (BoostService). Timers pause while offline.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -214,9 +215,9 @@ local function makeTimerPill(parent: Instance, potion: Boosts.Potion, order: num
 	label.AnchorPoint = Vector2.new(0.5, 1)
 	label.Position = UDim2.fromScale(0.5, 1)
 	label.Size = UDim2.new(1, 16, 0.3, 0)
-	label.Font = UITheme.Fonts.Title
+	label.FontFace = UITheme.Fonts.Timer -- the same bold italic white as the day/night timer
 	label.TextScaled = true
-	label.TextColor3 = colors.IconLabel
+	label.TextColor3 = Color3.new(1, 1, 1)
 	label.Parent = button
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = colors.IconLabelStroke
@@ -252,14 +253,13 @@ function BoostController:Init()
 	grid.Parent = list
 	Style.Pad(list, 6, 6)
 
-	-- Potion timers: bottom-right, in a row growing to the left (phones: above the jump button).
-	local timersGui = HudLayout.MakeScreenGui("BoostTimers", "Cards")
+	-- Potion timers: a horizontal row (growing to the left) under the day/night timer in the bottom-right stack.
 	local hud = Instance.new("Frame")
 	hud.Name = "Timers"
-	hud.AnchorPoint = Vector2.new(1, 1)
+	hud.LayoutOrder = 2 -- after the day/night timer (0) and its caption (1)
 	hud.AutomaticSize = Enum.AutomaticSize.X
 	hud.BackgroundTransparency = 1
-	hud.Parent = timersGui
+	hud.Parent = HudLayout.GetTimerStack()
 	local hudLayout = Instance.new("UIListLayout")
 	hudLayout.FillDirection = Enum.FillDirection.Horizontal
 	hudLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
@@ -299,11 +299,6 @@ function BoostController:Init()
 			row.Scale.Scale = cardScale
 		end
 		local size = if phone then sizes.PhonePotionTimer else sizes.PotionTimer
-		if phone then
-			hud.Position = UDim2.new(1, -sizes.PhoneMargin, 1, -sizes.PhoneTimersBottom)
-		else
-			hud.Position = UDim2.new(1, -sizes.Margin, 1, -sizes.Margin)
-		end
 		hud.Size = UDim2.fromOffset(0, math.floor(size * 1.4))
 		for _, pill in timerPills do
 			pill.Frame.Size = UDim2.fromOffset(size, math.floor(size * 1.4))

@@ -53,7 +53,7 @@ local Icons: { [string]: string } = {
 	Tab_Items = "rbxassetid://86820373487722",
 	Tab_Collection = "rbxassetid://109516944039537",
 
-	-- UI renewal part 2 (tools/ui_art/gen.py, assets/ui/): sky pill sun / moon (stand-ins until painted versions)
+	-- UI renewal part 2 (tools/ui_art/gen.py, assets/ui/): day/night timer sun / moon (stand-ins until painted versions)
 	Sky_Sun = "rbxassetid://138017457452642",
 	Sky_Moon = "rbxassetid://119449803886759",
 }
@@ -117,7 +117,7 @@ return {
 		PatternTint = Color3.fromRGB(220, 210, 255), -- the sparkle pattern on panels
 		ButtonText = Color3.fromRGB(255, 255, 255),
 		DisabledText = Color3.fromRGB(205, 205, 214),
-		DuskGlow = Color3.fromRGB(255, 150, 90), -- sky pill glow in the last seconds before night
+		DuskGlow = Color3.fromRGB(255, 150, 90), -- (unused since the sky pill went away; kept for the dusk warning toast)
 		-- UI renewal window frame (Style.PanelLook / UI/Window): navy glass, gold ornamental border, jewel title banner.
 		GlassTop = Color3.fromRGB(30, 38, 96),
 		GlassBottom = Color3.fromRGB(12, 14, 46),
@@ -179,6 +179,7 @@ return {
 		Body = Enum.Font.BuilderSans,
 		Bold = Enum.Font.BuilderSansBold,
 		Heavy = Enum.Font.BuilderSansExtraBold, -- buttons, numbers
+		Timer = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Italic), -- HUD timers (bold italic, white, dark outline)
 	},
 
 	TextSizes = {
@@ -206,11 +207,14 @@ return {
 	Sizes = {
 		Margin = 16, -- screen edge margin on PC
 		PhoneMargin = 8,
+		RightMargin = 64, -- right-side HUD (timer stack, luck panel) keeps well clear of the screen's right edge
+		PhoneRightMargin = 36,
+		LeftMargin = 64, -- left-side HUD (menu icons, currency) the same, mirrored
+		PhoneLeftMargin = 36,
 		Gap = 6,
 		MenuButton = Vector2.new(74, 74), -- PC: icon tiles in a 2-column grid, left middle
 		PhoneMenuButton = Vector2.new(58, 48), -- phone: smaller tiles (3 rows fit above the thumbstick)
 		MenuColumns = 2,
-		PhoneMenuColumns = 3, -- phone: 3 columns, so 7 tiles fit in 3 short rows above the thumbstick
 		MenuLabelSize = 13,
 		PhoneMenuLabelSize = 11,
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
@@ -244,24 +248,23 @@ return {
 		PhoneCloseButton = 40,
 		WindowPadding = 16, -- content inset from the border
 		ButtonEdge = 5, -- the 3D bottom edge of buttons (pixels; the face drops onto it when pressed)
-		PopupTopGap = 10, -- windows start this far below the sky pill (they never cover the top bar)
+		PopupTopGap = 10, -- windows start this far below the travel row (they never cover the top bar)
 		ToastPill = 48, -- toast pill height (PC)
 		PhoneToastPill = 36,
 		ToastIcon = 58, -- the toast's icon, bigger than the pill so it pops out
 		PhoneToastIcon = 42,
 		RewardCard = Vector2.new(420, 340), -- centered reward pop-up (PC; phones scale it down)
 		RewardIcon = 150,
-		SkyPillV2 = Vector2.new(250, 46), -- PC: compact day/night pill (day: one line; night: + a small second line)
-		PhoneSkyPillV2 = Vector2.new(190, 34),
-		SkyIcon = 56, -- the sun / moon, bigger than the pill
-		SkyPillGap = 8, -- PC: gap between the travel labels and the sky pill
-		PhoneSkyPillGap = 4,
-		SkyPillExtraLine = 12, -- PC: extra pill height at night (the small second line)
-		PhoneSkyPillExtraLine = 9,
+		TimerIcon = 36, -- bottom-right timer stack (day/night, potions): icon size, PC
+		PhoneTimerIcon = 24,
+		TimerText = 24, -- its bold italic text size
+		PhoneTimerText = 16,
+		TimerGap = 2, -- between rows
+		TimerCaptionText = 17, -- the small line under the day/night timer (tonight's constellation + favored area)
+		PhoneTimerCaptionText = 11,
 		TravelSlot = 96, -- PC: every travel button gets a slot this wide, so the labels never clip and spacing is even
 		PhoneTravelSlot = 62,
 		PhoneCardScale = 0.55, -- phones: Inventory dragon and potion cards are drawn this much smaller (a full row fits)
-		PhoneSkyIcon = 40,
 		SpireHud = Vector2.new(500, 200), -- includes separate Auto-Repeat and Stop controls
 		MerchantWindow = Vector2.new(460, 300), -- live-price merchant interaction panel
 		MerchantText = 18,
@@ -287,11 +290,9 @@ return {
 		TravelTop = 4, -- PC: pixels from the very top of the screen to the travel row (it sits in Roblox's top bar, between
 		-- its left and right buttons); the day/night pill sits under it
 		PhoneTravelTop = 2,
-		SkyPill = Vector2.new(440, 30), -- PC: slim day/night pill (max size)
-		PhoneSkyPill = Vector2.new(330, 24),
-		PotionTimer = 50, -- PC: bottom-right active potion icons (time under each)
+		PotionTimer = 50, -- PC: active potion icons (time under each), a horizontal row under the day/night timer
 		PhonePotionTimer = 34,
-		PhoneTimersBottom = 150, -- phone: the potion timers stay above the jump button
+		PhoneTimersBottom = 150, -- phone: the timer stack stays above the jump button
 		TopbarGap = 6, -- the settings gear's distance from Roblox's own top-bar buttons
 	},
 
@@ -384,7 +385,7 @@ return {
 	-- Toasts (NotificationController): one queue, at most MaxVisible on screen; the same message again adds "x2".
 	Toasts = {
 		MaxVisible = 2,
-		Gap = 6, -- pixels under the sky pill
+		Gap = 6, -- pixels under the travel row
 	},
 
 	-- A screen whose short side is at most this many pixels uses the phone layout.

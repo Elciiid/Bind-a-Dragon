@@ -89,7 +89,7 @@ function MerchantController:Start()
 			local root = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 			local anchor = activePrompt and activePrompt.Parent
 			local position = if anchor and anchor:IsA("BasePart") then anchor.Position elseif anchor and anchor:IsA("Attachment") then anchor.WorldPosition else nil
-			if not activePrompt or not activePrompt:IsDescendantOf(workspace) or not root or not root:IsA("BasePart") or not position or (root.Position - position).Magnitude > Economy.Merchant.PurchaseRange then
+			if not activePrompt or not activePrompt:IsDescendantOf(workspace) or not validPrompt(activePrompt) or not root or not root:IsA("BasePart") or not position or (root.Position - position).Magnitude > Economy.Merchant.PurchaseRange then
 				window:Close()
 			else refresh() end
 		end

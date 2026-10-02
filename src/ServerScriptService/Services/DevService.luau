@@ -6,12 +6,21 @@
 -- new dragons first in the roost (the roost redraws on the next payout). Returns the new dragon ids.
 --   SetRoostSlots:Invoke(player, slots) sets the roost slot upgrades so the roost has that many slots (max MaxSlots).
 -- A BindableFunction in ServerStorage can't be reached by clients; it is never created outside Studio.
+-- Studio tools whose thread may not invoke the bindables (the MCP's execute_luau) set the Workspace string attribute
+-- "DevCommand" to JSON instead: { "Op": "Items", "Args": {...} } | { "Op": "Dragons", "Ids": [..], "Level": n, "Place": true,
+-- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
+-- player and answers in the attribute "DevResult" (JSON).
 
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local DragonService = require(script.Parent.DragonService)
+local SpireService = require(script.Parent.SpireService)
 local IndexService = require(script.Parent.IndexService)
 local MilestoneService = require(script.Parent.MilestoneService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
@@ -124,6 +133,67 @@ function DevService:Start()
 	items.Name = "GiveItems"
 	items.OnInvoke = giveItems
 	items.Parent = folder
+	workspace:GetAttributeChangedSignal("DevCommand"):Connect(function()
+		local raw = workspace:GetAttribute("DevCommand")
+		if type(raw) ~= "string" or raw == "" then
+			return
+		end
+		workspace:SetAttribute("DevCommand", nil)
+		local ok, result = pcall(function()
+			local cmd = HttpService:JSONDecode(raw)
+			local player = Players:GetPlayers()[1]
+			assert(player, "no player")
+			if cmd.Op == "Items" then
+				return giveItems(player, cmd.Args)
+			elseif cmd.Op == "Dragons" then
+				return giveDragons(player, cmd.Ids, cmd.Level or 1, cmd.Place, cmd.Mutation)
+			elseif cmd.Op == "Slots" then
+				return setRoostSlots(player, cmd.Slots)
+			elseif cmd.Op == "UseBoost" then
+				BoostService.Use(player, cmd.Id)
+				return cmd.Id
+			elseif cmd.Op == "Level" then
+				local data = DataService:GetData(player)
+				assert(data and data.Dragons[cmd.Id], "unknown dragon")
+				local before = data.Gold
+				local leveled = DragonService:BuyLevels(player, data, data.Dragons[cmd.Id], cmd.Count or 1)
+				return { Leveled = leveled, Spent = before - data.Gold, Level = data.Dragons[cmd.Id].Level }
+			elseif cmd.Op == "SpireAction" then
+				SpireService.HandleAction(player, cmd.Action, cmd.Value)
+				return cmd.Action
+			elseif cmd.Op == "FireClient" then
+				local remote = ReplicatedStorage.Remotes:FindFirstChild(cmd.Remote)
+				assert(remote and remote:IsA("RemoteEvent"), "unknown remote")
+				remote:FireClient(player, table.unpack(cmd.Args or {}))
+				return cmd.Remote
+			elseif cmd.Op == "Config" then
+				-- Studio-only: change a Config value in the running server (e.g. Spire FightSeconds to speed up a loop test)
+				local config = require(ReplicatedStorage.Shared.Config[cmd.Module])
+				config[cmd.Key] = cmd.Value
+				return config[cmd.Key]
+			elseif cmd.Op == "Get" then
+				local data = DataService:GetData(player)
+				assert(data, "no data")
+				local out = {}
+				for _, key in cmd.Keys do
+					out[key] = data[key]
+				end
+				return out
+			elseif cmd.Op == "Teleport" then
+				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+				assert(root and root:IsA("BasePart"), "no character")
+				player.Character:PivotTo(CFrame.new(cmd.X, cmd.Y, cmd.Z))
+				return "ok"
+			elseif cmd.Op == "Set" then
+				local data = DataService:GetData(player)
+				assert(data and type(cmd.Key) == "string", "bad Set")
+				data[cmd.Key] = cmd.Value
+				return cmd.Value
+			end
+			error("unknown Op " .. tostring(cmd.Op))
+		end)
+		workspace:SetAttribute("DevResult", HttpService:JSONEncode({ Ok = ok, Result = if ok then result else tostring(result) }))
+	end)
 	local simulate = Instance.new("BindableFunction")
 	simulate.Name = "SimulateBinding"
 	simulate.OnInvoke = simulateBinding

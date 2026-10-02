@@ -78,6 +78,9 @@ local function onUseBoost(player: Player, potionId: unknown)
 end
 
 -- Product of all active timed boosts on this stat (1 if none).
+-- The same handler the UseBoost remote runs (Studio tools call it through DevService).
+BoostService.Use = onUseBoost
+
 function BoostService:GetMultiplier(player: Player, stat: string): number
 	local data = DataService:GetData(player)
 	return if data then DragonStats.GetBoostMultiplier(data, stat) else 1

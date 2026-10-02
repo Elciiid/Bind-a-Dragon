@@ -10,8 +10,17 @@ local Text = require(ReplicatedStorage.Shared.Config.Text)
 
 local OddsText = {}
 
--- "1 in 8,400" (a whole number, at least 1).
+-- "1 in 8,400" (a whole number, at least 1): the pop-up line, Index and dragon tooltips.
 function OddsText.OneIn(n: number): string
+	if n == math.huge or n ~= n then
+		return Text.Odds.Unknown
+	end
+	local shown = Format.Commas(math.max(1, n))
+	return Text.Format(Text.Odds.OneIn, { n = shown })
+end
+
+-- "1 in 1.67": exact decimals, only for the tap-for-details breakdown (Config/Odds DenominatorDecimals).
+function OddsText.OneInExact(n: number): string
 	if n == math.huge or n ~= n or n < 1 then
 		return Text.Odds.Unknown
 	end

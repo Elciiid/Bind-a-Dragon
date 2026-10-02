@@ -94,9 +94,10 @@ local Text = {
 		PillNight = "{constellation} · {time}{extra}",
 		PillFavors = " · favors {area}",
 		PillEverywhere = " · {luck} luck everywhere",
-		-- UI renewal part 2 sky pill (UI/SkyPill): a big line, and at night a small second line
+		-- the day/night timer row (DayNightController, UI/TimerRow): BigDay/BigNight; SmallNight/Favors/Everywhere = its hover tooltip
 		BigDay = "Night in {time}",
 		BigNight = "Day in {time}",
+		SmallDay = "Tonight: {constellation}{extra}", -- the caption under the timer by day
 		SmallNight = "{constellation}{extra}", -- {extra} = SmallFavors / SmallEverywhere, or ""
 		SmallFavors = " · favors {area}",
 		SmallEverywhere = " · {luck} luck",

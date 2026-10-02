@@ -301,6 +301,9 @@ local function onSpireAction(player: Player, action: unknown, value: unknown)
 	end
 end
 
+-- prompts already connected (a tagged model that is removed and re-added reuses its ClimbPrompt: connect only once)
+local hookedPrompts: { [ProximityPrompt]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
 local function setupSpire(spire: Instance)
 	local part = if spire:IsA("BasePart") then spire elseif spire:IsA("Model") then spire.PrimaryPart else nil
 	if part == nil then
@@ -318,10 +321,17 @@ local function setupSpire(spire: Instance)
 	prompt.MaxActivationDistance = SpireConfig.PromptDistance
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
+	if hookedPrompts[prompt] then
+		return
+	end
+	hookedPrompts[prompt] = true
 	prompt.Triggered:Connect(function(player)
 		tryStart(player)
 	end)
 end
+
+-- The same handler the SpireAction remote runs (Studio tools call it through DevService).
+SpireService.HandleAction = onSpireAction
 
 function SpireService:IsClimbing(player: Player): boolean
 	return runs[player] ~= nil

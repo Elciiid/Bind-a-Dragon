@@ -48,3 +48,24 @@ The following observations were reported by the primary implementation agent fro
 The independent source audit identified an inventory portrait risk and it was corrected before handoff: Equip Best now occupies its own row; dragon/roost counts and item counters occupy separate rows beneath it. Phone dragon cards are taller and both Upgrade and roost controls now have a minimum 44px physical height. Details remains a 64×44 physical target. The same responsive sizing applies when a card is first created and after rotation. Compilation passed; actual portrait touch/overlap verification is still pending.
 
 Record final simulator outputs, Rojo build results, screenshots, completed stage sequences and any additional blockers here before handoff. Do not convert a pending row into a pass based only on compilation or source inspection.
+
+## Checkpoint 1 runtime results (2026-10-02, Studio Play, isolated test profile `CP1_20261002`)
+
+Run in the open place on main (not Kyle's Hakai Test place). Spire loop tests used `DevService` ops (`Config` set Spire `FightSeconds` to 0.25-0.5 s) to save wall-clock time; floors 1-2 were also timed at the real 12 s.
+
+| Check | Expected | Observed |
+| --- | --- | --- |
+| Level cost UI = server | card "Upgrade 272K / 238K / 100K" = server spent | 272,098 / 238,086 / 100,000 (Mythic, Legendary, Common). Bulk sums: not re-run (Kyle's `CostChecks` CLI covers them; no Luau CLI here) |
+| Spire first full run, Auto-Repeat OFF | record 100, +30 runes, +30 stones | record 100, +30 / +30 |
+| Repeat full run | +10 / +10, no new run | +10 / +10, no restart |
+| Auto-Repeat ON (+ duplicate Start) | repeats at stage 1; one run at a time | 3 runs = +30 / +30; no extra run |
+| Auto-Repeat toggled OFF mid-run | current run completes, no next one | completed, then stopped |
+| Stop mid-run with Auto-Repeat ON | ends, no restart | +3 boss rewards, then nothing |
+| Leaving range / loss / death mid-run | run ends, no late rewards | all three: no rewards after the event |
+| Invalid action / non-boolean AutoRepeat | ignored | no errors in the console (burst test coalesced by attribute updates, so not a true remote flood) |
+| Real-time pacing | 12 s per stage | stages 1-2 cleared in ~26 s |
+| Reveal (real bind at the altar, hold E) | ceremony, HUD + camera restored, pop-up | ok (Rare Nightclaw, Common Duskling); Skip button present; "1 in N binds" whole numbers, breakdown with decimals |
+| Mythic / mutated reveal | big presentation | driven with fake `BindResult` payloads: spoiler cover, banner, pop-up show; Quick Binds, Reduced Motion and clicking Skip were NOT exercised |
+| Spire prompt connection guard, merchant menu closing when its tag goes away | code fixes | in place, compiled/synced; not exercised with a re-tagged model |
+
+Not verified: two-player cases, real phone/notch devices (phone view = `PhoneMock` at 844x390 only), persistence/rejoin, remote flood from a real client.
