@@ -84,6 +84,10 @@ export type PlayerData = {
 	RarestOneIn: number, -- best server base pair odds ever bound; owned-dragon fallback for old saves
 	RarestSpecies: string,
 	RarestMutation: string,
+	OnboardingStep: number, -- 0 unclassified, -1 skipped, configured positive steps
+	OnboardingFirstBindUsed: boolean, -- once-only special bind; server-owned
+	OnboardingFreeLevelUsed: boolean, -- once-only manual level; server-owned
+	OnboardingHints: { [string]: boolean }, -- once-only relevance hints
 }
 
 export type Settings = {

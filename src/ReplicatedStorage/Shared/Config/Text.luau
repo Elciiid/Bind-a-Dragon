@@ -340,4 +340,23 @@ Text.Leaderboards = {
 	GoldApprox = "≈{value}",
 	RankNote = "Cached global ranks · tied scores use store order",
 }
+Text.Onboarding = {
+	Steps = {
+		[1] = "Bind your first dragon!",
+		[2] = "Head Home to meet your dragon!",
+		[3] = "Your dragons earn gold! Your first upgrade is free.",
+		[4] = "Watch the sky: another dragon awaits tonight!",
+		[5] = "Night has fallen: you can bind a new dragon!",
+	},
+	Skip = "Skip tutorial",
+	FreeUpgrade = "Free upgrade",
+	Pointer = "▼",
+	FallingStar = "A falling star answers your call!",
+	Pool = "First-bind pool · guaranteed Rare or better",
+	PoolRow = "Special first-bind pool",
+	Quests = "Quests reward your adventures!",
+	Rebirth = "Keep earning gold to unlock your first rebirth!",
+	Spire = "Your dragon is ready: try the Dragon Spire!",
+	Night = "Night has fallen: you can bind a new dragon!",
+}
 return Text

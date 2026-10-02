@@ -419,6 +419,27 @@ return {
 	},
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
+	Onboarding = {
+		PanelSize = Vector2.new(390, 112), -- Hint plus touch-sized action row; never blocks movement.
+		HintWidth = 0.9,
+		Padding = 10,
+		HintTextSize = 17,
+		HintLineHeight = 44,
+		SkipSize = UDim2.fromOffset(142, 44),
+		ActionWidth = 142,
+		ActionHeight = 44,
+		BorderThickness = 1.5,
+		PointerSize = 28,
+		PointerOffset = 18,
+		PointerBounds = UDim2.fromOffset(34, 34),
+		TrailSize = Vector3.new(2, 0.05, 2),
+		TrailPixels = Vector2.new(64, 64),
+		FallingStarSize = Vector3.new(4, 4, 4),
+		StarCameraPosition = Vector3.new(0, 35, 95),
+		StarLabelY = 0.78,
+		StarLabelHeight = 0.12,
+		RevealLayerOffset = 8,
+	},
 	WorldLabels = {
 		MaxDistance = 40, -- studs: roost owner signs, dragon nameplates, portal names, upgrade stands, area signs
 		NameplateMaxDistance = 70, -- studs: dragon nameplates (big dragons fly high in the 150-stud sanctuaries)

@@ -13,6 +13,7 @@ local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local OddsText = require(ReplicatedStorage.Shared.OddsText)
 local RevealGate = require(script.Parent.UI.RevealGate)
 local Ceremony = require(ReplicatedStorage.Shared.Config.Ceremony)
+local OnboardingController = require(script.Parent.OnboardingController)
 
 type BindResult = {
 	DragonId: string,
@@ -25,6 +26,7 @@ type BindResult = {
 	SpeciesOneIn: number,
 	MutationOneIn: number,
 	Auto: boolean, -- bound by the Auto-bind pass
+	TutorialFirstBind: boolean?,
 }
 
 local BindingController = {}
@@ -75,8 +77,10 @@ function BindingController:Start()
 				SpeciesOneIn = result.SpeciesOneIn,
 				MutationOneIn = result.MutationOneIn,
 				Luck = result.Luck,
+				TutorialFirstBind = result.TutorialFirstBind,
 			}, `You bound {species.Name}! {OddsText.Line(result.EffectiveOneIn)}`)
 		end
+		if result.TutorialFirstBind then OnboardingController.PlayFirstBind() end
 		if result.Auto or CeremonyController.IsIdle() then
 			RevealGate.Reveal()
 			toast()

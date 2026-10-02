@@ -199,6 +199,10 @@ function NotificationController:Moment(payload: any, fallback: string?)
 				table.insert(chips, { Text = "Auto-bind", Color = UITheme.Colors.TextMuted })
 			end
 			local rows = { { odds.RowSpecies, OddsText.OneInExact(payload.SpeciesOneIn or n) } }
+			if payload.TutorialFirstBind then
+				table.insert(chips, { Text = Text.Onboarding.Pool, Color = UITheme.Colors.Gold })
+				table.insert(rows, { Text.Onboarding.PoolRow, Text.Onboarding.Pool })
+			end
 			if mutation.Id ~= Mutations.NormalId then
 				table.insert(rows, { odds.RowMutation, OddsText.OneInExact(payload.MutationOneIn or 1) })
 			end
