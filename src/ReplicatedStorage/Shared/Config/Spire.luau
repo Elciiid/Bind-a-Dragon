@@ -58,6 +58,60 @@ return {
 		{ Every = 10, Potion = "RunebrightTonic", Chance = 0.10 },
 	} :: { Drop },
 
+	-- ===== Difficulties (2026-10-03 update, checkpoint 4). PROPOSED numbers: not read by SpireService until approved. =====
+	-- Enemy power on a floor of a difficulty = EnemyBase x EnemyScale x EnemyGrowth ^ (floor + FloorOffset) (x BossMultiplier on bosses).
+	-- Unlock: the previous difficulty's floor MaxFloors was cleared (UnlockFrom). Infinite has no top floor (MaxFloors = nil):
+	-- it continues Hard's curve, so its floor 1 is about Hard's floor 101.
+	-- RewardMultiplier multiplies the Wyrm Runes / Dragonstones / Stardust of every boss victory (Easy = the original values; potions
+	-- are never multiplied); FirstClearMultiplier does the same for a floor's first-clear drops. DepthRewardEvery (Infinite): the
+	-- boss multiplier grows by RewardMultiplier x floor / DepthRewardEvery, so deeper bosses pay more. ExtraFirstClearDrops / ExtraReclearDrops are added to
+	-- the base tables above for that difficulty only; SkipBaseFirstClear = true leaves the base first-clear table out for it (Medium, Hard and
+	-- Infinite give their first clears boss-victory rewards, the extras and 30 s of gold, but not another full set of Easy's potions/runes).
+	Difficulties = {
+		Order = { "Easy", "Medium", "Hard", "Infinite" },
+		Easy = {
+			Name = "Easy", EnemyScale = 1, FloorOffset = 0, MaxFloors = 100, RewardMultiplier = 1, FirstClearMultiplier = 1, FirstClearIncomeSeconds = 30,
+		},
+		Medium = {
+			Name = "Medium", EnemyScale = 20, FloorOffset = 0, MaxFloors = 100, RewardMultiplier = 2, FirstClearMultiplier = 1, FirstClearIncomeSeconds = 30,
+			UnlockFrom = "Easy", SkipBaseFirstClear = true,
+		},
+		Hard = {
+			Name = "Hard", EnemyScale = 400, FloorOffset = 0, MaxFloors = 100, RewardMultiplier = 4, FirstClearMultiplier = 1, FirstClearIncomeSeconds = 30,
+			UnlockFrom = "Medium", SkipBaseFirstClear = true,
+			ExtraFirstClearDrops = {
+				{ Every = 25, Potion = "MoonfireTonic" },
+				{ Every = 10, Potion = "RunebrightTonic", Chance = 0.25 },
+			} :: { Drop },
+			ExtraReclearDrops = {
+				{ Every = 25, Potion = "MoonfireTonic", Chance = 0.05 },
+				{ Every = 10, Potion = "RunebrightTonic", Chance = 0.15 },
+			} :: { Drop },
+		},
+		Infinite = {
+			Name = "Infinite", EnemyScale = 400, FloorOffset = 100, MaxFloors = nil, RewardMultiplier = 4, FirstClearMultiplier = 1, DepthRewardEvery = 50,
+			FirstClearIncomeSeconds = 30, UnlockFrom = "Hard", SkipBaseFirstClear = true,
+			ExtraFirstClearDrops = {
+				{ Every = 25, Potion = "MoonfireTonic" },
+				{ Every = 10, Potion = "RunebrightTonic", Chance = 0.25 },
+				{ Every = 50, Potion = "ConquerorsBrew" },
+			} :: { Drop },
+			ExtraReclearDrops = {
+				{ Every = 25, Potion = "MoonfireTonic", Chance = 0.05 },
+				{ Every = 10, Potion = "RunebrightTonic", Chance = 0.15 },
+				{ Every = 50, Potion = "ConquerorsBrew", Chance = 0.10 },
+			} :: { Drop },
+		},
+	} :: { [string]: any },
+
+	-- Floors you have ALREADY cleared that are far below your dragon's power resolve faster. The first row whose PowerRatio (your power /
+	-- the enemy's) is reached sets the fight time; RewardShare scales the boss Wyrm Runes / Dragonstones / Stardust of that floor, so
+	-- repeat runs stay worth about what the original 20-minute run was. A floor you have not cleared always takes FightSeconds at full pay.
+	FastFloors = {
+		{ PowerRatio = 25, Seconds = 1.5, RewardShare = 0.25 },
+		{ PowerRatio = 4, Seconds = 5, RewardShare = 0.5 },
+	},
+
 	EntranceRange = 60, -- studs from the Spire (tag "DragonSpire") the player must stay within while climbing
 	PromptHoldSeconds = 0.3,
 }

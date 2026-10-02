@@ -151,10 +151,40 @@ function DragonStats.IsBossFloor(floor: number): boolean
 	return floor % SpireConfig.BossEvery == 0
 end
 
--- Enemy power on a Spire floor (Config/Spire).
-function DragonStats.GetEnemyPower(floor: number): number
-	local power = SpireConfig.EnemyBase * SpireConfig.EnemyGrowth ^ floor
+-- Enemy power on a Spire floor (Config/Spire). `difficulty` = a key of SpireConfig.Difficulties (default Easy, the original ladder).
+function DragonStats.GetEnemyPower(floor: number, difficulty: string?): number
+	local def = SpireConfig.Difficulties[difficulty or "Easy"]
+	local scale = if def then def.EnemyScale else 1
+	local offset = if def then def.FloorOffset or 0 else 0
+	local power = SpireConfig.EnemyBase * scale * SpireConfig.EnemyGrowth ^ (floor + offset)
 	return if DragonStats.IsBossFloor(floor) then power * SpireConfig.BossMultiplier else power
+end
+
+-- How a fight against `enemyPower` goes for a dragon of `power` that has ALREADY cleared the floor: (seconds, rewardShare).
+-- Far below the enemy (Config/Spire.FastFloors) it resolves fast and pays only a share of the boss currency drops, so quick
+-- repeat runs cannot out-earn the original 20-minute run. A floor not yet cleared always takes FightSeconds at full pay.
+function DragonStats.GetFloorTier(power: number, enemyPower: number, alreadyCleared: boolean): (number, number)
+	if alreadyCleared then
+		for _, tier in SpireConfig.FastFloors do
+			if power >= enemyPower * tier.PowerRatio then
+				return tier.Seconds, tier.RewardShare
+			end
+		end
+	end
+	return SpireConfig.FightSeconds, 1
+end
+
+-- Reward multiplier of a boss victory / first clear on `floor` of a difficulty (Infinite grows with depth).
+function DragonStats.GetSpireRewardMultiplier(difficulty: string, floor: number): number
+	local def = SpireConfig.Difficulties[difficulty]
+	if def == nil then
+		return 1
+	end
+	local multiplier = def.RewardMultiplier
+	if def.DepthRewardEvery then
+		multiplier *= 1 + floor / def.DepthRewardEvery
+	end
+	return multiplier
 end
 
 ---------------------------------------------------------------------------------------------------------------

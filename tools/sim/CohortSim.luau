@@ -79,7 +79,7 @@ do
 end
 
 -- Switches for the "Old" preset (the economy approved before the mutation branch); all off = the live Config.
-local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false, FlatLevelCost = false, SellSurplus = false }
+local Variant = { OldBind = false, OldLevelCost = false, StackPotions = false, FlatLevelCost = false, SellSurplus = false, SpireDifficulties = false }
 local progress: (any, string, number) -> ()
 
 local DAY = 86400
@@ -128,6 +128,7 @@ type State = {
 	LastSpend: number,
 	Origin: number, -- seconds: when the player starts (the first session of day 0); day counts start here
 	Daily: {any}, Weekly: {any}, Floor: number, FightLeft: number,
+	Records: { [string]: number }, FightShare: number, Diff: string, FightFresh: boolean, DiffClearDay: { [string]: number }, -- Variant.SpireDifficulties
 	ConquerorMin: number, RunebrightMin: number, RuneEarned: number, StoneEarned: number, UpgradeSpent: number,
 	LevelCosts: {[string]: {number}},
 	BandMinutes: {number},
@@ -164,6 +165,7 @@ local function newState(profile: Profile, seed: number, cap: number): State
 		GildedMin = 0, HoardMin = 0, Charges = {}, WyrmbloodMin = 0, SpireRecord = 0, Streak = 0, SpireWinsToday = 0,
 		SigilFromQuests = false, SigilFromSpire = false, NightConst = {}, Binds = 0, RebirthDay = {},
 		IndexMilestones = 0, ElementsRewarded = {}, NextId = 1, WeekBank = 0, LastBindNight = -1, CostRebirths = -1, CostValue = 0, LastSpend = -1e9, Origin = 0,
+		Records = { Easy = 0, Medium = 0, Hard = 0, Infinite = 0 }, FightShare = 1, Diff = "Easy", FightFresh = true, DiffClearDay = {},
 		Daily = {}, Weekly = {}, Floor = 1, FightLeft = 12, ConquerorMin = 0, RunebrightMin = 0, RuneEarned = 0, StoneEarned = 0, UpgradeSpent = 0,
 		LevelCosts = {},
 		BandMinutes = {},
@@ -822,6 +824,123 @@ local function spire(S: State, t: number, minutes: number)
 	S.FightLeft -= seconds
 end
 
+-- Variant.SpireDifficulties (Config/Spire.Difficulties + FastFloors): the player climbs the unlocked difficulty that pays the most
+-- Wyrm Runes + Dragonstones per second at their current power; far-below floors resolve faster; the first-clear gold of a floor is paid
+-- once per difficulty. Records are per difficulty (S.SpireRecord stays the Easy record).
+local function difficultyUnlocked(S: State, id: string): boolean
+	local def = SpireConfig.Difficulties[id]
+	if def.UnlockFrom == nil then
+		return true
+	end
+	return S.Records[def.UnlockFrom] >= SpireConfig.Difficulties[def.UnlockFrom].MaxFloors
+end
+
+-- Runes + stones per second of a fresh climb of `id` (until the first floor the power cannot beat; Infinite is looked at 160 floors deep).
+local function climbScore(id: string, power: number, record: number): number
+	local def = SpireConfig.Difficulties[id]
+	local limit = def.MaxFloors or 160
+	local seconds, reward = 0, 0
+	for floor = 1, limit do
+		local enemy = DragonStats.GetEnemyPower(floor, id)
+		local fightSeconds, share = DragonStats.GetFloorTier(power, enemy, floor <= record)
+		seconds += fightSeconds
+		if power < enemy then
+			break
+		end
+		if DragonStats.IsBossFloor(floor) then
+			reward += 2 * DragonStats.GetSpireRewardMultiplier(id, floor) * share -- 1 rune + 1 stone x multiplier
+		end
+	end
+	return reward / math.max(seconds, 1)
+end
+
+local function pickDifficulty(S: State, power: number): string
+	local best, bestScore = "Easy", -1
+	for _, id in SpireConfig.Difficulties.Order do
+		if difficultyUnlocked(S, id) then
+			local score = climbScore(id, power, S.Records[id])
+			if score >= bestScore then
+				best, bestScore = id, score
+			end
+		end
+	end
+	return best
+end
+
+local function joined(a: { any }, b: { any }?): { any }
+	if b == nil then
+		return a
+	end
+	local out = table.clone(a)
+	for _, drop in b do
+		table.insert(out, drop)
+	end
+	return out
+end
+
+local function spireD(S: State, t: number, minutes: number)
+	local data = S.Data
+	local seconds = minutes * 60
+	while true do
+		local best, power = DragonStats.GetBestDragon(data)
+		if best == nil then
+			return
+		end
+		if S.WyrmbloodMin > 0 then
+			power *= 2
+		end
+		if S.Floor == 1 and S.FightFresh then
+			S.Diff = pickDifficulty(S, power)
+		end
+		local id = S.Diff
+		local def = SpireConfig.Difficulties[id]
+		local floor = S.Floor
+		local enemy = DragonStats.GetEnemyPower(floor, id)
+		if S.FightFresh then
+			-- only floors already cleared in this difficulty resolve fast; a new floor always takes the full fight
+			S.FightLeft, S.FightShare = DragonStats.GetFloorTier(power, enemy, floor <= S.Records[id])
+			S.FightFresh = false
+		end
+		if seconds < S.FightLeft then
+			S.FightLeft -= seconds
+			return
+		end
+		seconds -= S.FightLeft
+		S.FightFresh = true
+		if power < enemy then
+			S.Floor = 1
+			return
+		end
+		local conqueror = if S.ConquerorMin > 0 then Boosts.ById.ConquerorsBrew.Multiplier else 1
+		local mult = conqueror * DragonStats.GetSpireRewardMultiplier(id, floor) * S.FightShare
+		giveDrops(S, SpireConfig.VictoryDrops, floor, mult)
+		if floor > S.Records[id] then
+			S.Records[id] = floor
+			if id == "Easy" then
+				S.SpireRecord = floor
+			end
+			if def.MaxFloors and floor >= def.MaxFloors and S.DiffClearDay[id] == nil then
+				S.DiffClearDay[id] = S.Time / DAY
+			end
+			giveDrops(S, joined(if def.SkipBaseFirstClear then {} else SpireConfig.FirstClearDrops, def.ExtraFirstClearDrops), floor, conqueror * def.FirstClearMultiplier)
+			local gold = income(S) * def.FirstClearIncomeSeconds * conqueror
+			local limit = DragonStats.GetGoldBankLimit(data)
+			if limit then
+				gold = math.max(0, math.min(gold, limit - data.Gold))
+			end
+			data.Gold += gold
+		else
+			giveDrops(S, joined(SpireConfig.ReclearDrops, def.ExtraReclearDrops), floor, mult)
+		end
+		S.SpireWinsToday += 1
+		if S.SpireWinsToday >= BindingConfig.EchoSigilSpireWins and not S.SigilFromSpire then
+			S.SigilFromSpire = true
+			S.Sigils = math.min(S.Sigils + 1, sigilCap(S))
+		end
+		S.Floor = if def.MaxFloors and floor >= def.MaxFloors then 1 else floor + 1
+	end
+end
+
 ---------------------------------------------------------------------------------------------------------------------
 -- One day
 
@@ -968,7 +1087,7 @@ local function runDay(S: State, day: number)
 			local tEnd = startT + seg.To
 			S.Time = t
 			applyRunes(S)
-			S.Floor, S.FightLeft = 1, SpireConfig.FightSeconds
+			S.Floor, S.FightLeft, S.FightFresh = 1, SpireConfig.FightSeconds, true
 			local lastBound = -1
 			local sinceAuto = false
 			while t < tEnd do
@@ -978,7 +1097,7 @@ local function runDay(S: State, day: number)
 				progress(S, "Gold", income(S) * mult * dt)
 				if spireBudget > 0 then
 					local fought = math.min(dt, spireBudget)
-					spire(S, t, fought / 60)
+					if Variant.SpireDifficulties then spireD(S, t, fought / 60) else spire(S, t, fought / 60) end
 					spireBudget -= fought
 				end
 				applyRunes(S)
@@ -1070,12 +1189,17 @@ function Sim.Run(profileName: string, seed: number, maxDays: number, weeks: numb
 		if capHitDay == nil and S.Data.Rebirths >= S.Cap then
 			capHitDay = S.RebirthDay[S.Cap] or (day + 1)
 			result.DaysToCap = capHitDay
+			local _, capPower = DragonStats.GetBestDragon(S.Data)
+			result.PowerAtCap = capPower
 			if weeks == nil then
 				break
 			end
 		end
 		if checkpoints[day + 1] then
 			result.RebirthsAt[day + 1] = S.Data.Rebirths
+			local _, bestPower = DragonStats.GetBestDragon(S.Data)
+			result.PowerAt = result.PowerAt or {}
+			result.PowerAt[day + 1] = bestPower
 		end
 		if day + 1 == 7 then
 			result.SpireAt7 = S.SpireRecord
@@ -1097,6 +1221,7 @@ function Sim.Run(profileName: string, seed: number, maxDays: number, weeks: numb
 		end
 	end
 	result.SpireRecord = S.SpireRecord
+	result.Records, result.DiffClearDay = S.Records, S.DiffClearDay
 	result.RebirthDay = S.RebirthDay -- the day (fractional) of each rebirth, for the pacing curve
 	for checkpoint in checkpoints do
 		local count = 0
@@ -1129,6 +1254,11 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 	local runes, stones, spent = {}, {}, {}
 	local bands = {}
 	local reinvested = {}
+	local powerAt: { [number]: { number } } = {}
+	local capPowers: { number } = {}
+	local clearDays: { [string]: { number } } = {}
+	local recordLists: { [string]: { number } } = {}
+	local depths: { number } = {}
 	for seed = 1, runs do
 		local r = Sim.Run(profileName, seed * 7919, maxDays, weeks)
 		table.insert(runes, r.RunesEarned); table.insert(stones, r.StonesEarned); table.insert(spent, r.UpgradeSpent)
@@ -1140,6 +1270,10 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 			fails += 1
 		end
 		table.insert(spire, r.SpireAt7 or r.SpireRecord or 0)
+		if r.PowerAtCap then table.insert(capPowers, r.PowerAtCap) end
+		for id, d in r.DiffClearDay or {} do clearDays[id] = clearDays[id] or {}; table.insert(clearDays[id], d) end
+		table.insert(depths, r.Records.Infinite)
+		for id, rec in r.Records do recordLists[id] = recordLists[id] or {}; table.insert(recordLists[id], rec) end
 		for k, w in r.Weekly do
 			weekly[k] = weekly[k] or {}
 			table.insert(weekly[k], w.Days or maxDays)
@@ -1147,6 +1281,10 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 		for d, n in r.RebirthsAt do
 			rebirthsAt[d] = rebirthsAt[d] or {}
 			table.insert(rebirthsAt[d], n)
+		end
+		for d, n in r.PowerAt or {} do
+			powerAt[d] = powerAt[d] or {}
+			table.insert(powerAt[d], n)
 		end
 	end
 	table.sort(days)
@@ -1159,6 +1297,7 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 		Runs = runs,
 		NotCapped = fails,
 		MedianDays = percentile(days, 0.5),
+		MeanDays = (function() local sum = 0 for _, d in days do sum += d end return if #days > 0 then sum / #days else 0 / 0 end)(),
 		P10Days = percentile(days, 0.1),
 		P90Days = percentile(days, 0.9),
 		SpireDay7Median = percentile(spire, 0.5),
@@ -1175,6 +1314,23 @@ function Sim.Cohort(profileName: string, runs: number, maxDays: number, weeks: n
 	for d, list in rebirthsAt do
 		table.sort(list)
 		summary["RebirthsDay" .. d] = percentile(list, 0.5)
+	end
+	for id, list in clearDays do
+		table.sort(list)
+		summary["Clear" .. id .. "DayMedian"] = percentile(list, 0.5)
+		summary["Clear" .. id .. "Count"] = #list
+	end
+	for id, list in recordLists do
+		table.sort(list)
+		summary["Record" .. id .. "Median"] = percentile(list, 0.5)
+	end
+	table.sort(depths)
+	summary.InfiniteDepthMedian = percentile(depths, 0.5)
+	table.sort(capPowers)
+	summary.PowerAtCap = percentile(capPowers, 0.5)
+	for d, list in powerAt do
+		table.sort(list)
+		summary["PowerDay" .. d] = percentile(list, 0.5) -- best dragon's Spire power (median) at the end of that day
 	end
 	return summary
 end
