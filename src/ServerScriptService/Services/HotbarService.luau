@@ -2,8 +2,11 @@
 -- Dragon Hotbar + carried companion (numbers in Config/Hotbar; client UI in HotbarController, companion drawing in
 -- CompanionController).
 --
--- data.Hotbar is a fixed list of Config/Hotbar.Slots dragon ids ("" = empty); a dragon sits in one slot at most.
---   SetHotbarSlot(slot, dragonId)  put an owned dragon in a slot ("" empties it; the dragon moves if it was in another slot)
+-- data.Hotbar is a fixed list of Config/Hotbar.Slots dragon ids ("" = empty); a dragon sits in one slot at most. It only holds BACKPACK
+-- dragons (every dragon not placed in the roost): a dragon placed in the roost, sold or removed leaves the bar, and a new dragon (bound, or
+-- taken out of the roost) fills the first empty slot by itself (the loop in Start; a slot the player cleared stays empty).
+--   SetHotbarSlot(slot, dragonId)  put a backpack dragon in a slot ("" empties it). A dragon that was in another slot SWAPS with the one
+--                                  in the target slot (drag between slots); a dragon from the Inventory replaces the target's dragon.
 --   CarryDragon(slot)              carry the dragon in that slot beside the player; the same slot again puts it away.
 --                                  One carried at a time.
 -- The carried dragon is shown to everybody through Player attributes (other clients can't read each other's data):
@@ -29,6 +32,7 @@ local MAX_ID_LENGTH = 20
 
 local lastSet: { [Player]: number } = {}
 local lastCarry: { [Player]: number } = {}
+local knownBackpack: { [Player]: { [string]: boolean } } = {} -- backpack dragon ids already seen this session (session-only)
 
 local HotbarService = {}
 
@@ -60,7 +64,7 @@ local function sanitize(data: PlayerDataTypes.PlayerData)
 	local seen: { [string]: boolean } = {}
 	for slot = 1, HotbarConfig.Slots do
 		local id = list[slot]
-		if type(id) ~= "string" or id == "" or data.Dragons[id] == nil or seen[id] then
+		if type(id) ~= "string" or id == "" or data.Dragons[id] == nil or seen[id] or table.find(data.RoostDragonIds, id) then
 			list[slot] = ""
 		else
 			seen[id] = true
@@ -92,17 +96,21 @@ local function onSetSlot(player: Player, slot: unknown, dragonId: unknown)
 	end
 	sanitize(data)
 	local index = slot :: number
-	if dragonId ~= "" and data.Dragons[dragonId] == nil then
-		return -- not the player's dragon
-	end
 	if dragonId ~= "" then
-		for other = 1, HotbarConfig.Slots do
-			if data.Hotbar[other] == dragonId then
-				data.Hotbar[other] = "" -- a dragon sits in one slot at most
-			end
+		local dragon = data.Dragons[dragonId]
+		if dragon == nil or not DragonStats.IsInBackpack(dragon, data) then
+			return -- not the player's dragon, or it is in the sanctuary
 		end
 	end
 	local previous = data.Hotbar[index]
+	if dragonId ~= "" then
+		for other = 1, HotbarConfig.Slots do
+			if data.Hotbar[other] == dragonId then
+				-- a dragon sits in one slot at most: dragged between slots, the two swap
+				data.Hotbar[other] = if other ~= index then previous else ""
+			end
+		end
+	end
 	data.Hotbar[index] = dragonId
 	-- a carried dragon that left the hotbar is put away
 	local carried = carriedId(player)
@@ -159,8 +167,9 @@ function HotbarService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		lastSet[player] = nil
 		lastCarry[player] = nil
+		knownBackpack[player] = nil
 	end)
-	-- keep the carried look current (the dragon evolves as it levels; it might no longer be owned)
+	-- keep the carried look current (the dragon evolves as it levels; it might no longer be owned or on the bar)
 	task.spawn(function()
 		while true do
 			task.wait(HotbarConfig.StageRefreshSeconds)
@@ -179,6 +188,70 @@ function HotbarService:Start()
 			end
 		end
 	end)
+	-- the backpack drives the bar: dragons that left it (roost, sold) are dropped, new ones fill the first empty slot
+	task.spawn(function()
+		while true do
+			task.wait(HotbarConfig.AutoFillSeconds)
+			for _, player in Players:GetPlayers() do
+				local data = DataService:GetData(player)
+				if data then
+					HotbarService:Refresh(player, data)
+				end
+			end
+		end
+	end)
+end
+
+-- Drops dragons that left the backpack and slots newly arrived ones (a dragon the player has not seen on the bar this session) into
+-- the first empty slots. The first look after joining only records what is already there: nothing old jumps back onto the bar.
+function HotbarService:Refresh(player: Player, data: PlayerDataTypes.PlayerData)
+	sanitize(data)
+	local known = knownBackpack[player]
+	local first = known == nil
+	local current: { [string]: boolean } = {}
+	local fresh: { string } = {}
+	for id, dragon in data.Dragons do
+		if DragonStats.IsInBackpack(dragon, data) then
+			current[id] = true
+			if known and not known[id] then
+				table.insert(fresh, id)
+			end
+		end
+	end
+	knownBackpack[player] = current
+	if first or #fresh == 0 then
+		return
+	end
+	table.sort(fresh, function(a, b)
+		local na, nb = tonumber(a), tonumber(b)
+		if na and nb then
+			return na < nb
+		end
+		return a < b
+	end)
+	for _, id in fresh do
+		if table.find(data.Hotbar, id) then
+			continue
+		end
+		local empty = table.find(data.Hotbar, "")
+		if empty == nil then
+			break
+		end
+		data.Hotbar[empty] = id
+	end
+end
+
+-- After dragons were sold/removed: clean the bar and put a carried dragon that is gone away.
+function HotbarService:OnDragonsRemoved(player: Player)
+	local data = DataService:GetData(player)
+	if data == nil then
+		return
+	end
+	sanitize(data)
+	local id = carriedId(player)
+	if id ~= "" and not table.find(data.Hotbar, id) then
+		clearCarry(player)
+	end
 end
 
 -- The same handlers the remotes run (Studio tools call them through DevService).

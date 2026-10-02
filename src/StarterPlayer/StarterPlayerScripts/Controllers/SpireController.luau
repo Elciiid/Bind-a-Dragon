@@ -49,7 +49,7 @@ local miniLabel: TextLabel
 local floorLabel: TextLabel
 local bossTag: TextLabel
 local recordLabel: TextLabel
-local vsLabel: TextLabel
+local vsLabel: GuiObject
 local message: TextLabel
 local mine: Portrait
 local enemy: Portrait
@@ -482,13 +482,12 @@ function SpireController:Init()
 	mine = makePortrait(hud, Theme.Colors.Confirm, 0)
 	enemy = makePortrait(hud, Theme.Colors.Cancel, 1)
 
-	vsLabel = Style.Label(hud, words.Vs, "Title", 46, Theme.Colors.Title)
+	vsLabel = Icon.new(hud, "VS", Theme.Colors.Title, words.Vs)
 	vsLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 	vsLabel.Position = UDim2.new(0.5, 0, 0, 68)
-	vsLabel.Size = UDim2.fromOffset(110, 50)
+	vsLabel.Size = UDim2.fromOffset(64, 64)
 	vsLabel.ZIndex = 4
 	vsLabel.Rotation = -6
-	Style.Outline(vsLabel, 3)
 
 	-- between climbs / while zooming up: a message, a progress bar, the buttons
 	local portraitRight = 12 + sizes.SpirePortrait + 12

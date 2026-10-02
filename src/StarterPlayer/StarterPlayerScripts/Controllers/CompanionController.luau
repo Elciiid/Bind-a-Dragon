@@ -2,7 +2,7 @@
 -- Carried dragon companions: every client draws the dragon each player carries (HotbarService publishes it as Player attributes
 -- CarrySpecies / CarryMutation / CarryStage / CarryChampion) flying beside that player at a small size (Config/Hotbar
 -- Companion*). Purely visual and local: the model is a client-only clone from ReplicatedStorage.Assets.Dragons (the shared
--- placeholder, tinted by element, when a species has no art), scaled to CompanionSpan, with a mutation aura (Sparkles named
+-- placeholder, tinted by element, when a species has no art), scaled by stage (Config/Hotbar CompanionLengthFraction), with a mutation aura (Sparkles named
 -- MutationAura, in the mutation's color; checkpoint 5 gives each mutation its own look). Real art with a bone map in
 -- Config/DragonRigs flaps its wings (Controllers/DragonRig). Companions farther than RenderDistance from the camera aren't drawn.
 
@@ -14,6 +14,7 @@ local DragonRig = require(script.Parent.DragonRig)
 local EffectsQuality = require(script.Parent.EffectsQuality)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
+local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
 local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
 local MilestoneConfig = require(ReplicatedStorage.Shared.Config.RebirthMilestones)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
@@ -26,6 +27,7 @@ type Companion = {
 	Key: string, -- what the model was built for
 	Rig: DragonRig.Rig?,
 	Pose: DragonRig.Pose,
+	Size: number, -- studs (Config/Hotbar CompanionLengthFraction x the stage length)
 	Position: Vector3?,
 	Yaw: number,
 	Bank: number,
@@ -62,6 +64,16 @@ local function attrString(player: Player, name: string): string
 	return if type(value) == "string" then value else ""
 end
 
+-- Size in studs for a stage: a fraction of the stage's roost length, never below the minimum.
+local function companionSize(stageId: string): number
+	for _, stage in Evolution.Stages do
+		if stage.Id == stageId then
+			return math.max(HotbarConfig.CompanionMinLength, stage.Length * HotbarConfig.CompanionLengthFraction)
+		end
+	end
+	return HotbarConfig.CompanionMinLength
+end
+
 local function buildModel(speciesId: string, mutationId: string, stageId: string, champion: boolean): Model?
 	local species = Dragons[speciesId]
 	if species == nil then
@@ -92,7 +104,7 @@ local function buildModel(speciesId: string, mutationId: string, stageId: string
 	local extents = model:GetExtentsSize()
 	local span = math.max(extents.X, extents.Z)
 	if span > 0.1 then
-		model:ScaleTo(model:GetScale() * HotbarConfig.CompanionSpan / span)
+		model:ScaleTo(model:GetScale() * companionSize(stageId) / span)
 	end
 	local anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	for _, part in model:GetDescendants() do
@@ -176,6 +188,7 @@ local function refresh(player: Player)
 			ActionT = 0,
 			Seed = rng:NextInteger(0, 999),
 		},
+		Size = companionSize(stage),
 		Position = keepPosition,
 		Yaw = keepYaw,
 		Bank = 0,
@@ -208,7 +221,6 @@ function CompanionController:Start()
 	Players.PlayerAdded:Connect(watch)
 	Players.PlayerRemoving:Connect(destroyCompanion)
 
-	local offset = HotbarConfig.FollowOffset
 	RunService.PreRender:Connect(function(dt)
 		local camera = workspace.CurrentCamera
 		if camera == nil then
@@ -233,7 +245,11 @@ function CompanionController:Start()
 				model.Parent = folder
 			end
 			local bob = math.sin(now * HotbarConfig.BobSpeed * 2 + companion.Seed) * HotbarConfig.BobHeight
-			local target = (root.CFrame * CFrame.new(offset.X, offset.Y, offset.Z)).Position + Vector3.new(0, bob, 0)
+			local size = companion.Size
+			local side = HotbarConfig.FollowSide + HotbarConfig.FollowSidePerStud * size
+			local up = HotbarConfig.FollowUp + HotbarConfig.FollowUpPerStud * size
+			local back = HotbarConfig.FollowBack + HotbarConfig.FollowBackPerStud * size
+			local target = (root.CFrame * CFrame.new(side, up, back)).Position + Vector3.new(0, bob, 0)
 			local previous = companion.Position
 			local position: Vector3
 			if previous == nil or (previous - target).Magnitude > HotbarConfig.TeleportDistance then

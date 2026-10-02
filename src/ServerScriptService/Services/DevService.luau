@@ -8,7 +8,7 @@
 -- A BindableFunction in ServerStorage can't be reached by clients; it is never created outside Studio.
 -- Studio tools whose thread may not invoke the bindables (the MCP's execute_luau) set the Workspace string attribute
 -- "DevCommand" to JSON instead: { "Op": "Items", "Args": {...} } | { "Op": "Dragons", "Ids": [..], "Level": n, "Place": true,
--- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "Hotbar", "Slot": 1, "Id": dragonId } | { "Op": "Carry", "Slot": 1 } | { "Op": "SellDragons", "Ids": [..], "Confirmed": false } | { "Op": "SellItems", "Kind": "Potion", "Id": "GildedDraught", "Count": 1 } | { "Op": "Lock", "Id": dragonId, "Locked": true } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "SimStart", "Job": "x", "Profile": "Dedicated", "Runs": 10, "Days": 60, "Variants": { "SellSurplus": true } } | { "Op": "SimResult", "Job": "x" } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
+-- "Mutation": "Hoardscale" } | { "Op": "Slots", "Slots": n } | { "Op": "UseBoost", "Id": "GildedDraught" } | { "Op": "Level", "Id": dragonId, "Count": n } | { "Op": "Hotbar", "Slot": 1, "Id": dragonId } | { "Op": "Carry", "Slot": 1 } | { "Op": "SellDragons", "Ids": [..], "Confirmed": false } | { "Op": "SellInventory", "Confirmed": false, "Expected": n } | { "Op": "Favorite", "Id": dragonId, "Favorite": true } | { "Op": "AutoSell", "Settings": {..} } | { "Op": "AutoSellNew", "Species": "Frostling", "Mutation": nil, "NewSpecies": false } | { "Op": "SpireAction", "Action": "Start", "Value": nil } | { "Op": "FireClient", "Remote": "BindResult", "Args": [..] } | { "Op": "Get", "Keys": ["Gold"] } | { "Op": "Teleport", "X": 0, "Y": 5, "Z": 0 } | { "Op": "SimStart", "Job": "x", "Profile": "Dedicated", "Runs": 10, "Days": 60, "Variants": { "SellSurplus": true } } | { "Op": "SimResult", "Job": "x" } | { "Op": "Config", "Module": "Spire", "Key": "FightSeconds", "Value": 1 } | { "Op": "Set", "Key": "Gold", "Value": 5 }; it acts on the first
 -- player and answers in the attribute "DevResult" (JSON).
 
 local HttpService = game:GetService("HttpService")
@@ -166,12 +166,22 @@ function DevService:Start()
 			elseif cmd.Op == "SellDragons" then
 				SellService.HandleSellDragons(player, cmd.Ids, cmd.Confirmed == true)
 				return cmd.Ids
-			elseif cmd.Op == "SellItems" then
-				SellService.HandleSellItems(player, cmd.Kind, cmd.Id, cmd.Count)
+			elseif cmd.Op == "SellInventory" then
+				SellService.HandleSellInventory(player, cmd.Confirmed == true, cmd.Expected)
+				return cmd.Expected
+			elseif cmd.Op == "AutoSellNew" then
+				-- gives a dragon and runs the bind-time auto sell on it, like BindingService does
+				local ids = giveDragons(player, { cmd.Species }, 1, false, cmd.Mutation)
+				local data = DataService:GetData(player)
+				assert(data, "no data")
+				SellService:AutoSellNewDragon(player, data, ids[1], cmd.NewSpecies == true)
+				return { Id = ids[1], Sold = data.Dragons[ids[1]] == nil }
+			elseif cmd.Op == "Favorite" then
+				SellService.HandleSetFavorite(player, cmd.Id, cmd.Favorite == true)
 				return cmd.Id
-			elseif cmd.Op == "Lock" then
-				SellService.HandleSetLocked(player, cmd.Id, cmd.Locked == true)
-				return cmd.Id
+			elseif cmd.Op == "AutoSell" then
+				SellService.HandleSetAutoSell(player, cmd.Settings)
+				return cmd.Settings
 			elseif cmd.Op == "Carry" then
 				HotbarService.HandleCarry(player, cmd.Slot)
 				return cmd.Slot

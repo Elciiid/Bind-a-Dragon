@@ -19,7 +19,7 @@ local Icons: { [string]: string } = {
 	Stardust = "rbxassetid://79393071959270",
 	WyrmRune = "rbxassetid://112660725792759",
 	Dragonstone = "rbxassetid://89473820390429",
-	EchoSigil = "rbxassetid://77787921617006", -- assets/icons/EchoSigil_512.png (uploaded by the creator)
+	EchoSigil = "rbxassetid://112192002124610", -- assets/icons/EchoSigil_512.png (uploaded by the creator)
 
 	Menu_Dragons = "rbxassetid://115314657694318",
 	Menu_Index = "rbxassetid://82066920142194",
@@ -53,9 +53,11 @@ local Icons: { [string]: string } = {
 	Tab_Items = "rbxassetid://86820373487722",
 	Tab_Collection = "rbxassetid://109516944039537",
 
-	-- UI renewal part 2 (tools/ui_art/gen.py, assets/ui/): day/night timer sun / moon (stand-ins until painted versions)
-	Sky_Sun = "rbxassetid://138017457452642",
-	Sky_Moon = "rbxassetid://119449803886759",
+	-- Painted icons (assets/icons/Icon_*.png): day/night timer sun / moon, "Equip best" crown, the Spire battle HUD's VS
+	Sky_Sun = "rbxassetid://88854108931232",
+	Sky_Moon = "rbxassetid://91323821505938",
+	Crown = "rbxassetid://80446493689515",
+	VS = "rbxassetid://113750033297541",
 }
 
 -- Per rarity / element: colors come from their game configs (one source); icons from above.

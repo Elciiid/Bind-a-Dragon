@@ -21,6 +21,7 @@ local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
 local MonetizationService = require(script.Parent.MonetizationService)
 local QuestService = require(script.Parent.QuestService)
+local SellService = require(script.Parent.SellService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -127,6 +128,7 @@ local function performBind(
 	local mutation = Mutations.Get(mutationId)
 	local usedSigil = data.LastBindNight == state.NightIndex
 	if usedSigil then data.EchoSigils -= 1 end
+	local newSpecies = data.Index[speciesId] == nil -- not in the Index yet (auto sell can keep new species)
 	local dragonId = tostring(data.NextDragonId)
 	data.NextDragonId += 1
 	data.Dragons[dragonId] = {
@@ -158,6 +160,7 @@ local function performBind(
 		Auto = not usePotion,
 	})
 	IndexService:Sync(player, data)
+	SellService:AutoSellNewDragon(player, data, dragonId, newSpecies) -- after the Index recorded it
 	QuestService:Progress(player, "Bind", 1)
 	if Luck.IsFavored(areaId, state.Constellation) then
 		QuestService:Progress(player, "FavoredBind", 1)

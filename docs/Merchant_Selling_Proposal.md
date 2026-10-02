@@ -29,30 +29,17 @@ Example at the very start (level 1, no upgrades, rebirth 0; first rebirth costs 
 Epic about 1M, Legendary about 5M, Mythic about 22M, plus the runes/stones above. Level compounds the income (x1.06 per level), so a
 level 30 Rare is worth about 5.7x that.
 
-**Protected (cannot be selected, and the server refuses them):** dragons in the roost, on the hotbar, being carried, locked (new
-Lock toggle on the Inventory cards) and the rebirth champion. **Extra confirm:** Epic or better and mutated dragons get a second
+**Protected (the server refuses them):** dragons in the roost, favorites (the star on the Inventory cards) and the rebirth champion. **Extra confirm:** Epic or better and mutated dragons get a second
 "Are you sure?" step naming them; the server demands `confirmedRisky` for them. Selling is atomic: if any chosen dragon is
 protected or not yours, nothing is sold.
 
-## Items (Sell Items)
+## Items
 
-Gold = seconds of the player's **current roost income** per item. Potions are priced well under their boost value (a Gilded
-Draught is x2 for 5 minutes = 300 s of extra income, sold for 60 s). Runes and Stones are cheap on purpose so Spire drops cannot be
-farmed into gold. **Stardust is not sold** (the merchant's own rising price would make it a loop).
+**Removed (2026-10-03):** potions, Wyrm Runes and Dragonstones can no longer be sold. The merchant only buys dragons.
 
-| Item | Seconds of roost income each |
-| --- | --- |
-| Gilded Draught | 60 |
-| Hoard Elixir | 120 |
-| Starlight Tonic | 90 |
-| Moonfire Tonic | 240 |
-| Wyrmblood Tonic | 90 |
-| Conqueror's Brew | 300 |
-| Runebright Tonic | 120 |
-| Wyrm Rune | 10 |
-| Dragonstone | 10 |
+## Dialog (checkpoint 3B)
 
-The luck charge you have armed is kept. Gold is clamped at the weekly rebirth cap like every other reward.
+Numbered lines on the screen: buy Stardust, sell this (the carried dragon), sell my inventory (every backpack dragon not in the roost that is not a favorite), edit auto sell settings, goodbye. Favorites (the star) can never be sold; the old Lock toggle became the Favorite star. Prices are unchanged.
 
 ## Pacing check (tools/sim)
 

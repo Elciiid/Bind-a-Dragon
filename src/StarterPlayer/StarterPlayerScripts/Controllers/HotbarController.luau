@@ -4,6 +4,8 @@
 -- glow; the carried dragon's slot has a gold outline. Pressing a slot asks the server to carry that dragon beside the player
 -- (the same slot again puts it away); CompanionController draws it for everybody. Dragons are added/removed from the Inventory
 -- cards (InventoryController) which send SetHotbarSlot. Numbers in Config/Hotbar, wording in Text.Hotbar.
+-- The bar shows BACKPACK dragons (not in the sanctuary); the server fills it (HotbarService). Arrange by drag and drop (UI/DragDrop): drag a
+-- Dragons-tab card onto a slot, drag between slots to swap, drag a slot out onto the screen to clear it (touch: long press, then drag).
 --
 -- Phones: the bar shrinks to fit between the thumbstick zone (left) and the jump button (right), Config/Hotbar PhoneSideReserve.
 -- It hides while the Spire HUD is open (it sits in the same place) and, on phones, while a window is open.
@@ -18,6 +20,7 @@ local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
 local NotificationController = require(script.Parent.NotificationController)
 local DragonPicture = require(script.Parent.UI.DragonPicture)
+local DragDrop = require(script.Parent.UI.DragDrop)
 local Style = require(script.Parent.UI.Style)
 local Tooltip = require(script.Parent.UI.Tooltip)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
@@ -28,6 +31,7 @@ local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 
 local carryDragon = ReplicatedStorage.Remotes.CarryDragon :: RemoteEvent
+local setHotbarSlot = ReplicatedStorage.Remotes.SetHotbarSlot :: RemoteEvent
 
 local HotbarController = {}
 
@@ -51,6 +55,7 @@ type Slot = {
 	Border: UIStroke,
 	Glow: ImageLabel,
 	Number: TextLabel,
+	Star: TextLabel, -- shown on a favorite
 	PictureHolder: Frame,
 	Picture: GuiObject?,
 	DragonId: string,
@@ -95,6 +100,7 @@ local function refreshSlot(index: number, data: any)
 		slot.Border.Thickness = 1.5
 		slot.Glow.ImageTransparency = 1
 		slot.Number.TextTransparency = 0.35
+		slot.Star.Visible = false
 		slot.Tip = Text.Format(Text.Hotbar.TipEmpty, { n = KEY_NAMES[index] })
 		return
 	end
@@ -111,6 +117,7 @@ local function refreshSlot(index: number, data: any)
 	slot.Glow.ImageColor3 = if carried then HotbarConfig.CarriedColor elseif mutated then mutation.Color else accent
 	slot.Glow.ImageTransparency = if carried then 0.25 elseif mutated then 0.3 else 0.75
 	slot.Number.TextTransparency = 0
+	slot.Star.Visible = dragon.Favorite == true
 	local stage = DragonStats.GetStage(dragon.Level)
 	local look = `{id}/{stage.Id}`
 	if slot.Look ~= look then
@@ -233,6 +240,15 @@ function HotbarController:Init()
 		number.TextWrapped = false
 		number.ZIndex = 6
 		Style.Outline(number, 1.5)
+		local star = Style.Label(button, "★", "Heavy", 16, UITheme.Colors.Gold)
+		star.Name = "Star"
+		star.AnchorPoint = Vector2.new(1, 0)
+		star.Position = UDim2.new(1, -3, 0, 1)
+		star.Size = UDim2.fromOffset(18, 18)
+		star.TextWrapped = false
+		star.ZIndex = 6
+		star.Visible = false
+		Style.Outline(star, 1.5)
 		Style.AttachPress(button)
 		local slot: Slot = {
 			Button = button,
@@ -240,6 +256,7 @@ function HotbarController:Init()
 			Border = border,
 			Glow = glow,
 			Number = number,
+			Star = star,
 			PictureHolder = holder,
 			Picture = nil,
 			DragonId = "",
@@ -248,7 +265,29 @@ function HotbarController:Init()
 		}
 		slots[index] = slot
 		button.Activated:Connect(function()
+			if DragDrop.JustDragged() then
+				return
+			end
 			press(index)
+		end)
+		-- drag this slot's dragon to another slot (swap) or out onto the screen (clears it)
+		DragDrop.Attach(button, function()
+			if slot.DragonId == "" then
+				return nil
+			end
+			return { DragonId = slot.DragonId, Slot = index, Source = "Hotbar" }
+		end, function(ghost, payload)
+			local data = DataController:Get()
+			local dragon = data and data.Dragons[payload.DragonId]
+			if dragon then
+				DragonPicture.new(ghost, dragon.SpeciesId, dragon.Level)
+			end
+		end)
+		DragDrop.AddTarget(button, function(payload)
+			if payload.Slot == index then
+				return
+			end
+			setHotbarSlot:FireServer(index, payload.DragonId)
 		end)
 		Tooltip.Attach(button, function()
 			return slot.Tip
@@ -282,6 +321,13 @@ function HotbarController:Init()
 	Players.LocalPlayer:GetAttributeChangedSignal("SpireHudVisible"):Connect(refreshSpire)
 	refreshSpire()
 
+	-- a slot dragged out onto the screen (not onto another slot) empties it
+	DragDrop.OnDropOutside = function(payload, point)
+		if payload.Source == "Hotbar" and payload.Slot then
+			setHotbarSlot:FireServer(payload.Slot, "")
+		end
+	end
+
 	HudLayout.OnLayoutChanged(layout)
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(function()
 		layout(isPhone)
@@ -296,6 +342,9 @@ function HotbarController:Start()
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed or input.UserInputType ~= Enum.UserInputType.Keyboard then
 			return
+		end
+		if Players.LocalPlayer:GetAttribute("MerchantDialog") == true then
+			return -- the merchant's numbered choices use 1-5
 		end
 		local index = KEY_SLOTS[input.KeyCode]
 		if index then

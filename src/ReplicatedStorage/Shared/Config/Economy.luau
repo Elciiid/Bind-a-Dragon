@@ -17,22 +17,19 @@ return {
 		RequestInterval = 0.25, -- server anti-spam interval
 		MenuUpdateInterval = 0.5, -- live price / departure polling
 		BubbleRaise = 1.15, -- the "Welcome, binder!" bubble sits this many bubble heights above the price board over the merchant's head
-
-		-- Idle motion of the merchant NPC (MerchantIdleController): the imported art keeps one working bone (the root), so the
-		-- whole body breathes, sways and turns toward the player. Angles are radians; periods are seconds per cycle.
-		Idle = {
-			BreathPeriod = 3.4,
-			BreathPitch = 0.028, -- forward/back rock of the body with each breath
-			BreathBob = 0.05, -- studs the root rises with each breath
-			SwayPeriod = 7.5,
-			SwayRoll = 0.045, -- slow side-to-side lean
-			NoticeRange = 22, -- studs: the merchant turns to face you inside this range
-			MaxTurn = 0.7, -- the most it turns (about 40 degrees)
-			TurnSpeed = 3.5, -- how quickly the turn eases (higher = snappier)
-			LookAwayPeriod = 11, -- with nobody near, now and then a small glance to one side
-			LookAwayTurn = 0.25,
-			AnimateDistance = 90, -- not animated beyond this (the model is client-side only, nobody sees it)
+		-- The merchant's dialog (MerchantController): numbered lines on the screen, the merchant's words in the speech bubble.
+		Dialog = {
+			ScreenX = 0.5, ScreenY = 0.46, -- left edge / vertical center of the choice lines (fractions of the screen)
+			PhoneScreenX = 0.27, PhoneScreenY = 0.5, -- phones: further left, clear of the timer stack on the right
+			LineHeight = 46, TextSize = 30, -- PC
+			PhoneLineHeight = 44, PhoneTextSize = 22, -- phones: lines stay tappable (>= 44 px)
+			HoverShift = 8, -- pixels a hovered line slides right
+			BubbleWidth = 320, BubbleHeight = 74,
+			-- camera eases toward the merchant while talking (not with Reduced Motion): behind and beside the player, looking at the merchant
+			CameraBack = 6, CameraSide = 3, CameraUp = 3, CameraLookBlend = 0.6, CameraLookUp = 3,
+			CameraEaseIn = 3, CameraEaseOut = 4, CameraStrength = 0.85,
 		},
+
 	},
 
 	-- Selling at the Star Merchant (SellService; DragonStats.GetSellValue / GetSellProtection). PROPOSED numbers, waiting for approval
@@ -59,22 +56,14 @@ return {
 			ConfirmMutated = true,
 		},
 
-		Items = {
-			-- seconds of the player's current roost income per item (potions: well under their boost value; runes/stones: small,
-			-- so Spire drops can't be farmed into gold). Stardust is not sold (the merchant's own price makes it a loop).
-			Potions = {
-				GildedDraught = 60,
-				HoardElixir = 120,
-				StarlightTonic = 90,
-				MoonfireTonic = 240,
-				WyrmbloodTonic = 90,
-				ConquerorsBrew = 300,
-				RunebrightTonic = 120,
-			},
-			WyrmRunes = 10,
-			Dragonstones = 10,
-			MaxPerRequest = 1000,
+		-- Auto sell (data.AutoSell, edited in the merchant's "Edit auto sell settings"): a newly bound dragon that matches is sold at bind time
+		-- (server) and the toast follows after the reveal. These are the defaults for a new player.
+		AutoSell = {
+			Common = false, Rare = false, Epic = false, Legendary = false, Mythic = false,
+			KeepMutated = true,
+			KeepNewSpecies = true,
 		},
+		AutoSellToastDelay = 7, -- seconds after the bind before "Auto-sold ..." shows (the reveal ceremony is over by then)
 	},
 
 	RoostUpgrades = {

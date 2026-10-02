@@ -12,7 +12,7 @@ export type Dragon = {
 	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
 	MutationId: string?, -- Config/Mutations; nil is the backward-compatible Normal state
 	Champion: boolean?, -- the rebirth champion dragon (Config/RebirthMilestones Champion)
-	Locked: boolean?, -- the player locked it: it can't be sold at the Star Merchant (SetDragonLocked)
+	Favorite: boolean?, -- the player starred it: it can never be sold (manual, inventory or auto sell) (SetDragonFavorite)
 }
 
 export type QuestState = {
@@ -37,7 +37,8 @@ export type PlayerData = {
 	NextDragonId: number,
 	RoostDragonIds: { string }, -- dragons placed in the roost (earn gold)
 	RoostUnplacedDragonIds: { string }, -- dragons explicitly picked up; kept out of automatic slot filling
-	Hotbar: { string }, -- Dragon Hotbar: Config/Hotbar.Slots dragon ids ("" = empty slot), slot 1 first
+	Hotbar: { string }, -- Dragon Hotbar: Config/Hotbar.Slots BACKPACK dragon ids (a dragon not in the roost; "" = empty slot), slot 1 first
+	AutoSell: AutoSell, -- Star Merchant auto sell settings (Config/Economy.Selling.AutoSell defaults)
 	RoostSlotUpgrades: number, -- extra roost slots bought
 	RoostIncomeLevel: number, -- roost income upgrade level
 
@@ -80,6 +81,12 @@ export type PlayerData = {
 	AfkCreditSeconds: number, -- offline + idle seconds already paid today (capped by Config/Roost OfflineCapHours)
 	PurchaseIds: { string }, -- recent developer product receipt IDs, oldest first
 	Settings: Settings, -- the player's Settings window choices (Config/Data DefaultSettings)
+}
+
+export type AutoSell = {
+	Common: boolean, Rare: boolean, Epic: boolean, Legendary: boolean, Mythic: boolean, -- sell newly bound dragons of this rarity
+	KeepMutated: boolean, -- never auto-sell a mutated dragon
+	KeepNewSpecies: boolean, -- never auto-sell a species that is not in the Index yet
 }
 
 export type Settings = {

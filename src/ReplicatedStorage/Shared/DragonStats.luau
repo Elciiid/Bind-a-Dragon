@@ -408,20 +408,40 @@ function DragonStats.GetSellValue(dragon: Dragon, data: PlayerData): (number, { 
 	}
 end
 
--- Why a dragon can't be sold (nil = it can): "Roost", "Hotbar", "Carried", "Locked" or "Champion".
-function DragonStats.GetSellProtection(dragon: Dragon, data: PlayerData, carriedId: string?): string?
+-- Why a dragon can't be sold (nil = it can): "Favorite", "Roost" or "Champion". The hotbar and the carried dragon are NOT protected:
+-- the hotbar only shows backpack dragons, and "I want to sell this!" sells the carried one.
+function DragonStats.GetSellProtection(dragon: Dragon, data: PlayerData): string?
 	if dragon.Champion then
 		return "Champion"
-	elseif dragon.Locked then
-		return "Locked"
-	elseif carriedId ~= nil and carriedId == dragon.Id then
-		return "Carried"
+	elseif dragon.Favorite then
+		return "Favorite"
 	elseif table.find(data.RoostDragonIds, dragon.Id) then
 		return "Roost"
-	elseif data.Hotbar and table.find(data.Hotbar, dragon.Id) then
-		return "Hotbar"
 	end
 	return nil
+end
+
+-- The backpack = every dragon NOT placed in the roost (sanctuary).
+function DragonStats.IsInBackpack(dragon: Dragon, data: PlayerData): boolean
+	return table.find(data.RoostDragonIds, dragon.Id) == nil
+end
+
+-- Backpack dragons the inventory sale would take: not in the roost, not favorited, not the champion. Sorted by id for a stable order.
+function DragonStats.GetSellableInventory(data: PlayerData): { Dragon }
+	local list: { Dragon } = {}
+	for _, dragon in data.Dragons do
+		if DragonStats.GetSellProtection(dragon, data) == nil then
+			table.insert(list, dragon)
+		end
+	end
+	table.sort(list, function(a, b)
+		local na, nb = tonumber(a.Id), tonumber(b.Id)
+		if na and nb then
+			return na < nb
+		end
+		return a.Id < b.Id
+	end)
+	return list
 end
 
 -- Does selling this dragon need the extra confirmation (Epic or better, or mutated)?

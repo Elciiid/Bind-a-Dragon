@@ -32,10 +32,8 @@ local levelUpDragon = ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent
 local placeInRoost = ReplicatedStorage.Remotes.PlaceInRoost :: RemoteEvent
 local returnFromRoost = ReplicatedStorage.Remotes.ReturnFromRoost :: RemoteEvent
 local equipBest = ReplicatedStorage.Remotes.EquipBest :: RemoteEvent
-local setHotbarSlot = ReplicatedStorage.Remotes.SetHotbarSlot :: RemoteEvent
-local setDragonLocked = ReplicatedStorage.Remotes.SetDragonLocked :: RemoteEvent
-local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
-local NotificationController = require(script.Parent.NotificationController)
+local setDragonFavorite = ReplicatedStorage.Remotes.SetDragonFavorite :: RemoteEvent
+local DragDrop = require(script.Parent.UI.DragDrop)
 
 local REFRESH_INTERVAL = 0.25 -- seconds; while open, changed values are written into the existing cards
 local CARD = Vector2.new(200, 246) -- design size of a card (phones scale it by UITheme.Sizes.PhoneCardScale)
@@ -71,12 +69,9 @@ type Card = {
 	Tooltip: string,
 	Details: TextButton,
 	DetailsScale: UIScale,
-	Hotbar: TextButton, -- "Add to hotbar" / "Remove from bar"
-	HotbarScale: UIScale,
-	HotbarSlot: number?, -- the slot the dragon sits in, nil = not on the bar
-	Lock: TextButton, -- the lock toggle (a locked dragon can't be sold)
-	LockScale: UIScale,
-	Locked: boolean?,
+	Star: TextButton, -- the Favorite toggle (a favorite can never be sold)
+	StarScale: UIScale,
+	Favorite: boolean?,
 }
 
 local cards: { [string]: Card } = {}
@@ -84,8 +79,7 @@ local cards: { [string]: Card } = {}
 local function layoutCard(card: Card, phone: boolean)
 	card.Scale.Scale = cardScale
 	card.DetailsScale.Scale = 1 / cardScale
-	card.HotbarScale.Scale = 1 / cardScale
-	card.LockScale.Scale = 1 / cardScale
+	card.StarScale.Scale = 1 / cardScale
 	card.Card.Size = UDim2.fromOffset(CARD.X, if phone then Layout.PhoneDragonCardHeight else CARD.Y)
 	local controlHeight = if phone then Layout.TouchTarget / cardScale else 40
 	local switchHeight = if phone then Layout.TouchTarget / cardScale else 24
@@ -277,12 +271,9 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		Tooltip = "",
 		Details = nil :: any,
 		DetailsScale = nil :: any,
-		Hotbar = nil :: any,
-		HotbarScale = nil :: any,
-		HotbarSlot = nil,
-		Lock = nil :: any,
-		LockScale = nil :: any,
-		Locked = nil,
+		Star = nil :: any,
+		StarScale = nil :: any,
+		Favorite = nil,
 	}
 	switch.Activated:Connect(function()
 		if entry.InRoost then
@@ -315,69 +306,46 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 	details.Activated:Connect(function()
 		Tooltip.Toggle(card, function() return entry.Tooltip end, details.AbsolutePosition + Vector2.new(0, details.AbsoluteSize.Y))
 	end)
-	-- Add to hotbar / Remove: under the rarity icon, top-left
-	local bar = Instance.new("TextButton")
-	bar.Name = "HotbarToggle"
-	bar.Text = Text.Hotbar.Add
-	bar.Font = name.Font
-	bar.TextSize = 11
-	bar.TextWrapped = true
-	bar.TextColor3 = colors.Text
-	bar.BackgroundColor3 = colors.PanelBottom
-	bar.AnchorPoint = Vector2.new(0, 0)
-	bar.Position = UDim2.fromOffset(4, 42)
-	bar.Size = UDim2.fromOffset(Layout.DetailsSize.X, Layout.DetailsSize.Y)
-	bar.ZIndex = 6
-	bar.Parent = card
-	local barScale = Instance.new("UIScale")
-	barScale.Scale = 1 / cardScale
-	barScale.Parent = bar
-	Style.Corner(bar, 6)
-	Style.Stroke(bar, colors.Trim, 1.25)
-	entry.Hotbar = bar
-	entry.HotbarScale = barScale
-	bar.Activated:Connect(function()
+	-- Favorite star: under the rarity icon, top-left. A favorite can never be sold (manual, inventory or auto sell).
+	local star = Instance.new("TextButton")
+	star.Name = "FavoriteToggle"
+	star.Text = "★"
+	star.Font = UITheme.Fonts.Heavy
+	star.TextSize = 22
+	star.TextColor3 = colors.TextMuted
+	star.BackgroundColor3 = colors.PanelBottom
+	star.AnchorPoint = Vector2.new(0, 0)
+	star.Position = UDim2.fromOffset(6, 42)
+	star.Size = UDim2.fromOffset(34, 30)
+	star.ZIndex = 6
+	star.Parent = card
+	local starScale = Instance.new("UIScale")
+	starScale.Scale = 1 / cardScale
+	starScale.Parent = star
+	Style.Corner(star, 8)
+	Style.Stroke(star, colors.Trim, 1.25)
+	Style.AttachPress(star)
+	entry.Star = star
+	entry.StarScale = starScale
+	Tooltip.Attach(star, function()
+		return Text.Hotbar.FavoriteTip
+	end)
+	star.Activated:Connect(function()
+		setDragonFavorite:FireServer(dragonId, not entry.Favorite)
+	end)
+	-- Drag the picture onto a hotbar slot (backpack dragons only: a dragon in the roost is not in the backpack)
+	picture.Active = true
+	DragDrop.Attach(picture, function()
+		if entry.InRoost then
+			return nil
+		end
+		return { DragonId = dragonId, Slot = nil, Source = "Inventory" }
+	end, function(ghost)
 		local data = DataController:Get()
-		if data == nil then
-			return
+		local current = data and data.Dragons[dragonId]
+		if current then
+			DragonPicture.new(ghost, current.SpeciesId, current.Level)
 		end
-		if entry.HotbarSlot then
-			setHotbarSlot:FireServer(entry.HotbarSlot, "")
-			return
-		end
-		for slot = 1, HotbarConfig.Slots do
-			if data.Hotbar[slot] == "" then
-				setHotbarSlot:FireServer(slot, dragonId)
-				return
-			end
-		end
-		NotificationController:Show(Text.Hotbar.Full, nil, "error")
-	end)
-	-- Lock toggle: next to the level, top-right
-	local lock = Instance.new("TextButton")
-	lock.Name = "LockToggle"
-	lock.Text = Text.Merchant.Lock
-	lock.Font = name.Font
-	lock.TextSize = 11
-	lock.TextColor3 = colors.TextMuted
-	lock.BackgroundColor3 = colors.PanelBottom
-	lock.AnchorPoint = Vector2.new(1, 0)
-	lock.Position = UDim2.new(1, -62, 0, 8)
-	lock.Size = UDim2.fromOffset(52, 24)
-	lock.ZIndex = 6
-	lock.Parent = card
-	local lockScale = Instance.new("UIScale")
-	lockScale.Scale = 1 / cardScale
-	lockScale.Parent = lock
-	Style.Corner(lock, 6)
-	Style.Stroke(lock, colors.Trim, 1.25)
-	entry.Lock = lock
-	entry.LockScale = lockScale
-	Tooltip.Attach(lock, function()
-		return Text.Merchant.LockTip
-	end)
-	lock.Activated:Connect(function()
-		setDragonLocked:FireServer(dragonId, not entry.Locked)
 	end)
 	layoutCard(entry, HudLayout.IsPhone())
 	return entry
@@ -423,23 +391,11 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 		card.Upgrade:SetEnabled(enabled)
 	end
 
-	local locked = dragon.Locked == true
-	if card.Locked ~= locked then
-		card.Locked = locked
-		card.Lock.Text = if locked then Text.Merchant.Locked else Text.Merchant.Lock
-		card.Lock.TextColor3 = if locked then colors.Gold else colors.TextMuted
-		card.Lock.BackgroundColor3 = if locked then colors.Cancel else colors.PanelBottom
-	end
-	local barSlot: number? = nil
-	for slot = 1, HotbarConfig.Slots do
-		if data.Hotbar[slot] == dragon.Id then
-			barSlot = slot
-		end
-	end
-	if card.HotbarSlot ~= barSlot or card.Hotbar.Text == "" then
-		card.HotbarSlot = barSlot
-		card.Hotbar.Text = if barSlot then Text.Hotbar.Remove else Text.Hotbar.Add
-		card.Hotbar.BackgroundColor3 = if barSlot then colors.Confirm else colors.PanelBottom
+	local favorite = dragon.Favorite == true
+	if card.Favorite ~= favorite then
+		card.Favorite = favorite
+		card.Star.TextColor3 = if favorite then colors.Gold else colors.TextMuted
+		card.Star.BackgroundColor3 = if favorite then colors.Confirm else colors.PanelBottom
 	end
 
 	if card.InRoost ~= inRoost then
@@ -558,7 +514,7 @@ function InventoryController:Init()
 	local equip = Button.new(content, {
 		Text = words.EquipBest,
 		Kind = "Confirm",
-		Icon = "Menu_Dragons",
+		Icon = "Crown",
 		TextSize = 18,
 		Sound = "Confirm",
 		OnClick = function()
@@ -580,6 +536,9 @@ function InventoryController:Init()
 	list.CanvasSize = UDim2.new()
 	list.Parent = content
 	Style.Pad(list, 6, 6)
+	DragDrop.OnDragState(function(dragging)
+		list.ScrollingEnabled = not dragging -- a drag from a card must not scroll the list
+	end)
 	grid = Instance.new("UIGridLayout")
 	grid.CellPadding = UDim2.fromOffset(10, 10)
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
@@ -615,7 +574,7 @@ function InventoryController:Init()
 	local function markDirty()
 		dirty = true
 	end
-	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "LevelingIncomeAnchor", "RoostSlotUpgrades", "RoostIncomeLevel", "Index", "WyrmRunes", "Dragonstones", "Hotbar" } do
+	for _, key in { "Dragons", "RoostDragonIds", "Gold", "Rebirths", "LevelingIncomeAnchor", "RoostSlotUpgrades", "RoostIncomeLevel", "Index", "WyrmRunes", "Dragonstones" } do
 		DataController:OnChanged(key, markDirty)
 	end
 end

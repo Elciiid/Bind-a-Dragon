@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
 local Style = require(script.Parent.UI.Style)
 local HudIcon = require(script.Parent.UI.HudIcon)
 local CurrencyPill = require(script.Parent.UI.CurrencyPill)
@@ -193,7 +194,9 @@ local function layoutPopups()
 	local available = safeProbe.AbsoluteSize
 	local margin = if phone then sizes.PhoneMargin else sizes.Margin
 	local top = math.max(0, HudLayout.TopReserved() - GuiService:GetGuiInset().Y) + sizes.PopupTopGap
-	local space = available.Y - top - margin
+	-- PC: windows end above the hotbar, so a dragon can be dragged from the Dragons tab onto a slot (phones hide the bar while a window is open)
+	local bottomReserve = if phone then 0 else HotbarConfig.SlotSize + HotbarConfig.BottomMargin + 6
+	local space = available.Y - top - margin - bottomReserve
 	for _, popup in popups do
 		local pc = popup.PcSize
 		local wanted = if phone then available.X * 0.94 else available.X * pc.X.Scale + pc.X.Offset

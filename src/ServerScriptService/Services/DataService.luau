@@ -19,13 +19,14 @@ local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
+local SellingConfig = require(ReplicatedStorage.Shared.Config.Economy).Selling
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 type PlayerData = PlayerDataTypes.PlayerData
 
 -- Bump this and add a step to MIGRATIONS whenever existing saved data needs to be reshaped
 -- (renamed/moved/removed fields). Plain new fields don't need a migration: Reconcile() fills them in.
-local CURRENT_DATA_VERSION = 4
+local CURRENT_DATA_VERSION = 5
 
 local function defaultSettings(): PlayerDataTypes.Settings
 	local defaults = DataConfig.DefaultSettings
@@ -79,6 +80,28 @@ local MIGRATIONS: { [number]: (data: any) -> () } = {
 		end
 		data.Hotbar = fixed
 	end,
+	-- 4 -> 5: the lock toggle became the Favorite star; the hotbar now only holds backpack dragons (not in the roost).
+	[4] = function(data)
+		if type(data.Dragons) ~= "table" then
+			return
+		end
+		for _, dragon in data.Dragons do
+			if type(dragon) == "table" and dragon.Locked ~= nil then
+				if dragon.Locked == true then
+					dragon.Favorite = true
+				end
+				dragon.Locked = nil
+			end
+		end
+		if type(data.Hotbar) == "table" and type(data.RoostDragonIds) == "table" then
+			for slot = 1, HotbarConfig.Slots do
+				local id = data.Hotbar[slot]
+				if type(id) == "string" and table.find(data.RoostDragonIds, id) then
+					data.Hotbar[slot] = ""
+				end
+			end
+		end
+	end,
 }
 
 local TEMPLATE: PlayerData = {
@@ -97,6 +120,7 @@ local TEMPLATE: PlayerData = {
 	RoostDragonIds = {},
 	RoostUnplacedDragonIds = {},
 	Hotbar = table.create(HotbarConfig.Slots, ""),
+	AutoSell = table.clone(SellingConfig.AutoSell),
 	RoostSlotUpgrades = 0,
 	RoostIncomeLevel = 0,
 
