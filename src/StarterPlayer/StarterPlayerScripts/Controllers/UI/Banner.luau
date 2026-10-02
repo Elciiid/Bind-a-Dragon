@@ -9,6 +9,7 @@
 
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)
@@ -124,12 +125,23 @@ function Banner.new(parent: Instance, props: Props): Banner
 	starOutline.Color = colors.TrimDark
 	starOutline.Thickness = 2
 	starOutline.Parent = star
-	star.Rotation = -10
-	TweenService:Create(
-		star,
-		TweenInfo.new(theme.Motion.BannerStarSpin / 2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Rotation = 10 }
-	):Play()
+	local starTween: Tween? = nil
+	local function updateMotion()
+		if starTween then starTween:Cancel(); starTween = nil end
+		if Players.LocalPlayer:GetAttribute("ReducedMotion") == true then
+			star.Rotation = 0
+			return
+		end
+		star.Rotation = -10
+		starTween = TweenService:Create(star, TweenInfo.new(theme.Motion.BannerStarSpin / 2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = 10 })
+		starTween:Play()
+	end
+	updateMotion()
+	local motionChanged = Players.LocalPlayer:GetAttributeChangedSignal("ReducedMotion"):Connect(updateMotion)
+	star.Destroying:Connect(function()
+		motionChanged:Disconnect()
+		if starTween then starTween:Cancel() end
+	end)
 
 	local self = setmetatable({
 		Holder = holder,

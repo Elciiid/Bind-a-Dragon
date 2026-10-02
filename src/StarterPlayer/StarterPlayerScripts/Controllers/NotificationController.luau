@@ -10,10 +10,12 @@
 -- Spire floor clears and "+gold" pops never use the toast queue (they have their own UI).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local HudLayout = require(script.Parent.HudLayout)
 local Toast = require(script.Parent.UI.Toast)
 local RewardPopup = require(script.Parent.UI.RewardPopup)
+local RevealGate = require(script.Parent.UI.RevealGate)
 local DragonPicture = require(script.Parent.UI.DragonPicture)
 local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
@@ -130,6 +132,10 @@ end
 -- kind: "success" | "error" | "info" | "reward" | "announce". color overrides the kind's accent; icon overrides the
 -- icon picked from the text.
 function NotificationController:Show(text: string, color: Color3?, kind: string?, icon: string?)
+	if RevealGate.IsActive() then
+		RevealGate.Defer(function() self:Show(text, color, kind, icon) end)
+		return
+	end
 	local k = kind or "info"
 	push({
 		Key = text,
@@ -155,6 +161,10 @@ end
 -- | "Rebirth" { Rebirths, Income, CapTo, Unlocked? } | "Tier" { Tier, Name } | "Look" { Name } | "Constellation" { Name, Luck }.
 -- fallback = the toast text if the payload can't be shown.
 function NotificationController:Moment(payload: any, fallback: string?)
+	if RevealGate.IsActive() then
+		RevealGate.Defer(function() self:Moment(payload, fallback) end)
+		return
+	end
 	local words = Text.Moments
 	local moment = if type(payload) == "table" then payload.Moment else nil
 	if moment == "NewDragon" or moment == "Evolve" then
@@ -193,6 +203,7 @@ function NotificationController:Moment(payload: any, fallback: string?)
 				table.insert(rows, { odds.RowMutation, OddsText.OneIn(payload.MutationOneIn or 1) })
 			end
 			table.insert(rows, { odds.RowTogether, OddsText.OneIn(n) })
+			table.insert(rows, { odds.RowProbability, OddsText.Probability(n) })
 			if type(payload.BaseOneIn) == "number" and math.abs(payload.BaseOneIn - n) > 0.01 then
 				table.insert(rows, { odds.RowBase, OddsText.OneIn(payload.BaseOneIn) })
 			end
@@ -302,6 +313,11 @@ function NotificationController:Start()
 	-- Server-wide: Announcement:FireAllClients(text, payload?) (a payload with .Moment shows a reward pop-up).
 	local announcement = ReplicatedStorage.Remotes.Announcement :: RemoteEvent
 	announcement.OnClientEvent:Connect(function(text: string, payload: any?)
+		if type(payload) == "table" and payload.Kind == "DragonBind"
+			and payload.PlayerId == Players.LocalPlayer.UserId and type(payload.DragonId) == "string" then
+			RevealGate.AfterDragon(payload.DragonId, function() self:Show(text, nil, "announce") end)
+			return
+		end
 		if type(payload) == "table" and payload.Moment then
 			self:Moment(payload, text)
 		else

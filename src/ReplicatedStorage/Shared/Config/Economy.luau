@@ -12,6 +12,10 @@ return {
 		PriceFractionOfNextRebirth = 0.0006,
 		PriceGrowth = 1.5,
 		PromptHoldSeconds = 0.3,
+		PromptDistance = 12, -- touch/keyboard interaction reach
+		PurchaseRange = 16, -- server purchase and client menu-close boundary
+		RequestInterval = 0.25, -- server anti-spam interval
+		MenuUpdateInterval = 0.5, -- live price / departure polling
 	},
 
 	RoostUpgrades = {

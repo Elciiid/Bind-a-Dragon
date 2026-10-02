@@ -12,4 +12,6 @@ return {
 	} :: { { MinOneIn: number, Id: string, Color: Color3 } },
 	CommonColor = Color3.fromRGB(215, 215, 225), -- N below the smallest MinOneIn: no tag
 	PopupDetailSeconds = 14, -- the pop-up stays this long when it has a breakdown to tap
+	DenominatorDecimals = 2, -- keep non-integer denominators honest (1 in 1.67, not 1 in 2)
+	ProbabilityDecimals = 6, -- precise percentage in the result breakdown
 }

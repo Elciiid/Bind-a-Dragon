@@ -24,7 +24,8 @@ local function qualityIsLow(): boolean
 end
 
 local function compute(): boolean
-	return Players.LocalPlayer:GetAttribute("LowEffects") == true or qualityIsLow()
+	return Players.LocalPlayer:GetAttribute("LowEffects") == true
+		or Players.LocalPlayer:GetAttribute("ReducedMotion") == true or qualityIsLow()
 end
 
 local function update()
@@ -49,6 +50,7 @@ end
 
 current = compute()
 Players.LocalPlayer:GetAttributeChangedSignal("LowEffects"):Connect(update)
+Players.LocalPlayer:GetAttributeChangedSignal("ReducedMotion"):Connect(update)
 pcall(function()
 	UserSettings():GetService("UserGameSettings"):GetPropertyChangedSignal("SavedQualityLevel"):Connect(update)
 end)

@@ -7,6 +7,15 @@
 
 return {
 	IdleSeconds = 60,
+	ResponseTimeout = 12, -- release the pre-reveal cover if the server declines or fails to answer
+	AnticipationSeconds = 0.3, -- brief beat before the dragon appears
+	ReducedHoldSeconds = 0.45, -- static, accessible reveal instead of camera/particle motion
+	SkipButtonSize = Vector2.new(150, 44), -- touch-sized Skip control in the safe screen area
+	SkipBottomMargin = 16,
+	WaitingStarSize = 48,
+	WaitingStars = 5, -- simple UI stars while the opaque cover hides grants/data-sync spoilers
+	WaitingRadius = 110,
+	WaitingStarSeconds = 0.55,
 	AltarRange = 80, -- studs: the player must be this close to an altar for the ceremony
 	FullAlways = { Legendary = true, Mythic = true }, -- rarities that always play the full (big) ceremony
 	PrimordialIsBig = true, -- Primordial binds get the big ceremony too

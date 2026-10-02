@@ -14,12 +14,13 @@ local Style = require(script.Parent.UI.Style)
 local Window = require(script.Parent.UI.Window)
 local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 
 local saveSettings = ReplicatedStorage.Remotes.SaveSettings :: RemoteEvent
 
 local SAVE_DELAY = 0.6 -- seconds after the last change before saving
 
-type Settings = { MusicVolume: number, SoundVolume: number, LowEffects: boolean, QuickBinds: boolean }
+type Settings = { MusicVolume: number, SoundVolume: number, LowEffects: boolean, QuickBinds: boolean, ReducedMotion: boolean }
 
 local SettingsController = {}
 
@@ -29,6 +30,7 @@ local current: Settings = {
 	SoundVolume = DataConfig.DefaultSettings.SoundVolume,
 	LowEffects = DataConfig.DefaultSettings.LowEffects,
 	QuickBinds = DataConfig.DefaultSettings.QuickBinds,
+	ReducedMotion = DataConfig.DefaultSettings.ReducedMotion,
 }
 local saveToken = 0
 local refreshers: { () -> () } = {}
@@ -38,6 +40,7 @@ local function apply()
 	player:SetAttribute("SoundVolume", current.SoundVolume)
 	player:SetAttribute("LowEffects", current.LowEffects)
 	player:SetAttribute("QuickBinds", current.QuickBinds)
+	player:SetAttribute("ReducedMotion", current.ReducedMotion)
 	for _, fn in refreshers do
 		fn()
 	end
@@ -230,10 +233,16 @@ function SettingsController:Init()
 		current.LowEffects = value
 		changed()
 	end)
-	toggle(row(list, 4, "Quick binds", "Short ceremony (not Legendary+)"), function()
+	toggle(row(list, 4, "Quick binds", Text.Reveal.QuickHint), function()
 		return current.QuickBinds
 	end, function(value)
 		current.QuickBinds = value
+		changed()
+	end)
+	toggle(row(list, 5, Text.Reveal.ReducedMotion, Text.Reveal.ReducedMotionHint), function()
+		return current.ReducedMotion
+	end, function(value)
+		current.ReducedMotion = value
 		changed()
 	end)
 

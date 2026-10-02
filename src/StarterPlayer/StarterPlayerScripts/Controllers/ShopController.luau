@@ -30,7 +30,7 @@ local function makeCard(list: Instance, key: string, order: number)
 	local pass = Products.Passes[key]
 	local product = Products.Products[key]
 	local item = pass or product
-	if item == nil then
+	if item == nil or item.Disabled then
 		warn(`[ShopController] Unknown shop item {key}`)
 		return
 	end

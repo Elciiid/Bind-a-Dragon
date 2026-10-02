@@ -21,7 +21,7 @@ local ITEMS = {
 	{ Key = "WyrmRunes", Icon = "WyrmRune", Color = Color3.fromRGB(200, 160, 255), Words = "WyrmRunes" },
 	{ Key = "Dragonstones", Icon = "Dragonstone", Color = Color3.fromRGB(255, 150, 120), Words = "Dragonstones" },
 	{ Key = "Stardust", Icon = "Stardust", Color = UITheme.Colors.Stardust, Words = "Stardust" },
-	{ Key = "EchoSigils", Icon = "Stardust", Color = Color3.fromRGB(130, 210, 255), Words = "EchoSigils" },
+	{ Key = "EchoSigils", Icon = "EchoSigil", Color = Color3.fromRGB(130, 210, 255), Words = "EchoSigils" },
 }
 
 local function refresh()

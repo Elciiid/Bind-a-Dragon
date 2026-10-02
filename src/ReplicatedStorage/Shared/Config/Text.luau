@@ -53,6 +53,23 @@ local Text = {
 		Elevator = "Elevator {floor}",
 		ElevatorLeft = "Elevator {floor} ({n})",
 		Stop = "Stop",
+		AutoRepeatOn = "Auto-Repeat ON",
+		AutoRepeatOff = "Auto-Repeat OFF",
+	},
+	Merchant = {
+		Title = "Star Merchant",
+		Talk = "Talk",
+		Buy = "Buy Stardust",
+		Exit = "Exit",
+		Bundle = "{amount} Stardust · {price} gold",
+		Description = "Trade gold for stardust. Prices rise with each purchase and reset at dawn.",
+	},
+	Reveal = {
+		Waiting = "The stars are gathering…",
+		Skip = "Skip reveal",
+		ReducedMotion = "Reduced motion",
+		ReducedMotionHint = "No camera movement, spinning or flashes",
+		QuickHint = "Short ceremony for every dragon",
 	},
 	PortalLocked = "Rebirth {rebirths}", -- under the lock on a portal the player can't use yet
 
@@ -140,6 +157,13 @@ local Text = {
 
 	-- Dragons tab of the Inventory (InventoryController) and the Equip best button (RoostService). {n} = a count.
 	Dragons = {
+		Details = "Details",
+		HomeOdds = "Home altar · x1 luck",
+		TooltipBaseIncome = "Base income",
+		TooltipBasePower = "Base power",
+		TooltipGold = "Dragon income",
+		TooltipModifiers = "Dragon income multiplier",
+		TooltipRoost = "Roost {roost} · Rebirth {rebirth} · Index {index}",
 		EquipBest = "Equip best",
 		Equipped = "Equipped your {n} best dragons!",
 		AlreadyBest = "Your best dragons are already in the roost!",
@@ -245,7 +269,9 @@ local Text = {
 		RowSpecies = "This dragon",
 		RowMutation = "This mutation",
 		RowTogether = "Both together",
-		RowBase = "Normal odds",
+		RowBase = "Base altar odds · x1 luck",
+		RowProbability = "Actual probability",
+		Effective = "Current odds: {oneIn}",
 		RowLuck = "Your luck",
 		Chance = "Chance: {oneIn}",
 		Undiscovered = "Chance: {band}",

@@ -10,12 +10,15 @@
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)
 local Banner = require(script.Parent.Banner)
 local Button = require(script.Parent.Button)
 local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
+local Layout = require(ReplicatedStorage.Shared.Config.Layout)
 
 export type Props = {
 	Title: string, -- the banner
@@ -40,11 +43,12 @@ local EXTRA_HEIGHT = 56 -- the card grows by this much when it has a Line / Chip
 local RewardPopup = {}
 
 -- HudLayout.TopReserved (the top bar + sky pill), looked up lazily (HudLayout requires the UI kit).
-local function TopReserved(): number
-	local ok, value = pcall(function()
-		return (require(script.Parent.Parent.HudLayout) :: any).TopReserved()
-	end)
-	return if ok and type(value) == "number" then value else 0
+local function hud(): any
+	return require(script.Parent.Parent.HudLayout)
+end
+
+local function reducedMotion(): boolean
+	return Players.LocalPlayer:GetAttribute("ReducedMotion") == true
 end
 
 local queue: { Props } = {}
@@ -53,8 +57,7 @@ local gui: ScreenGui? = nil
 
 local function screen(): ScreenGui
 	if gui == nil then
-		local newGui = Instance.new("ScreenGui")
-		newGui.Name = "RewardPopup"
+		local newGui = hud().MakeScreenGui("RewardPopup", "Popups")
 		newGui.DisplayOrder = Style.Theme.Layers.Popups + 1 -- above windows (the dim leaves the top bar clear)
 		newGui.ScreenInsets = Enum.ScreenInsets.None
 		newGui.ResetOnSpawn = false
@@ -78,7 +81,7 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 	local root = Instance.new("Frame")
 	root.Name = "Reward"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
-	root.Position = UDim2.new(0.5, 0, 0.5, math.floor(TopReserved() / 2))
+	root.Position = UDim2.fromScale(0.5, 0.5)
 	root.Size = UDim2.fromOffset(card.X, card.Y)
 	root.BackgroundTransparency = 1
 	root.Parent = parent
@@ -96,7 +99,7 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 	rays.Size = UDim2.fromOffset(card.X * 2, card.X * 2)
 	rays.ZIndex = -5
 	rays.Parent = root
-	if not EffectsQuality.IsLow() then
+	if not EffectsQuality.IsLow() and not reducedMotion() then
 		TweenService:Create(rays, TweenInfo.new(theme.Motion.RewardSpin, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 }):Play()
 	end
 
@@ -228,8 +231,12 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 		heading.Size = UDim2.new(1, -16, 0, 30)
 		heading.ZIndex = 7
 		Style.Outline(heading, 1.5)
-		local rows = Instance.new("Frame")
+		local rows = Instance.new("ScrollingFrame")
 		rows.BackgroundTransparency = 1
+		rows.BorderSizePixel = 0
+		rows.ScrollBarThickness = 4
+		rows.CanvasSize = UDim2.new()
+		rows.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		rows.Position = UDim2.fromOffset(12, 42)
 		rows.Size = UDim2.new(1, -24, 1, -48)
 		rows.ZIndex = 7
@@ -246,14 +253,20 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 			local left = Style.Label(row, pair[1], "Bold", 16, theme.Colors.TextMuted)
 			left.Size = UDim2.new(0.55, 0, 1, 0)
 			left.TextXAlignment = Enum.TextXAlignment.Left
+			left.TextWrapped = true
 			left.ZIndex = 7
 			local right = Style.Label(row, pair[2], "Title", 18, theme.Colors.Text)
 			right.AnchorPoint = Vector2.new(1, 0)
 			right.Position = UDim2.fromScale(1, 0)
 			right.Size = UDim2.new(0.45, 0, 1, 0)
 			right.TextXAlignment = Enum.TextXAlignment.Right
+			right.TextWrapped = true
 			right.ZIndex = 7
 			Style.Outline(right, 1.2)
+			local width = card.X - 48
+			local leftHeight = TextService:GetTextSize(pair[1], left.TextSize, left.Font, Vector2.new(width * 0.55 - 8, 10000)).Y
+			local rightHeight = TextService:GetTextSize(pair[2], right.TextSize, right.Font, Vector2.new(width * 0.45 - 8, 10000)).Y
+			row.Size = UDim2.new(1, -8, 0, math.max(26, math.ceil(math.max(leftHeight, rightHeight)) + 4))
 		end
 		panel.Active = true
 		panel.InputBegan:Connect(function(input)
@@ -277,35 +290,52 @@ local function showNext()
 
 	local dim = Instance.new("Frame")
 	dim.Name = "Dim"
-	-- the dim starts under the top bar + sky pill, so those stay readable
-	local top = TopReserved()
-	dim.Position = UDim2.fromOffset(0, top)
-	dim.Size = UDim2.new(1, 0, 1, -top)
+	-- The popup envelope is centered in the device's usable rectangle.
 	dim.BackgroundColor3 = theme.Colors.TextStroke
 	dim.BackgroundTransparency = 1
 	dim.BorderSizePixel = 0
 	dim.Parent = layer
 	dim.ClipsDescendants = true -- the turning rays stay below the top bar too
 	local root, scale, button = RewardPopup.Build(dim, props)
-	root.Position = UDim2.fromScale(0.5, 0.5)
-	local camera = workspace.CurrentCamera
-	local short = if camera then math.min(camera.ViewportSize.X, camera.ViewportSize.Y) else 1080
-	local fit = math.min(1, (short - TopReserved() - 30) / (theme.Sizes.RewardCard.Y + (if props.Line or props.Chips then EXTRA_HEIGHT else 0) + 40)) -- phones: shrink to fit
-	scale.Scale = 0.2 * fit
+	local closed = false
+	local fit = 1
+	local function relayout()
+		if closed or not dim.Parent then return end
+		local safe = hud().GetUsableRect()
+		dim.Position = UDim2.fromOffset(safe.Min.X, safe.Min.Y)
+		dim.Size = UDim2.fromOffset(safe.Width, safe.Height)
+		local overhang = theme.Sizes.Banner / 2 + theme.Sizes.BannerStar * 0.62
+		local cardHeight = theme.Sizes.RewardCard.Y + (if props.Line or props.Chips then EXTRA_HEIGHT else 0)
+		fit = math.max(0.1, math.min(1, (safe.Width - Layout.SafeMargin * 2) / theme.Sizes.RewardCard.X, (safe.Height - Layout.SafeMargin * 2) / (cardHeight + overhang)))
+		root.Position = UDim2.fromOffset(safe.Width / 2, (safe.Height + overhang * fit) / 2)
+		scale.Scale = fit
+	end
+	relayout()
+	local disconnectLayout = hud().OnLayoutChanged(relayout)
+	scale.Scale = if reducedMotion() then fit else 0.2 * fit
 	TweenService:Create(dim, TweenInfo.new(0.25), { BackgroundTransparency = 0.45 }):Play()
-	TweenService:Create(scale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = fit }):Play()
+	if not reducedMotion() then
+		TweenService:Create(scale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = fit }):Play()
+	end
 	Style.Play(props.Sound or "Confirm")
 	task.delay(0.12, function()
+		if closed or not root.Parent or reducedMotion() then return end
 		local size = root.AbsoluteSize / math.max(scale.Scale, 0.01)
 		Style.SparkleBurst(root, Vector2.new(size.X / 2, theme.Sizes.RewardIcon * 0.5 + 18), theme.Motion.RewardBurst, 160)
 	end)
 
-	local closed = false
 	local function close()
 		if closed then
 			return
 		end
 		closed = true
+		disconnectLayout()
+		if reducedMotion() then
+			root:Destroy()
+			dim:Destroy()
+			showNext()
+			return
+		end
 		TweenService:Create(dim, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
 		local out = TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.3 * fit })
 		out.Completed:Connect(function()

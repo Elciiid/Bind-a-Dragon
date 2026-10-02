@@ -46,7 +46,7 @@ end
 
 function DayNightController:Init()
 	local gui = HudLayout.MakeScreenGui("SkyHud", "Hud")
-	gui.ScreenInsets = Enum.ScreenInsets.None -- measured from the very top, like the travel row above it
+	HudLayout.HideWithPopups(gui)
 	pill = SkyPill.new(gui)
 	HudLayout.OnLayoutChanged(function(isPhone)
 		pill.Instance.Position = UDim2.new(0.5, 0, 0, HudLayout.SkyPillTop())

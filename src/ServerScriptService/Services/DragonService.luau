@@ -50,12 +50,13 @@ local DragonService = {}
 -- Used by the LevelUpDragon remote and by Auto-Upgrade (MilestoneService).
 function DragonService:BuyLevels(player: Player, data: PlayerDataTypes.PlayerData, dragon: PlayerDataTypes.Dragon, wanted: number, quiet: boolean?): number
 	local cap = DragonStats.GetLevelCap(data)
+	DragonStats.EnsureLevelingAnchor(data)
 	local species = Dragons[dragon.SpeciesId]
 	local leveled = 0
 	local evolvedTo: Evolution.Stage? = nil -- final stage reached this request (one toast, not one per stage)
 	local evolvedUnder = ""
 	while leveled < wanted and dragon.Level < cap do
-		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
+		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths, data.LevelingIncomeAnchor)
 		if data.Gold < cost then
 			break
 		end
@@ -123,7 +124,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 
 	local leveled = DragonService:BuyLevels(player, data, dragon, wanted)
 	if leveled == 0 then
-		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths)
+		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths, data.LevelingIncomeAnchor)
 		notify:FireClient(player, `Not enough gold. You need {Format.Number(cost)}.`, "error")
 	end
 end

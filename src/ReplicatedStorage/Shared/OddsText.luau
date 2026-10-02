@@ -12,11 +12,26 @@ local OddsText = {}
 
 -- "1 in 8,400" (a whole number, at least 1).
 function OddsText.OneIn(n: number): string
-	if n == math.huge or n ~= n then
+	if n == math.huge or n ~= n or n < 1 then
 		return Text.Odds.Unknown
 	end
-	local shown = Format.Commas(math.max(1, n))
+	local factor = 10 ^ OddsConfig.DenominatorDecimals
+	local rounded = math.round(n * factor) / factor
+	local whole = math.floor(rounded)
+	local shown = Format.Commas(whole)
+	local fraction = rounded - whole
+	if fraction > 0 then
+		local decimals = string.format(`%.{OddsConfig.DenominatorDecimals}f`, fraction):sub(2):gsub("0+$", "")
+		shown ..= decimals
+	end
 	return Text.Format(Text.Odds.OneIn, { n = shown })
+end
+
+function OddsText.Probability(n: number): string
+	if n < 1 or n == math.huge or n ~= n then
+		return Text.Odds.Unknown
+	end
+	return string.format(`%.{OddsConfig.ProbabilityDecimals}f%%`, 100 / n)
 end
 
 -- The excitement tag for an N ("LEGENDARY LUCK!"), or nil for common binds.
