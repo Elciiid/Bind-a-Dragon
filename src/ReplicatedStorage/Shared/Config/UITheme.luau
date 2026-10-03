@@ -71,6 +71,49 @@ for elementId, element in Elements do
 end
 
 return {
+	-- Reveal result: responsive split/stack layout, never a whole-card scale-down.
+	RewardPresentation = {
+		MaxWidth = 760, PreferredHeight = 400, SplitWidth = 560,
+		PictureMin = 88, PictureMax = 220, PictureFraction = 0.34,
+		NameText = 24, NameHeight = 64, OddsText = 28, OddsHeight = 44, ChipHeight = 28,
+		StatHeight = 48, DimTransparency = 0.24, RaysTransparency = 0.8,
+		OpenSeconds = 0.2, CloseSeconds = 0.16, DefaultSeconds = 8,
+	},
+	-- Mobile-first presentation tokens: keep physical text/targets readable; scroll/reflow instead of scaling panels.
+	MobileUI = {
+		Body = 16, Small = 14, Title = 20, Touch = 44, Gap = 10, Padding = 12,
+		DragonCard = Vector2.new(240, 360), PotionCard = Vector2.new(220, 196), CollectionCard = Vector2.new(176, 198), RowHeight = 84,
+		TabHeight = 44, TabMinWidth = 120, HeaderHeight = 48, Scrollbar = 8,
+		ButtonMinText = 14, ButtonPadding = 12, ButtonIcon = 28,
+		WindowMargin = 12, WindowTop = 8, WindowBottom = 12,
+		PanelGlowTransparency = 0.82, PatternTransparency = 0.97,
+		CardAccentMix = 0.12, CardBorder = 1.25,
+		TutorialWidth = 350, TutorialHeight = 144, TutorialIcon = 40, TutorialTitle = 18,
+		TutorialMinWidth = 240, TutorialTitleHeight = 24, TutorialInstructionHeight = 36,
+		TutorialProgressHeight = 3, TutorialActionGap = 8,
+		TutorialCompactBelow = 320, TutorialCompactHeight = 128, TutorialCompactPadding = 8,
+		TutorialCompactGap = 4, TutorialCompactTitleHeight = 20,
+		TutorialInstruction = 16, TutorialStep = 14, TutorialOutline = 2,
+		TutorialEdgeArrow = 28, TutorialTargetPadding = 6, TutorialBottomGap = 12,
+		TutorialRefresh = 0.15, TutorialPulseSeconds = 1.4, TutorialFeedbackSeconds = 1.2,
+		TravelHeight = 52, TravelSlot = 70, TravelIcon = 30, TravelText = 14,
+		TravelTop = 6, TravelGap = 16, -- small top margin aligns the phone row with Roblox's microphone/chat controls
+		SideIcon = 30, SideGap = 4, SideTop = 4, SideLeft = 12, -- centered vertical phone column; minimum top clearance and 44px targets
+		CurrencyLeft = 24, CurrencyBottom = 12, SideCurrencyGap = 10, -- keep the currency icon overhang clear of the menu
+		HotbarTouchSideReserve = 136, HotbarGap = 8, HotbarBottom = 12,
+		TimerMaxWidth = 360, TimerPhoneFraction = 0.4, TimerRowGap = 6, -- bounded, wrapping sky labels clear of the opposite HUD
+		TimerCaptionMaxHeight = 64, -- long constellation/localized lines scroll inside the available HUD height
+		ToastWidth = 480, ToastHeight = 60, ToastIcon = 32, ToastDuration = 5,
+		ToastMaxHeight = 104, ToastPollSeconds = 0.2,
+		PromptWidth = 300, PromptHeight = 64, PromptAction = 18,
+		StationColumnsAt = 720, StationDragonWidth = 240, StationHeaderHeight = 54,
+		StationSelectedHeight = 84, StationOddsRow = 40,
+		MerchantWidth = 460, MerchantChoiceHeight = 56, MerchantLineHeight = 84,
+		RebirthCostHeight = 100, RebirthChipHeight = 76, RebirthTrackHeight = 216,
+		SpireWidth = 500, SpirePortrait = 76, SpireBoardWidth = 280,
+		SpireHeight = 300, SpireMinHeight = 180, SpirePickerColumnsAt = 420,
+		SpireHeaderHeight = 54, SpireBodyHeight = 220, SpireMessageHeight = 48, SpireRecordHeight = 32,
+	},
 	Colors = {
 		-- Panels: vertical gradient night sky, gold trim, a darker inner line (the "scale" border for now).
 		PanelTop = Color3.fromRGB(34, 38, 92),
@@ -226,9 +269,9 @@ return {
 		MenuLabelSize = 13,
 		PhoneMenuLabelSize = 11,
 		Currency = Vector2.new(250, 40), -- PC: one pill per currency, bottom-left
-		PhoneCurrency = Vector2.new(130, 22), -- phone: the same stacked pills as PC (bottom-left), scaled down
-		PhoneCurrencyRow = 22,
-		PhoneCurrencyTextSize = 13,
+		PhoneCurrency = Vector2.new(184, 28), -- readable stacked pills at the bottom-left safe edge
+		PhoneCurrencyRow = 28,
+		PhoneCurrencyTextSize = 16,
 		SkyCard = Vector2.new(440, 52), -- PC: day/night card, top-center (max size; 90% of the width on narrow screens)
 		PhoneSkyCard = Vector2.new(340, 44), -- phone: same card, smaller
 		TravelButton = Vector2.new(116, 38), -- PC: Travel button, top, left of the day/night card
@@ -252,9 +295,9 @@ return {
 		PhoneBanner = 36,
 		BannerPadding = 26, -- space left/right of the title inside the banner
 		BannerStar = 36, -- the star on top of the banner
-		PhoneBannerStar = 24,
+		PhoneBannerStar = 0, -- omit ornamental overhang on short phones; retain the title/icon/gold gems
 		CloseButton = 52, -- big round close button on the top-right corner (PC)
-		PhoneCloseButton = 40,
+		PhoneCloseButton = 44,
 		WindowPadding = 16, -- content inset from the border
 		ButtonEdge = 5, -- the 3D bottom edge of buttons (pixels; the face drops onto it when pressed)
 		PopupTopGap = 10, -- windows start this far below the travel row (they never cover the top bar)
@@ -270,15 +313,15 @@ return {
 		PhoneTimerText = 16,
 		TimerGap = 2, -- between rows
 		TimerCaptionText = 17, -- the small line under the day/night timer (tonight's constellation + favored area)
-		PhoneTimerCaptionText = 11,
+		PhoneTimerCaptionText = 14,
 		TravelSlot = 96, -- PC: every travel button gets a slot this wide, so the labels never clip and spacing is even
 		PhoneTravelSlot = 62,
-		PhoneCardScale = 0.55, -- phones: Inventory dragon and potion cards are drawn this much smaller (a full row fits)
+		PhoneCardScale = 1, -- readable physical cards; controllers reflow columns instead of shrinking labels
 		SpireHud = Vector2.new(500, 200), -- includes separate Auto-Repeat and Stop controls
 		MerchantWindow = Vector2.new(460, 300), -- live-price merchant interaction panel
 		MerchantText = 18,
 		MerchantPriceText = 22,
-		PhoneSpireScale = 0.6,
+		PhoneSpireScale = 1, -- battle controls/text remain at physical mobile sizes
 		PhoneSpireHudHeight = 300, -- accommodates physical 44px touch controls
 		SpirePortrait = 104, -- dragon portraits in the HUD
 		SpireFloorBadge = Vector2.new(170, 46), -- the big "Floor 40" badge on the HUD's top edge
@@ -416,8 +459,49 @@ return {
 		TriggerSparkles = 8, -- sparkles out of the key badge when a prompt is used
 	},
 
+	Leaderboards = {
+		CanvasSize = Vector2.new(700, 880), MaxDistance = 100,
+		Margin = 24, HeaderHeight = 86, RowHeight = 65, AvatarSize = 48,
+		TitleSize = 30, RowSize = 22, DetailSize = 16, FooterSize = 19,
+		Medals = {Color3.fromRGB(255, 210, 90), Color3.fromRGB(200, 215, 235), Color3.fromRGB(200, 140, 90)},
+	},
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
+	Onboarding = {
+		PanelSize = Vector2.new(430, 170), -- Compact title, instruction, progress and touch action row.
+		HintWidth = 0.9,
+		Padding = 12,
+		TitleSize = 20,
+		TitleMinSize = 12,
+		TitleHeight = 28,
+		StepBadgeWidth = 60,
+		StepBadgeTextSize = 13,
+		HintTop = 48,
+		ProgressTop = 100,
+		ProgressHeight = 4,
+		ProgressGap = 6,
+		ActionTextSize = 16,
+		ActionMinTextSize = 11,
+		HintTextSize = 17,
+		HintMinTextSize = 12,
+		HintLineHeight = 44,
+		SkipSize = UDim2.fromOffset(142, 44),
+		ActionWidth = 142,
+		ActionHeight = 44,
+		BorderThickness = 1.5,
+		PointerSize = 28,
+		PointerOffset = 18,
+		PointerBounds = UDim2.fromOffset(34, 34),
+		TrailSize = Vector3.new(0.1, 0.1, 0.1), -- Invisible, non-queryable billboard anchor, not a floor decal.
+		TrailPixels = Vector2.new(34, 34),
+		TrailTextSize = 32,
+		TrailOutline = 2,
+		FallingStarSize = Vector3.new(4, 4, 4),
+		StarCameraPosition = Vector3.new(0, 35, 95),
+		StarLabelY = 0.78,
+		StarLabelHeight = 0.12,
+		RevealLayerOffset = 8,
+	},
 	WorldLabels = {
 		MaxDistance = 40, -- studs: roost owner signs, dragon nameplates, portal names, upgrade stands, area signs
 		NameplateMaxDistance = 70, -- studs: dragon nameplates (big dragons fly high in the 150-stud sanctuaries)

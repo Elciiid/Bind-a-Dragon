@@ -189,7 +189,7 @@ local Text = {
 		WyrmRunes = { Name = "Wyrm Runes", Info = "Inscribe a rune on a dragon at the Rune Shrine to awaken a trait. Earned in the Dragon Spire, quests and the Index." },
 		Dragonstones = { Name = "Dragonstones", Info = "Temper a dragon at the Dragonstone Forge to raise its grade. Earned in the Dragon Spire, quests and the Index." },
 		Stardust = { Name = "Stardust", Info = "Offer it at a Star Altar for more luck on your next bind. Buy it from the Star Merchant or find it in the Spire." },
-		EchoSigils = { Name = "Echo Sigils", Info = "Spend one for an extra bind after your nightly bind. Earn one from all daily quests and one from five non-fast Spire wins each day. Holds up to 6." },
+		EchoSigils = { Name = "Echo Sigils", Info = "Spend one for an extra bind after your nightly bind. Earn one from all daily quests and one from five non-fast Spire wins each day. Holds up to {cap}." },
 	},
 
 	-- Reward pop-ups for big moments (NotificationController -> UI/RewardPopup). {placeholders} as noted.
@@ -355,4 +355,120 @@ function Text.Format(template: string, values: { [string]: any }): string
 	end))
 end
 
+Text.Leaderboards = {
+	Titles = {Rebirths = "MOST REBIRTHS", Gold = "LIFETIME GOLD", Rarest = "RAREST DRAGON BOUND"},
+	UnknownPlayer = "Unknown player",
+	Loading = "Loading global scores…",
+	Empty = "No scores yet",
+	Own = "YOU · #{rank} · {value}",
+	OwnUnranked = "YOU · rank unavailable · {value}",
+	Odds = "1 in {value}",
+	GoldApprox = "≈{value}",
+	RankNote = "Cached global ranks · tied scores use store order",
+}
+Text.Onboarding = {
+	Titles = {
+		[1] = "YOUR FIRST DRAGON",
+		[2] = "YOUR DRAGON'S HOME",
+		[3] = "A FREE UPGRADE",
+		[4] = "WATCH THE NIGHT SKY",
+		[5] = "ANOTHER STAR AWAITS",
+	},
+	StepCount = "{step} / {total}",
+	TrailStar = "★",
+	Steps = {
+		[1] = "Bind your first dragon!",
+		[2] = "Head Home to meet your dragon!",
+		[3] = "Your dragons earn gold! Your first upgrade is free.",
+		[4] = "Watch the sky: another dragon awaits tonight!",
+		[5] = "Night has fallen: you can bind a new dragon!",
+	},
+	Skip = "Skip tutorial",
+	FreeUpgrade = "Free upgrade",
+	Pointer = "▼",
+	FallingStar = "A falling star answers your call!",
+	Pool = "First-bind pool · guaranteed Rare or better",
+	PoolRow = "Special first-bind pool",
+	Quests = "Quests reward your adventures!",
+	Rebirth = "Keep earning gold to unlock your first rebirth!",
+	Spire = "Your dragon is ready: try the Dragon Spire!",
+	Night = "Night has fallen: you can bind a new dragon!",
+}
+-- Presentation wording is centralized here; controllers only interpolate confirmed/shared values.
+Text.Potions = {
+	Use = "Use", Arm = "Arm", Disarm = "Disarm", Armed = "Armed", NextBind = "Next bind",
+	Active = "Active {time}", Duration = "{minutes} min", Unavailable = "None owned", Full = "Timer full",
+	Tooltip = "{name}: {description}. Timers pause offline · up to {minutes} min per potion · Premium +{bonus}% time",
+}
+Text.Collection = {
+	Income = "{multiplier} income", Found = "{found}/{total} discovered", Reward = "Reward at {count}",
+	Complete = "Collection complete",
+	Rules = "{entries} species · {elements} elements complete · +{percent}% per species · x{element} per element · x{all} for all {total}. Mutation badges are optional.",
+	Undiscovered = "Undiscovered {rarity} dragon", Mutations = "Mutations {found}/{total}",
+	MutationDetails = "Mutations found: {names}", Atlas = "Star Atlas", ElementComplete = "{element} ✓",
+	Count = "x{count}", Empty = "—",
+	Unknown = "?", NormalOdds = "Normal · {oneIn}", MutationCount = "{found}/{total} mutations",
+	Bound = "{name} · {count}", Title = "Dragon Collection",
+}
+Text.Inventory = { Title = "Inventory" }
+Text.Prompts = { Touch = "Tap" }
+Text.Hotbar.Page = "{page}/{pages}"
+Text.Dragons.Level = "Lv {level}"
+Text.Dragons.Grade = "Grade {grade}"
+Text.Dragons.Income = "{value}/s"
+Text.Dragons.Power = "Power {value}"
+Text.Dragons.Identity = "{rarity} · {element}"
+Text.Dragons.Stage = "{stage} · Lv {level}/{cap} · {mutation}"
+Text.Dragons.Favorite = "★"
+Text.Dragons.Sort = "Sort: {mode}"
+Text.Dragons.SortModes = { Income = "Income", Power = "Power", Level = "Level" }
+Text.Dragons.Resources = "{runes} Wyrm Runes · {stones} Dragonstones"
+Text.Items.Count = "x{count}"
+Text.Station = {
+	NoTrait = "No trait", NoGrade = "No grade", DragonLevel = "{name} · Lv {level}",
+	TraitGold = "x{n} gold", TraitPower = "x{n} power", Grade = "Grade {grade}",
+	GradeStats = "Grade {grade} · x{n} gold and power", Select = "Choose a dragon",
+	Current = "Current", Chance = "Chance", RollUnavailable = "Need {count} {resource}",
+}
+Text.Merchant.Owned = "You have {gold} gold · {stardust} Stardust"
+Text.Merchant.ChoiceNumber = "{n}.) {choice}"
+Text.Merchant.RuneReward = "+{n} Wyrm Runes"
+Text.Merchant.StoneReward = "+{n} Dragonstones"
+Text.Merchant.SellRarity = "Sell new {rarity} dragons"
+Text.Merchant.More = "and {n} more"
+Text.Rebirth.Title = "Rebirth"
+Text.Rebirth.ConfirmHeading = "Ready to rebirth?"
+Text.Rebirth.ConfirmWarning = "Your gold resets. Your dragons, levels, items and upgrades stay."
+Text.Rebirth.ConfirmFinal = "Confirm rebirth"
+Text.Rebirth.Back = "Back"
+Text.Spire.Power = "Power {power}"
+Text.Spire.PowerComparison = "{mine} power vs {enemy}"
+Text.Spire.Progress = "{floor} / {total}"
+Text.Spire.Minimize = "–"
+Text.Spire.BoardToggle = "Weekly board"
+Text.Spire.PowerDetail = "{power} power"
+Text.Spire.StartTip = "Starts at floor 1"
+Text.Spire.Reward = "Reward: {reward}"
+Text.Reveal.Anticipation = "A constellation answers…"
+Text.Reveal.Gathering = "Starlight gathers at the altar"
+Text.Reveal.Arriving = "Your dragon is arriving"
+Text.Reveal.MissingModel = "A new dragon joins your collection"
+Text.Reveal.Continue = "Continue"
+Text.Reveal.Details = "Odds & stats"
+Text.Reveal.HideDetails = "Back to dragon"
+Text.Reveal.BaseIncome = "Base gold / sec"
+Text.Reveal.BasePower = "Base Spire power"
+Text.Reveal.VariantIncome = "Mutation gold / sec"
+Text.Reveal.VariantPower = "Mutation Spire power"
+Text.Reveal.Auto = "Auto-bind"
+Text.Onboarding.TargetUnavailable = "Your target is loading. You can keep exploring."
+Text.Onboarding.Touch = "Tap"
+Text.Onboarding.KeyboardBind = "E · Bind"
+Text.Onboarding.ControllerBind = "X · Bind"
+Text.Onboarding.GoHome = "Go Home"
+Text.Onboarding.OpenInventory = "Open Dragons"
+Text.Onboarding.Completed = "Step complete!"
+Text.Onboarding.Wait = "Keep exploring until nightfall"
+Text.Onboarding.GuideArrow = "➤"
+Text.Onboarding.Icons = { [1] = "Stardust", [2] = "Travel_Home", [3] = "Gold", [4] = "Sky_Moon", [5] = "Stardust" }
 return Text

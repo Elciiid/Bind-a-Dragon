@@ -12,6 +12,7 @@ local Style = require(script.Parent.UI.Style)
 local Icon = require(script.Parent.UI.Icon)
 local Window = require(script.Parent.UI.Window)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 
 local InventoryWindow = {}
 
@@ -35,12 +36,25 @@ export type Tab = {
 }
 
 local window: Window.Window? = nil
-local tabBar: Frame
+local tabBar: ScrollingFrame
 local pages: Frame
 local tabs: { [string]: Tab } = {}
 local current: string? = nil
 
-local TAB_HEIGHT, PHONE_TAB_HEIGHT = 42, 32
+local function layoutTabs()
+	if not window then return end
+	local mobile = UITheme.MobileUI
+	local count = 0
+	for _ in tabs do count += 1 end
+	local available = window.Content.AbsoluteSize.X
+	local width = math.max(mobile.TabMinWidth, math.floor((available - math.max(0, count - 1) * mobile.Gap) / math.max(1, count)))
+	tabBar.Size = UDim2.new(1, 0, 0, mobile.TabHeight + mobile.Scrollbar)
+	pages.Position = UDim2.fromOffset(0, mobile.TabHeight + mobile.Scrollbar + mobile.Gap)
+	pages.Size = UDim2.new(1, 0, 1, -(mobile.TabHeight + mobile.Scrollbar + mobile.Gap))
+	for _, tab in tabs do
+		(tab.Button.Parent :: Frame).Size = UDim2.fromOffset(width, mobile.TabHeight)
+	end
+end
 
 local function updateHud()
 	local total, pulse = 0, false
@@ -104,42 +118,38 @@ local function ensure(): Window.Window
 	end
 	local win = Window.new({
 		Name = "Inventory",
-		Title = "Inventory",
+		Title = Text.Inventory.Title,
 		Icon = "Menu_Inventory",
 		Size = UDim2.new(0.92, 0, 0.8, 0),
 		MaxSize = Vector2.new(740, 580),
 	})
 	window = win
 
-	tabBar = Instance.new("Frame")
+	tabBar = Instance.new("ScrollingFrame")
 	tabBar.Name = "Tabs"
 	tabBar.BackgroundTransparency = 1
+	tabBar.BorderSizePixel = 0
+	tabBar.CanvasSize = UDim2.new()
+	tabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
+	tabBar.ScrollingDirection = Enum.ScrollingDirection.X
+	tabBar.ScrollBarThickness = UITheme.MobileUI.Scrollbar
+	tabBar.ScrollBarImageColor3 = UITheme.Colors.Trim
 	tabBar.Parent = win.Content
 	local list = Instance.new("UIListLayout")
 	list.FillDirection = Enum.FillDirection.Horizontal
-	list.Padding = UDim.new(0, 8)
+	list.Padding = UDim.new(0, UITheme.MobileUI.Gap)
 	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	list.Parent = tabBar
 
 	pages = Instance.new("Frame")
 	pages.Name = "Pages"
 	pages.BackgroundTransparency = 1
+	pages.ClipsDescendants = true
 	pages.Parent = win.Content
 
-	HudLayout.OnLayoutChanged(function(phone)
-		local height = if phone then PHONE_TAB_HEIGHT else TAB_HEIGHT
-		tabBar.Size = UDim2.new(1, 0, 0, height)
-		pages.Position = UDim2.fromOffset(0, height + 8)
-		pages.Size = UDim2.new(1, 0, 1, -(height + 8))
-		for _, tab in tabs do
-			(tab.Button.Parent :: Frame).Size = UDim2.new(0.24, -6, 1, 0)
-			local label = tab.Button:FindFirstChild("Label") :: TextLabel?
-			if label then
-				label.TextSize = if phone then 13 else 17
-			end
-		end
-	end)
+	HudLayout.OnLayoutChanged(layoutTabs)
+	win.Content:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutTabs)
 
 	win:OnOpen(function()
 		if current == nil then
@@ -172,6 +182,7 @@ local function ensure(): Window.Window
 	end)
 
 	local open = HudLayout.AddMenuButton("Inventory")
+	HudLayout.RegisterTutorialTarget("Inventory", open)
 	open.Activated:Connect(function()
 		win:Toggle()
 	end)
@@ -206,6 +217,7 @@ function InventoryWindow.AddTab(id: string): Tab
 	button.Name = "Button"
 	button.Text = ""
 	button.AutoButtonColor = false
+	button.Selectable = true
 	button.BackgroundTransparency = 1
 	button.Size = UDim2.fromScale(1, 1)
 	button.Parent = back
@@ -213,26 +225,31 @@ function InventoryWindow.AddTab(id: string): Tab
 	local icon = Icon.new(button, iconKey)
 	icon.AnchorPoint = Vector2.new(0, 0.5)
 	icon.Position = UDim2.new(0, 6, 0.5, 0)
-	icon.Size = UDim2.fromScale(0.85, 0.85)
+	icon.Size = UDim2.fromOffset(UITheme.MobileUI.ButtonIcon, UITheme.MobileUI.ButtonIcon)
 	icon.ZIndex = 3
 	local ratio = Instance.new("UIAspectRatioConstraint")
 	ratio.Parent = icon
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
 	label.BackgroundTransparency = 1
-	label.Font = UITheme.Fonts.Title
+	label.Font = UITheme.Fonts.Bold
 	label.Text = look.Label
 	label.TextColor3 = colors.IconLabel
-	label.TextSize = 17
-	label.TextScaled = false
-	label.Position = UDim2.new(0.3, 0, 0, 0)
-	label.Size = UDim2.new(0.7, -4, 1, 0)
+	label.TextSize = UITheme.MobileUI.Body
+	label.TextScaled = true
+	label.TextWrapped = true
+	local minimum = Instance.new("UITextSizeConstraint")
+	minimum.MinTextSize = UITheme.MobileUI.Small
+	minimum.MaxTextSize = UITheme.MobileUI.Body
+	minimum.Parent = label
+	label.Position = UDim2.fromOffset(UITheme.MobileUI.ButtonIcon + UITheme.MobileUI.Padding, 0)
+	label.Size = UDim2.new(1, -(UITheme.MobileUI.ButtonIcon + UITheme.MobileUI.Padding + UITheme.MobileUI.Gap), 1, 0)
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.ZIndex = 3
 	label.Parent = button
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = colors.IconLabelStroke
-	stroke.Thickness = 1.5
+	stroke.Thickness = 0.5
 	stroke.Parent = label
 	local badge = Style.Label(button, "", "Heavy", 12)
 	badge.Name = "Badge"
@@ -254,6 +271,7 @@ function InventoryWindow.AddTab(id: string): Tab
 	content.BackgroundTransparency = 1
 	content.Size = UDim2.fromScale(1, 1)
 	content.Visible = false
+	content.ClipsDescendants = true
 	content.Parent = pages
 
 	local tab = {} :: Tab
@@ -302,6 +320,7 @@ function InventoryWindow.AddTab(id: string): Tab
 	button.Activated:Connect(function()
 		select(id)
 	end)
+	layoutTabs()
 	paintTabs()
 	return tab
 end

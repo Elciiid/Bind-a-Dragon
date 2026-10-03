@@ -19,6 +19,7 @@ local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local FeedbackController = {}
 
 local sounds: { [string]: Sound } = {}
+local playTokens: { [string]: number } = {}
 local shakeUntil = 0
 local shakeAngle = 0
 local shakeSeconds = 1
@@ -45,7 +46,11 @@ local function playSound(key: string)
 	end
 	local s = sound :: Sound
 	s.Volume = Feedback.Volume * soundVolume()
-	SoundService:PlayLocalSound(s)
+	s:Stop()
+	s:Play()
+	playTokens[key] = (playTokens[key] or 0) + 1
+	local token, seconds = playTokens[key], Feedback.SoundSeconds[key]
+	if seconds then task.delay(seconds, function() if playTokens[key] == token then s:Stop() end end) end
 	Style.MarkFeedbackSound()
 end
 
@@ -182,6 +187,9 @@ local function compare()
 end
 
 function FeedbackController:Start()
+	Players.LocalPlayer:GetAttributeChangedSignal("SoundVolume"):Connect(function()
+		for _, sound in sounds do sound.Volume = Feedback.Volume * soundVolume() end
+	end)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "FeedbackFlash"
 	gui.IgnoreGuiInset = true

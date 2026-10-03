@@ -1,361 +1,408 @@
 --!strict
--- Reward pop-up (UI renewal part 2): big moments (a new dragon, an evolution, a rebirth, a sanctuary tier, a rare
--- constellation) show a centered card instead of a toast: light rays turning behind it in the reward's color, a title
--- banner ("New dragon!"), a big picture or icon, the name big in the title font, a small tag chip, one big button, and
--- a burst of sparkles. One at a time; the rest wait in a queue. Low effects: no turning rays, fewer sparkles.
--- Sizes in UITheme.Sizes (RewardCard, RewardIcon), motion in UITheme.Motion (RewardSpin, RewardBurst).
---
--- Usage: RewardPopup.Show({ Title = "New dragon!", Name = "Solflare", Tag = "Mythic · Fire", Color = color,
---   Icon = "Rarity_Mythic", Picture = function(parent) ... end, Button = "Awesome!" })
-
+-- Queued, mobile-first reward/result cards. Facts reflow and scroll at physical text sizes rather than shrinking
+-- the entire card. The primary Continue button stays outside the scroll area, including on short phones.
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local TextService = game:GetService("TextService")
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)
-local Banner = require(script.Parent.Banner)
 local Button = require(script.Parent.Button)
 local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
-local Layout = require(ReplicatedStorage.Shared.Config.Layout)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
 
 export type Props = {
-	Title: string, -- the banner
-	Name: string, -- big line
-	Tag: string?, -- small chip under the name
-	Color: Color3?, -- rays / glow / name color
-	Icon: string?, -- UITheme.Icons key (when there's no Picture)
-	Picture: ((parent: Frame) -> ())?, -- draws a picture (e.g. a ViewportFrame of the dragon) into the given frame
-	Button: string?, -- button text (default "Awesome!")
-	Sound: string?, -- UITheme.Sounds key
-	-- Odds layout (a new dragon): a big excitement line, chips instead of the tag, and a tap-for-details breakdown.
-	Line: string?, -- e.g. "Only 1 in 8,400 binds!"
-	LineColor: Color3?,
-	Chips: { { Text: string, Color: Color3 } }?, -- small colored chips (rarity, element, mutation)
-	Details: { Title: string, Rows: { { string } } }?, -- tap the card: rows of { name, value }
-	Hint: string?, -- small text under the chips ("Tap for details")
-	Seconds: number?, -- how long it stays before closing itself (default 8)
+	Title: string, Name: string, Tag: string?, Color: Color3?, Icon: string?,
+	Picture: ((parent: Frame) -> ())?, Button: string?, Sound: string?,
+	Line: string?, LineColor: Color3?, Chips: { { Text: string, Color: Color3 } }?,
+	Details: { Title: string, Rows: { { string } } }?, Hint: string?, Seconds: number?,
+	Stats: { { Label: string, Value: string, Icon: string?, Color: Color3? } }?,
 }
 
-local EXTRA_HEIGHT = 56 -- the card grows by this much when it has a Line / Chips
-
 local RewardPopup = {}
-
--- HudLayout.TopReserved (the travel row), looked up lazily (HudLayout requires the UI kit).
-local function hud(): any
-	return require(script.Parent.Parent.HudLayout)
-end
-
-local function reducedMotion(): boolean
-	return Players.LocalPlayer:GetAttribute("ReducedMotion") == true
-end
-
 local queue: { Props } = {}
 local showing = false
 local gui: ScreenGui? = nil
-
+local function hud(): any
+	return require(script.Parent.Parent.HudLayout)
+end
+local function reduced(): boolean
+	return Players.LocalPlayer:GetAttribute("ReducedMotion") == true or EffectsQuality.IsLow()
+end
 local function screen(): ScreenGui
 	if gui == nil then
-		local newGui = hud().MakeScreenGui("RewardPopup", "Popups")
-		newGui.DisplayOrder = Style.Theme.Layers.Popups + 1 -- above windows (the dim leaves the top bar clear)
-		newGui.ScreenInsets = Enum.ScreenInsets.None
-		newGui.ResetOnSpawn = false
-		newGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		newGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-		gui = newGui
+		local layer = hud().MakeScreenGui("RewardPopup", "Popups")
+		layer.DisplayOrder = Style.Theme.Layers.Notifications + 1
+		layer.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+		layer.ResetOnSpawn = false
+		layer.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		layer.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+		gui = layer
 	end
 	return gui :: ScreenGui
 end
+local function scroll(parent: Instance, name: string): ScrollingFrame
+	local frame = Instance.new("ScrollingFrame")
+	frame.Name = name
+	frame.BackgroundTransparency = 1
+	frame.BorderSizePixel = 0
+	frame.ScrollBarThickness = Style.Theme.MobileUI.Scrollbar
+	frame.ScrollBarImageColor3 = Style.Theme.Colors.TextMuted
+	frame.ScrollingDirection = Enum.ScrollingDirection.Y
+	frame.CanvasSize = UDim2.new()
+	frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	frame.Active, frame.Selectable = true, true
+	frame.ZIndex = 3
+	frame.Parent = parent
+	local list = Instance.new("UIListLayout")
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, Style.Theme.MobileUI.Gap)
+	list.Parent = frame
+	local padding = Instance.new("UIPadding")
+	padding.PaddingRight = UDim.new(0, Style.Theme.MobileUI.Padding)
+	padding.PaddingBottom = UDim.new(0, Style.Theme.MobileUI.Padding)
+	padding.Parent = frame
+	return frame
+end
+local function textHeight(label: TextLabel, width: number, minimum: number): number
+	local measureHeight = math.max(Style.Theme.RewardPresentation.PreferredHeight, #label.Text * (label.TextSize + Style.Theme.MobileUI.Gap))
+	return math.max(minimum, math.ceil(TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(math.max(1, width), measureHeight)).Y))
+end
 
--- Builds the card (rays + panel + contents) centered in `parent`; returns the root, its UIScale and the button.
+-- Retains the existing Build API for callers; UIScale is fixed at one. The root's Size drives responsive reflow.
 function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, Button.Button)
-	local theme = Style.Theme
-	local sizes = theme.Sizes
+	local theme, mobile, appearance = Style.Theme, Style.Theme.MobileUI, Style.Theme.RewardPresentation
 	local color = props.Color or theme.Colors.Gold
-	local card = sizes.RewardCard
-	if props.Line or props.Chips then
-		card = Vector2.new(card.X, card.Y + EXTRA_HEIGHT)
-	end
-
 	local root = Instance.new("Frame")
 	root.Name = "Reward"
 	root.AnchorPoint = Vector2.new(0.5, 0.5)
 	root.Position = UDim2.fromScale(0.5, 0.5)
-	root.Size = UDim2.fromOffset(card.X, card.Y)
+	root.Size = UDim2.fromOffset(appearance.MaxWidth, appearance.PreferredHeight)
 	root.BackgroundTransparency = 1
 	root.Parent = parent
 	local scale = Instance.new("UIScale")
+	scale.Scale = 1
 	scale.Parent = root
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.Parent = root
+	Style.PanelLook(panel, theme.SmallCorner)
+	local heading = Style.Label(panel, props.Title, "Title", mobile.Title, color)
+	heading.Name = "Title"
+	heading.TextXAlignment = Enum.TextXAlignment.Left
+	heading.Position = UDim2.fromOffset(mobile.Padding, mobile.Padding)
+	heading.Size = UDim2.new(1, -mobile.Padding * 2, 0, mobile.Touch)
+	heading.ZIndex = 3
 
+	local body = Instance.new("Frame")
+	body.Name = "Body"
+	body.BackgroundTransparency = 1
+	body.ZIndex = 3
+	body.Parent = panel
+	local facts = scroll(body, "Facts")
+	local picture = Instance.new("Frame")
+	picture.Name = "Picture"
+	picture.BackgroundTransparency = 1
+	picture.LayoutOrder = 1
+	picture.ZIndex = 3
+	picture.Parent = body
 	local rays = Instance.new("ImageLabel")
 	rays.Name = "Rays"
 	rays.BackgroundTransparency = 1
 	rays.Image = theme.Art.Rays
-	rays.ImageColor3 = Style.Shade(color, 0.65) -- light, so the rays read on any background
-	rays.ImageTransparency = 0
-	rays.AnchorPoint = Vector2.new(0.5, 0.5)
-	rays.Position = UDim2.fromScale(0.5, 0.32)
-	rays.Size = UDim2.fromOffset(card.X * 2, card.X * 2)
-	rays.ZIndex = -5
-	rays.Parent = root
-	if not EffectsQuality.IsLow() and not reducedMotion() then
-		TweenService:Create(rays, TweenInfo.new(theme.Motion.RewardSpin, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 }):Play()
+	rays.ImageColor3 = color
+	rays.ImageTransparency = appearance.RaysTransparency
+	rays.Size = UDim2.fromScale(1, 1)
+	rays.ZIndex = 1
+	rays.Parent = picture
+	local turn: Tween? = nil
+	if not reduced() then
+		turn = TweenService:Create(rays, TweenInfo.new(theme.Motion.RewardSpin, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), { Rotation = 360 })
+		turn:Play()
+	end
+	local motionWatch = RunService.Heartbeat:Connect(function()
+		if turn and reduced() then turn:Cancel(); turn = nil end
+	end)
+	root.Destroying:Connect(function()
+		motionWatch:Disconnect()
+		if turn then turn:Cancel() end
+	end)
+	local pictureContent = Instance.new("Frame")
+	pictureContent.Name = "Art"
+	pictureContent.BackgroundTransparency = 1
+	pictureContent.Size = UDim2.fromScale(1, 1)
+	pictureContent.ZIndex = 3
+	pictureContent.Parent = picture
+	local pictureOk = false
+	if props.Picture then pictureOk = pcall(props.Picture, pictureContent) end
+	if not pictureOk then
+		for _, child in pictureContent:GetChildren() do child:Destroy() end
+		-- Missing/unavailable art never prevents a complete text result or an accessible Continue action.
+		local fallback = Icon.new(pictureContent, props.Icon or "Menu_Dragons", color)
+		fallback.Size = UDim2.fromScale(1, 1)
+		fallback.ZIndex = 4
 	end
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.Size = UDim2.fromScale(1, 1)
-	Style.PanelLook(panel, 8)
-	panel.Parent = root
-	local banner = Banner.new(panel, { Text = props.Title })
-	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
-	banner.Holder.Position = UDim2.fromScale(0.5, 0)
-
-	local pictureFrame = Instance.new("Frame")
-	pictureFrame.Name = "Picture"
-	pictureFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	pictureFrame.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon * 0.5 + 26)
-	pictureFrame.Size = UDim2.fromOffset(sizes.RewardIcon, sizes.RewardIcon)
-	pictureFrame.BackgroundTransparency = 1
-	pictureFrame.ZIndex = 3
-	pictureFrame.Parent = panel
-	local halo = Style.Glow(pictureFrame, color, 26, 0.35, 2)
-	halo.Size = UDim2.fromScale(0.7, 0.7) -- a soft disc behind the picture (the picture draws above it)
-	if props.Picture then
-		props.Picture(pictureFrame)
-	elseif props.Icon then
-		local image = Icon.new(pictureFrame, props.Icon, color)
-		image.Size = UDim2.fromScale(1, 1)
-		image.ZIndex = 3
-	end
-
-	local name = Style.Label(panel, props.Name, "Title", 36, Style.Shade(color, 0.35))
+	local name = Style.Label(facts, props.Name, "Title", appearance.NameText, theme.Colors.Text)
 	name.Name = "Name"
-	name.AnchorPoint = Vector2.new(0.5, 0)
-	name.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 30)
-	name.Size = UDim2.new(1, -40, 0, 42)
-	name.TextScaled = true
+	name.LayoutOrder = 2
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.TextYAlignment = Enum.TextYAlignment.Top
+	name.Size = UDim2.new(1, 0, 0, mobile.Touch)
 	name.ZIndex = 3
-	Style.Outline(name, 2.5)
-
+	local line: TextLabel? = nil
 	if props.Line then
-		local line = Style.Label(panel, props.Line, "Title", 24, props.LineColor or theme.Colors.Gold)
-		line.Name = "OddsLine"
-		line.AnchorPoint = Vector2.new(0.5, 0)
-		line.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 76)
-		line.Size = UDim2.new(1, -30, 0, 30)
-		line.TextScaled = true
-		line.ZIndex = 3
-		Style.Outline(line, 2)
+		local odds = Style.Label(facts, props.Line, "Heavy", appearance.OddsText, props.LineColor or color)
+		odds.Name = "OddsLine"
+		odds.LayoutOrder = 3
+		odds.TextXAlignment = Enum.TextXAlignment.Left
+		odds.Size = UDim2.new(1, 0, 0, appearance.OddsHeight)
+		odds.ZIndex = 3
+		line = odds
 	end
-	if props.Chips and #props.Chips > 0 then
+	local chips = Instance.new("Frame")
+	chips.Name = "Chips"
+	chips.BackgroundTransparency = 1
+	chips.LayoutOrder = 4
+	chips.ZIndex = 3
+	chips.Visible = props.Chips ~= nil or (props.Tag ~= nil and props.Tag ~= "")
+	chips.Parent = facts
+	local chipLabels: { TextLabel } = {}
+	local entries = props.Chips or (if props.Tag then { { Text = props.Tag, Color = color } } else {})
+	for _, chip in entries do
+		local label = Style.Label(chips, chip.Text, "Bold", mobile.Small, theme.Colors.Text)
+		label.BackgroundTransparency = 0
+		label.BackgroundColor3 = Style.Shade(chip.Color, -0.72)
+		label.ZIndex = 3
+		Style.Corner(label, theme.SmallCorner)
+		Style.Stroke(label, chip.Color, mobile.CardBorder)
+		table.insert(chipLabels, label)
+	end
+	local statRows: { { Frame: Frame, Label: TextLabel, Value: TextLabel, IconWidth: number } } = {}
+	for index, stat in props.Stats or {} do
 		local row = Instance.new("Frame")
-		row.Name = "Chips"
-		row.AnchorPoint = Vector2.new(0.5, 0)
-		row.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 112)
-		row.Size = UDim2.new(1, -20, 0, 26)
-		row.BackgroundTransparency = 1
+		row.Name = "Stat" .. tostring(index)
+		row.BackgroundColor3 = theme.Colors.GlassBottom
+		row.BackgroundTransparency = 0.1
+		row.Size = UDim2.new(1, 0, 0, appearance.StatHeight)
+		row.LayoutOrder = 4 + index
 		row.ZIndex = 3
-		row.Parent = panel
-		local list = Instance.new("UIListLayout")
-		list.FillDirection = Enum.FillDirection.Horizontal
-		list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		list.Padding = UDim.new(0, 6)
-		list.Parent = row
-		for _, chip in props.Chips do
-			local label = Style.Label(row, chip.Text, "Title", 15, theme.Colors.Text)
-			label.Size = UDim2.fromOffset(0, 24)
-			label.AutomaticSize = Enum.AutomaticSize.X
-			label.TextWrapped = false
-			label.BackgroundTransparency = 0.1
-			label.BackgroundColor3 = Style.Shade(chip.Color, -0.5)
-			label.ZIndex = 3
-			Style.Round(label)
-			Style.Pad(label, 10, 0)
-			local stroke = Instance.new("UIStroke")
-			stroke.Color = chip.Color
-			stroke.Thickness = 1.5
-			stroke.Parent = label
-			Style.Outline(label, 1.2)
+		row.Parent = facts
+		Style.Corner(row, theme.SmallCorner)
+		local iconWidth = if stat.Icon then mobile.ButtonIcon + mobile.Gap else 0
+		if stat.Icon then
+			local icon = Icon.new(row, stat.Icon, stat.Color or color)
+			icon.Position = UDim2.fromOffset(mobile.Padding, (appearance.StatHeight - mobile.ButtonIcon) / 2)
+			icon.Size = UDim2.fromOffset(mobile.ButtonIcon, mobile.ButtonIcon)
+			icon.ZIndex = 3
 		end
-	end
-	if props.Hint then
-		local hint = Style.Label(panel, props.Hint, "Bold", 14, theme.Colors.TextMuted)
-		hint.Name = "Hint"
-		hint.AnchorPoint = Vector2.new(0.5, 0)
-		hint.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 144)
-		hint.Size = UDim2.new(1, -20, 0, 18)
-		hint.ZIndex = 3
-	end
-	if props.Tag and props.Tag ~= "" and not props.Line then
-		local tag = Style.Label(panel, props.Tag, "Title", 17, theme.Colors.Text)
-		tag.Name = "Tag"
-		tag.AnchorPoint = Vector2.new(0.5, 0)
-		tag.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 76)
-		tag.Size = UDim2.fromOffset(0, 26)
-		tag.AutomaticSize = Enum.AutomaticSize.X
-		tag.TextWrapped = false
-		tag.BackgroundTransparency = 0.1
-		tag.BackgroundColor3 = Style.Shade(color, -0.55)
-		tag.ZIndex = 3
-		Style.Round(tag)
-		Style.Pad(tag, 14, 0)
-		Style.GoldBorder(tag, 2)
-		Style.Outline(tag, 1.5)
+		local label = Style.Label(row, stat.Label, "Body", mobile.Small, theme.Colors.TextMuted)
+		label.Position = UDim2.fromOffset(mobile.Padding + iconWidth, 0)
+		label.Size = UDim2.new(0.55, -mobile.Padding - iconWidth, 1, 0)
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.ZIndex = 3
+		local value = Style.Label(row, stat.Value, "Heavy", mobile.Title, stat.Color or theme.Colors.Text)
+		value.AnchorPoint = Vector2.new(1, 0)
+		value.Position = UDim2.new(1, -mobile.Padding, 0, 0)
+		value.Size = UDim2.new(0.45, -mobile.Padding, 1, 0)
+		value.TextXAlignment = Enum.TextXAlignment.Right
+		value.ZIndex = 3
+		table.insert(statRows, { Frame = row, Label = label, Value = value, IconWidth = iconWidth })
 	end
 
-	local button = Button.new(panel, { Text = props.Button or "Awesome!", Kind = "Confirm", TextSize = 24, Sound = "Confirm" })
-	button.Instance.AnchorPoint = Vector2.new(0.5, 1)
-	button.Instance.Position = UDim2.new(0.5, 0, 1, -16)
-	button.Instance.Size = UDim2.fromOffset(200, 54)
+	local footer = Instance.new("Frame")
+	footer.Name = "Actions"
+	footer.BackgroundTransparency = 1
+	footer.ZIndex = 3
+	footer.Parent = panel
+	local button = Button.new(footer, { Text = props.Button or Text.Reveal.Continue, Kind = "Confirm", TextSize = mobile.Body, Sound = "Confirm" })
 	button.Instance.ZIndex = 3
-
-	-- tap anywhere on the card (except the button) to flip between the card and the odds breakdown
+	local details: ScrollingFrame? = nil
+	local toggle: Button.Button? = nil
+	local detailRows: { { Frame: Frame, Label: TextLabel, Value: TextLabel } } = {}
 	if props.Details then
-		local details = Instance.new("Frame")
-		details.Name = "Details"
-		details.Position = UDim2.fromOffset(12, 30)
-		details.Size = UDim2.new(1, -24, 1, -110)
-		details.BackgroundColor3 = theme.Colors.GlassBottom
-		details.BackgroundTransparency = 0
-		details.Visible = false
-		details.ZIndex = 6
-		local detailsCorner = Instance.new("UICorner")
-		detailsCorner.CornerRadius = UDim.new(0, 14)
-		detailsCorner.Parent = details
-		Style.GoldBorder(details, 2)
-		details.Parent = panel
-		local heading = Style.Label(details, props.Details.Title, "Title", 22, color)
-		heading.Position = UDim2.fromOffset(8, 6)
-		heading.Size = UDim2.new(1, -16, 0, 30)
-		heading.ZIndex = 7
-		Style.Outline(heading, 1.5)
-		local rows = Instance.new("ScrollingFrame")
-		rows.BackgroundTransparency = 1
-		rows.BorderSizePixel = 0
-		rows.ScrollBarThickness = 4
-		rows.CanvasSize = UDim2.new()
-		rows.AutomaticCanvasSize = Enum.AutomaticSize.Y
-		rows.Position = UDim2.fromOffset(12, 42)
-		rows.Size = UDim2.new(1, -24, 1, -48)
-		rows.ZIndex = 7
-		rows.Parent = details
-		local list = Instance.new("UIListLayout")
-		list.Padding = UDim.new(0, 4)
-		list.Parent = rows
-		for _, pair in props.Details.Rows do
+		local rows = scroll(body, "Details")
+		rows.Visible = false
+		rows.Size = UDim2.fromScale(1, 1)
+		rows.ZIndex = 4
+		details = rows
+		local detailTitle = Style.Label(rows, props.Details.Title, "Title", mobile.Title, color)
+		detailTitle.Size = UDim2.new(1, 0, 0, mobile.Touch)
+		detailTitle.ZIndex = 4
+		for index, pair in props.Details.Rows do
 			local row = Instance.new("Frame")
 			row.BackgroundTransparency = 1
-			row.Size = UDim2.new(1, 0, 0, 26)
-			row.ZIndex = 7
+			row.Size = UDim2.new(1, 0, 0, appearance.StatHeight)
+			row.LayoutOrder = index
+			row.ZIndex = 4
 			row.Parent = rows
-			local left = Style.Label(row, pair[1], "Bold", 16, theme.Colors.TextMuted)
-			left.Size = UDim2.new(0.55, 0, 1, 0)
+			local left = Style.Label(row, pair[1], "Body", mobile.Body, theme.Colors.TextMuted)
+			left.Size = UDim2.new(0.5, -mobile.Gap / 2, 1, 0)
 			left.TextXAlignment = Enum.TextXAlignment.Left
-			left.TextWrapped = true
-			left.ZIndex = 7
-			local right = Style.Label(row, pair[2], "Title", 18, theme.Colors.Text)
+			left.ZIndex = 4
+			local right = Style.Label(row, pair[2], "Bold", mobile.Body, theme.Colors.Text)
 			right.AnchorPoint = Vector2.new(1, 0)
 			right.Position = UDim2.fromScale(1, 0)
-			right.Size = UDim2.new(0.45, 0, 1, 0)
+			right.Size = UDim2.new(0.5, -mobile.Gap / 2, 1, 0)
 			right.TextXAlignment = Enum.TextXAlignment.Right
-			right.TextWrapped = true
-			right.ZIndex = 7
-			Style.Outline(right, 1.2)
-			local width = card.X - 48
-			local leftHeight = TextService:GetTextSize(pair[1], left.TextSize, left.Font, Vector2.new(width * 0.55 - 8, 10000)).Y
-			local rightHeight = TextService:GetTextSize(pair[2], right.TextSize, right.Font, Vector2.new(width * 0.45 - 8, 10000)).Y
-			row.Size = UDim2.new(1, -8, 0, math.max(26, math.ceil(math.max(leftHeight, rightHeight)) + 4))
+			right.ZIndex = 4
+			table.insert(detailRows, { Frame = row, Label = left, Value = right })
 		end
-		panel.Active = true
-		panel.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				details.Visible = not details.Visible
-			end
+		toggle = Button.new(footer, { Text = Text.Reveal.Details, Kind = "Neutral", TextSize = mobile.Body })
+		toggle.Instance.ZIndex = 3
+		button.Instance.NextSelectionLeft = toggle.Instance
+		toggle.Instance.NextSelectionRight = button.Instance
+		toggle.Instance.Activated:Connect(function()
+			rows.Visible = not rows.Visible
+			facts.Visible, picture.Visible = not rows.Visible, not rows.Visible
+			root:SetAttribute("ReadingDetails", rows.Visible)
+			root:SetAttribute("Interacted", true)
+			local detailButton = toggle :: Button.Button
+			detailButton:SetText(if rows.Visible then Text.Reveal.HideDetails else Text.Reveal.Details)
 		end)
 	end
+	local function interacted(input: InputObject)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.MouseWheel or input.UserInputType == Enum.UserInputType.Gamepad1 then root:SetAttribute("Interacted", true) end
+	end
+	facts.InputBegan:Connect(interacted)
+	if details then details.InputBegan:Connect(interacted) end
+	facts:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		if facts.CanvasPosition.Y > 0 then root:SetAttribute("Interacted", true) end
+	end)
+
+	local function reflow()
+		local width, height = root.AbsoluteSize.X, root.AbsoluteSize.Y
+		if width <= 0 or height <= 0 then return end
+		local contentWidth = width - mobile.Padding * 2
+		local bodyTop = mobile.Padding + mobile.Touch + mobile.Gap
+		-- Even a very short viewport must not let the scrolling body overlap the fixed action row.
+		local bodyHeight = math.max(1, height - bodyTop - mobile.Touch - mobile.Padding * 2 - mobile.Gap)
+		body.Position = UDim2.fromOffset(mobile.Padding, bodyTop)
+		body.Size = UDim2.fromOffset(contentWidth, bodyHeight)
+		footer.Position = UDim2.fromOffset(mobile.Padding, height - mobile.Padding - mobile.Touch)
+		footer.Size = UDim2.fromOffset(contentWidth, mobile.Touch)
+		local split = width >= appearance.SplitWidth
+		local side = math.clamp(if split then contentWidth * appearance.PictureFraction else bodyHeight * appearance.PictureFraction, appearance.PictureMin, appearance.PictureMax)
+		side = math.min(side, bodyHeight)
+		picture.Parent = if split then body else facts
+		picture.AnchorPoint = Vector2.zero
+		picture.Position = if split then UDim2.fromOffset(0, (bodyHeight - side) / 2) else UDim2.new()
+		picture.Size = UDim2.fromOffset(side, side)
+		facts.Position = if split then UDim2.fromOffset(side + mobile.Gap, 0) else UDim2.new()
+		facts.Size = if split then UDim2.new(1, -side - mobile.Gap, 1, 0) else UDim2.fromScale(1, 1)
+		local textWidth = math.max(1, contentWidth - (if split then side + mobile.Gap else 0) - mobile.Padding)
+		name.Size = UDim2.new(1, 0, 0, textHeight(name, textWidth, mobile.Touch))
+		if line then line.Size = UDim2.new(1, 0, 0, textHeight(line, textWidth, appearance.OddsHeight)) end
+		local x, y, rowHeight = 0, 0, appearance.ChipHeight
+		for _, label in chipLabels do
+			local natural = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(textWidth, appearance.PreferredHeight)).X + mobile.Padding * 2
+			local chipWidth = math.min(textWidth, natural)
+			if x > 0 and x + chipWidth > textWidth then x, y = 0, y + rowHeight + mobile.Gap; rowHeight = appearance.ChipHeight end
+			local chipHeight = textHeight(label, math.max(1, chipWidth - mobile.Padding), appearance.ChipHeight)
+			label.Position = UDim2.fromOffset(x, y)
+			label.Size = UDim2.fromOffset(chipWidth, chipHeight)
+			x += chipWidth + mobile.Gap
+			rowHeight = math.max(rowHeight, chipHeight)
+		end
+		chips.Size = UDim2.new(1, 0, 0, if #chipLabels > 0 then y + rowHeight else 0)
+		for _, row in statRows do
+			-- Measure each actual column after icon/padding deductions. A generic fraction can underestimate
+			-- wrapped label height on portrait phones or with localized-length text.
+			local labelWidth = math.max(1, textWidth * 0.55 - mobile.Padding - row.IconWidth)
+			local valueWidth = math.max(1, textWidth * 0.45 - mobile.Padding)
+			row.Frame.Size = UDim2.new(1, 0, 0, math.max(appearance.StatHeight, textHeight(row.Label, labelWidth, appearance.StatHeight), textHeight(row.Value, valueWidth, appearance.StatHeight)))
+		end
+		for _, row in detailRows do
+			local half = math.max(1, (contentWidth - mobile.Padding - mobile.Gap) / 2)
+			row.Frame.Size = UDim2.new(1, 0, 0, math.max(appearance.StatHeight, textHeight(row.Label, half, appearance.StatHeight), textHeight(row.Value, half, appearance.StatHeight)))
+		end
+		button.Instance.Position = if toggle then UDim2.new(0.5, mobile.Gap / 2, 0, 0) else UDim2.new()
+		button.Instance.Size = if toggle then UDim2.new(0.5, -mobile.Gap / 2, 1, 0) else UDim2.fromScale(1, 1)
+		if toggle then toggle.Instance.Size = UDim2.new(0.5, -mobile.Gap / 2, 1, 0) end
+	end
+	root:GetPropertyChangedSignal("AbsoluteSize"):Connect(reflow)
+	reflow()
 	return root, scale, button
 end
 
 local function showNext()
 	local props = table.remove(queue, 1)
-	if props == nil then
+	if not props then
 		showing = false
+		Players.LocalPlayer:SetAttribute("RewardPopupOpen", false)
 		return
 	end
 	showing = true
-	local layer = screen()
-	local theme = Style.Theme
-
+	Players.LocalPlayer:SetAttribute("RewardPopupOpen", true)
+	local layer, theme = screen(), Style.Theme
 	local dim = Instance.new("Frame")
 	dim.Name = "Dim"
-	-- The popup envelope is centered in the device's usable rectangle.
-	dim.BackgroundColor3 = theme.Colors.TextStroke
-	dim.BackgroundTransparency = 1
+	dim.Size = UDim2.fromScale(1, 1)
 	dim.BorderSizePixel = 0
-	dim.Active = true -- sinks the pointer, so tooltips of the windows underneath don't show over the pop-up
+	dim.BackgroundColor3 = theme.Colors.GlassBottom
+	dim.BackgroundTransparency = theme.RewardPresentation.DimTransparency
+	dim.Active = true
 	dim.Parent = layer
-	dim.ClipsDescendants = true -- the turning rays stay below the top bar too
-	local root, scale, button = RewardPopup.Build(dim, props)
+	local ok, builtRoot, _, builtButton = pcall(RewardPopup.Build, dim, props)
+	if not ok then
+		warn("[RewardPopup] Card fallback: " .. tostring(builtRoot))
+		dim:Destroy()
+		showNext()
+		return
+	end
+	local root, button = builtRoot :: Frame, builtButton :: Button.Button
 	local closed = false
-	local fit = 1
+	local previousSelection = GuiService.SelectedObject
+	local elapsed = 0
 	local function relayout()
-		if closed or not dim.Parent then return end
+		if closed or not root.Parent then return end
+		-- Core-safe parent and core-relative usable rectangle; do not add the Roblox top-bar inset twice.
 		local safe = hud().GetUsableRect()
-		dim.Position = UDim2.fromOffset(safe.Min.X, safe.Min.Y)
-		dim.Size = UDim2.fromOffset(safe.Width, safe.Height)
-		local overhang = theme.Sizes.Banner / 2 + theme.Sizes.BannerStar * 0.62
-		local cardHeight = theme.Sizes.RewardCard.Y + (if props.Line or props.Chips then EXTRA_HEIGHT else 0)
-		fit = math.max(0.1, math.min(1, (safe.Width - Layout.SafeMargin * 2) / theme.Sizes.RewardCard.X, (safe.Height - Layout.SafeMargin * 2) / (cardHeight + overhang)))
-		root.Position = UDim2.fromOffset(safe.Width / 2, (safe.Height + overhang * fit) / 2)
-		scale.Scale = fit
+		local gap = theme.MobileUI.Padding
+		root.Size = UDim2.fromOffset(math.min(theme.RewardPresentation.MaxWidth, math.max(1, safe.Width - gap * 2)), math.min(theme.RewardPresentation.PreferredHeight, math.max(theme.MobileUI.Touch * 3, safe.Height - gap * 2)))
+		root.Position = UDim2.fromOffset(safe.Width / 2, safe.Height / 2)
 	end
 	relayout()
 	local disconnectLayout = hud().OnLayoutChanged(relayout)
-	scale.Scale = if reducedMotion() then fit else 0.2 * fit
-	TweenService:Create(dim, TweenInfo.new(0.25), { BackgroundTransparency = 0.45 }):Play()
-	if not reducedMotion() then
-		TweenService:Create(scale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = fit }):Play()
-	end
-	Style.Play(props.Sound or "Confirm")
-	task.delay(0.12, function()
-		if closed or not root.Parent or reducedMotion() then return end
-		local size = root.AbsoluteSize / math.max(scale.Scale, 0.01)
-		Style.SparkleBurst(root, Vector2.new(size.X / 2, theme.Sizes.RewardIcon * 0.5 + 18), theme.Motion.RewardBurst, 160)
-	end)
-
+	local timer: RBXScriptConnection? = nil
+	local backConnection: RBXScriptConnection? = nil
 	local function close()
-		if closed then
-			return
-		end
+		if closed then return end
 		closed = true
 		disconnectLayout()
-		if reducedMotion() then
-			root:Destroy()
-			dim:Destroy()
-			showNext()
-			return
-		end
-		TweenService:Create(dim, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
-		local out = TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.3 * fit })
-		out.Completed:Connect(function()
-			root:Destroy()
-			dim:Destroy()
-			showNext()
-		end)
-		out:Play()
+		if timer then timer:Disconnect() end
+		if backConnection then backConnection:Disconnect() end
+		local restoreSelection = GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(root)
+		if restoreSelection then GuiService.SelectedObject = nil end
+		dim:Destroy()
+		showNext()
+		if restoreSelection and not showing and previousSelection and hud().GetVisibleRect(previousSelection) then GuiService.SelectedObject = previousSelection end
 	end
 	button.Instance.Activated:Connect(close)
-	task.delay(props.Seconds or 8, close) -- goes away by itself too
+	if UserInputService:GetLastInputType().Name:find("Gamepad") then GuiService.SelectedObject = button.Instance end
+	backConnection = UserInputService.InputBegan:Connect(function(input, processed)
+		if layer.Enabled and (input.KeyCode == Enum.KeyCode.ButtonB or (input.KeyCode == Enum.KeyCode.Escape and not processed)) then close() end
+	end)
+	timer = RunService.Heartbeat:Connect(function(dt)
+		if not dim.Parent then close(); return end
+		-- Never close while the player is reading details, scrolling, or the spoiler gate masks this layer.
+		if layer.Enabled and root:GetAttribute("ReadingDetails") ~= true and root:GetAttribute("Interacted") ~= true then
+			elapsed += dt
+			if elapsed >= (props.Seconds or theme.RewardPresentation.DefaultSeconds) then close() end
+		end
+	end)
+	Style.Play(props.Sound or "Confirm")
 end
 
--- Queues a reward pop-up (one shows at a time).
 function RewardPopup.Show(props: Props)
 	table.insert(queue, props)
-	if not showing then
-		showNext()
-	end
+	if not showing then showNext() end
 end
 
 return RewardPopup

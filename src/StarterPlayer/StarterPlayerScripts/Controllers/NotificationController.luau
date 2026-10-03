@@ -94,6 +94,7 @@ local function show(entry: Entry)
 end
 
 pump = function()
+	if RevealGate.IsActive() or Players.LocalPlayer:GetAttribute("RewardPopupOpen") == true then return end
 	while #visible < UITheme.Toasts.MaxVisible and #waiting > 0 do
 		show(table.remove(waiting, 1) :: Entry)
 	end
@@ -187,7 +188,7 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			-- kid-friendly odds: an excitement banner, "Only 1 in N binds!", rarity / element / mutation chips, tap for details
 			local n = payload.EffectiveOneIn :: number
 			excitement = OddsText.Tag(n)
-			line, lineColor = OddsText.Line(n), OddsText.Color(n)
+			line, lineColor = OddsText.OneInExact(n), OddsText.Color(n)
 			chips = {
 				{ Text = species.Rarity, Color = rarityColor(species.Rarity) },
 				{ Text = species.Element, Color = (Elements[species.Element] or Elements.Fire).Color },
@@ -196,9 +197,13 @@ function NotificationController:Moment(payload: any, fallback: string?)
 				table.insert(chips, { Text = mutation.Name, Color = mutation.Color })
 			end
 			if payload.Auto then
-				table.insert(chips, { Text = "Auto-bind", Color = UITheme.Colors.TextMuted })
+				table.insert(chips, { Text = Text.Reveal.Auto, Color = UITheme.Colors.TextMuted })
 			end
 			local rows = { { odds.RowSpecies, OddsText.OneInExact(payload.SpeciesOneIn or n) } }
+			if payload.TutorialFirstBind then
+				table.insert(chips, { Text = Text.Onboarding.Pool, Color = UITheme.Colors.Gold })
+				table.insert(rows, { Text.Onboarding.PoolRow, Text.Onboarding.Pool })
+			end
 			if mutation.Id ~= Mutations.NormalId then
 				table.insert(rows, { odds.RowMutation, OddsText.OneInExact(payload.MutationOneIn or 1) })
 			end
@@ -209,6 +214,12 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			end
 			if type(payload.Luck) == "number" then
 				table.insert(rows, { odds.RowLuck, Format.Multiplier(payload.Luck) })
+			end
+			if mutation.Id ~= Mutations.NormalId then
+				local gold = payload.BaseGoldPerSecond or species.BaseGoldPerSecond
+				local power = payload.BasePower or species.BasePower
+				table.insert(rows, { Text.Reveal.VariantIncome, Format.Number(gold * (payload.MutationIncomeMultiplier or mutation.IncomeMultiplier)) .. "/s" })
+				table.insert(rows, { Text.Reveal.VariantPower, Format.Number(power * (payload.MutationPowerMultiplier or mutation.PowerMultiplier)) })
 			end
 			details = { Title = odds.DetailsTitle, Rows = rows }
 			hint = odds.Details
@@ -224,12 +235,16 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			Chips = chips,
 			Details = details,
 			Hint = hint,
+			Stats = if moment == "NewDragon" then {
+				{ Label = Text.Reveal.BaseIncome, Value = Format.Number(payload.BaseGoldPerSecond or species.BaseGoldPerSecond) .. "/s", Icon = "Gold" },
+				{ Label = Text.Reveal.BasePower, Value = Format.Number(payload.BasePower or species.BasePower), Icon = "VS" },
+			} else nil,
 			Seconds = if details then OddsConfig.PopupDetailSeconds else nil,
 			Color = if mutation.Id ~= Mutations.NormalId then mutation.Color else rarityColor(species.Rarity),
 			Picture = function(frame)
 				DragonPicture.new(frame, payload.SpeciesId, payload.Level)
 			end,
-			Button = words.Button,
+			Button = if moment == "NewDragon" then Text.Reveal.Continue else words.Button,
 		})
 	elseif moment == "Milestone" then
 		RewardPopup.Show({
@@ -286,7 +301,6 @@ end
 
 function NotificationController:Init()
 	local gui = HudLayout.MakeScreenGui("Notifications", "Notifications")
-	gui.ScreenInsets = Enum.ScreenInsets.None -- measured from the very top, like the top bar
 	local container = Instance.new("Frame")
 	container.Name = "Toasts"
 	container.AnchorPoint = Vector2.new(0.5, 0)
@@ -304,9 +318,16 @@ function NotificationController:Init()
 	Toast.SetContainer(container)
 	HudLayout.OnLayoutChanged(function(isPhone)
 		Toast.SetPhone(isPhone)
+		container.Size = UDim2.fromOffset(math.min(UITheme.MobileUI.ToastWidth, HudLayout.GetUsableRect().Width - UITheme.MobileUI.Padding * 2), 0)
+		container.AutomaticSize = Enum.AutomaticSize.Y
 		-- top-center, under the travel row
 		container.Position = UDim2.new(0.5, 0, 0, HudLayout.TopReserved() + UITheme.Toasts.Gap)
 	end)
+	Players.LocalPlayer:GetAttributeChangedSignal("RewardPopupOpen"):Connect(function()
+		container.Visible = Players.LocalPlayer:GetAttribute("RewardPopupOpen") ~= true
+		pump()
+	end)
+	Players.LocalPlayer:GetAttributeChangedSignal("BindRevealActive"):Connect(function() if not RevealGate.IsActive() then pump() end end)
 end
 
 function NotificationController:Start()

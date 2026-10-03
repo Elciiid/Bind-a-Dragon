@@ -33,6 +33,7 @@ local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local MonetizationService = require(script.Parent.MonetizationService)
 local QuestService = require(script.Parent.QuestService)
+local LeaderboardStats = require(ReplicatedStorage.Shared.LeaderboardStats)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
 local RoostZones = require(ReplicatedStorage.Shared.RoostZones)
@@ -213,6 +214,7 @@ local function payOffline(player: Player, data: PlayerData)
 		DragonStats.GetRoostIncome(data) * seconds * RoostConfig.OfflineIncomeMultiplier * getAfkMultiplier(player)
 	)
 	if earned > 0 then
+		LeaderboardStats.RecordGold(data, earned)
 		data.Gold += earned
 		clampAtRebirthCap(player, data)
 		notify:FireClient(player, `While you were away, your dragons earned {Format.Number(earned)} gold!`, "success")
@@ -673,6 +675,7 @@ function RoostService:Start()
 			local earned = (unpaid[player] or 0)
 				+ DragonStats.GetRoostIncome(data) * seconds * rate * getBoostMultiplier(player)
 			local whole = math.floor(earned)
+			LeaderboardStats.RecordGold(data, whole)
 			data.Gold += whole
 			unpaid[player] = earned - whole
 			QuestService:Progress(player, "Gold", whole) -- in-game income only (offline pay doesn't count)

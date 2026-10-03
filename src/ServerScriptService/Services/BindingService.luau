@@ -22,6 +22,8 @@ local IndexService = require(script.Parent.IndexService)
 local MonetizationService = require(script.Parent.MonetizationService)
 local QuestService = require(script.Parent.QuestService)
 local SellService = require(script.Parent.SellService)
+local OnboardingService = require(script.Parent.OnboardingService)
+local OnboardingConfig = require(ReplicatedStorage.Shared.Config.Onboarding)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Areas = require(ReplicatedStorage.Shared.Config.Areas)
@@ -32,6 +34,7 @@ local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Products = require(ReplicatedStorage.Shared.Config.Products)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local BindingOdds = require(ReplicatedStorage.Shared.BindingOdds)
+local LeaderboardStats = require(ReplicatedStorage.Shared.LeaderboardStats)
 local RebirthMilestones = require(ReplicatedStorage.Shared.RebirthMilestones)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -77,11 +80,12 @@ local function checkAltarUse(player: Player, altar: Instance, part: BasePart, al
 	end
 
 	local state = Cycle.GetState()
-	if not state.IsNight then
+	local tutorial = allowSigil and OnboardingService:CanFirstBind(data, getAreaId(altar))
+	if not state.IsNight and not tutorial then
 		notify:FireClient(player, "The stars only answer at night.", "error")
 		return nil, nil
 	end
-	if data.LastBindNight == state.NightIndex and (not allowSigil or data.EchoSigils <= 0) then
+	if not tutorial and data.LastBindNight == state.NightIndex and (not allowSigil or data.EchoSigils <= 0) then
 		notify:FireClient(player, "You've already bound tonight. Come back next night!", "error")
 		return nil, nil
 	end
@@ -108,10 +112,17 @@ local function performBind(
 	state: Cycle.State,
 	areaId: string,
 	luck: number,
-	usePotion: boolean
+	usePotion: boolean,
+	tutorial: boolean?
 )
 	local element = getRollElement(areaId, state.Constellation)
-	local outcome = BindingOdds.Roll(rng, areaId, element, luck)
+	local outcome, tutorialSpeciesOneIn, tutorialMutationOneIn
+	if tutorial then
+		luck = OnboardingConfig.BindLuck
+		outcome, tutorialSpeciesOneIn, tutorialMutationOneIn = OnboardingService:RollFirstBind(rng, element)
+	else
+		outcome = BindingOdds.Roll(rng, areaId, element, luck)
+	end
 	local speciesId = outcome and outcome.SpeciesId
 	local species = speciesId and Dragons[speciesId]
 	local rarity = species and (function()
@@ -126,7 +137,7 @@ local function performBind(
 
 	local mutationId = outcome.MutationId
 	local mutation = Mutations.Get(mutationId)
-	local usedSigil = data.LastBindNight == state.NightIndex
+	local usedSigil = not tutorial and data.LastBindNight == state.NightIndex
 	if usedSigil then data.EchoSigils -= 1 end
 	local newSpecies = data.Index[speciesId] == nil -- not in the Index yet (auto sell can keep new species)
 	local dragonId = tostring(data.NextDragonId)
@@ -138,8 +149,10 @@ local function performBind(
 		ObtainedAt = os.time(),
 		MutationId = if mutationId ~= Mutations.NormalId then mutationId else nil,
 	}
-	data.LastBindNight = state.NightIndex
-	if usePotion then
+	if not tutorial or state.IsNight then data.LastBindNight = state.NightIndex end
+	LeaderboardStats.RecordBind(data, speciesId, mutationId, outcome.BaseOneIn)
+	if tutorial then OnboardingService:DidFirstBind(player, data, state) end
+	if usePotion and not tutorial then
 		BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
 	end
 	local constellationId = state.Constellation.Id
@@ -154,10 +167,11 @@ local function performBind(
 		MutationId = mutationId,
 		BaseOneIn = outcome.BaseOneIn,
 		EffectiveOneIn = outcome.EffectiveOneIn,
-		SpeciesOneIn = if breakdown then breakdown.SpeciesOneIn else outcome.EffectiveOneIn, -- the dragon alone, at this luck
-		MutationOneIn = if breakdown then breakdown.MutationOneIn else 1, -- its mutation inside that species
+		SpeciesOneIn = tutorialSpeciesOneIn or (if breakdown then breakdown.SpeciesOneIn else outcome.EffectiveOneIn),
+		MutationOneIn = tutorialMutationOneIn or (if breakdown then breakdown.MutationOneIn else 1),
+		TutorialFirstBind = tutorial == true,
 		UsedEchoSigil = usedSigil,
-		Auto = not usePotion,
+		Auto = not usePotion and not tutorial,
 	})
 	IndexService:Sync(player, data)
 	SellService:AutoSellNewDragon(player, data, dragonId, newSpecies) -- after the Index recorded it
@@ -188,7 +202,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		Luck.GetArmedPotionLuck(data),
 		RebirthMilestones.GetAscendedLuck(data.Rebirths)
 	)
-	performBind(player, data, state, getAreaId(altar), luck.Total, true)
+	performBind(player, data, state, getAreaId(altar), luck.Total, true, OnboardingService:CanFirstBind(data, getAreaId(altar)))
 end
 
 local function tryOffer(player: Player, altar: Instance, part: BasePart)
@@ -279,6 +293,7 @@ local function setupAltar(altar: Instance)
 	end
 
 	local bindPrompt = makePrompt(part, "BindPrompt", "Bind", Enum.KeyCode.E, Enum.KeyCode.ButtonX, BindingConfig.PromptHoldSeconds)
+	bindPrompt:SetAttribute("OnboardingAreaId", getAreaId(altar))
 	bindPrompt.Triggered:Connect(function(player)
 		guarded(player, function()
 			tryBind(player, altar, part)
@@ -317,8 +332,16 @@ function BindingService:Start()
 	-- haven't bound yet bind at base luck (no area, moon, offering, group or potion bonuses).
 	while true do
 		local state = Cycle.GetState()
+		local newcomer = false
+		if not state.IsNight then
+			for _, player in Players:GetPlayers() do
+				local data = DataService:GetData(player)
+				if data and OnboardingService:CanFirstBind(data, OnboardingConfig.StarterArea) then newcomer = true; break end
+			end
+		end
 		for _, prompt in prompts do
-			prompt.Enabled = state.IsNight
+			-- Server enables the daylight starter prompt when needed; clients hide it for ineligible players.
+			prompt.Enabled = state.IsNight or (newcomer and prompt.Name == "BindPrompt" and prompt:GetAttribute("OnboardingAreaId") == OnboardingConfig.StarterArea)
 		end
 		if state.IsNight and state.SecondsLeft <= Products.AutoBindSecondsLeft then
 			for _, player in Players:GetPlayers() do

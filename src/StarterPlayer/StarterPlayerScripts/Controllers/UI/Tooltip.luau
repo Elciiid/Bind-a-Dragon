@@ -24,13 +24,15 @@ local function hide()
 	latched = false
 end
 
-local function redraw()
-	if not owner or not reader then return end
+local function redraw(): boolean
+	if not owner or not reader then return false end
 	local bounds = HudLayout.GetUsableRect()
 	local margin = Layout.SafeMargin
 	local width = math.max(1, math.min(Layout.TooltipWidth, bounds.Width - margin * 2))
 	local padding = Layout.TooltipPadding
-	label.Text = reader()
+	local ok, text = pcall(reader)
+	if not ok or not HudLayout.GetVisibleRect(owner) then hide(); return false end
+	label.Text = text
 	local measure = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(math.max(1, width - padding * 2), math.huge))
 	local contentHeight = math.ceil(measure.Y) + padding * 2
 	local height = math.min(contentHeight, math.max(1, bounds.Height - margin * 2))
@@ -43,13 +45,14 @@ local function redraw()
 	if x + width > bounds.Max.X - margin then x = position.X - width - Layout.TooltipOffset.X end
 	if y + height > bounds.Max.Y - margin then y = position.Y - height - Layout.TooltipOffset.Y end
 	card.Position = UDim2.fromOffset(math.clamp(x, bounds.Min.X + margin, math.max(bounds.Min.X + margin, bounds.Max.X - width - margin)), math.clamp(y, bounds.Min.Y + margin, math.max(bounds.Min.Y + margin, bounds.Max.Y - height - margin)))
+	return true
 end
 
 local function ensure()
 	if gui then return end
 	local screen = HudLayout.MakeScreenGui("Tooltip", "Notifications")
 	screen.DisplayOrder = Style.Theme.Layers.Notifications + 1
-	screen.ScreenInsets = Enum.ScreenInsets.None -- pointer and safe rectangle are screen coordinates
+	screen.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
 	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screen.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	gui = screen
@@ -57,30 +60,26 @@ local function ensure()
 	card.Visible = false
 	card.BackgroundColor3 = Color3.new(1, 1, 1)
 	card.BorderSizePixel = 0
-	card.ScrollBarThickness = 4
+	card.ScrollBarThickness = Style.Theme.MobileUI.Scrollbar
 	Style.Gradient(card, Style.Theme.Colors.PanelTop, Style.Theme.Colors.PanelBottom)
 	Style.Corner(card, 6)
 	Style.Stroke(card, Style.Theme.Colors.Trim, 1.5)
 	card.Parent = screen
-	label = Style.Label(card, "", "Bold", Style.Theme.TextSizes.Small)
+	label = Style.Label(card, "", "Body", Style.Theme.MobileUI.Body)
 	label.TextWrapped = true
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.TextYAlignment = Enum.TextYAlignment.Top
 	local elapsed = 0
-	RunService.Heartbeat:Connect(function(dt)
+	local refreshConnection = RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
 		if elapsed < Layout.TooltipRefreshSeconds then return end
 		elapsed = 0
 		if owner then
-			local ancestor: Instance? = owner
-			while ancestor do
-				if (ancestor:IsA("GuiObject") and not ancestor.Visible) or (ancestor:IsA("ScreenGui") and not ancestor.Enabled) then hide(); return end
-				ancestor = ancestor.Parent
-			end
 			redraw()
 		end
 	end)
-	UserInputService.InputBegan:Connect(function(input)
+	local inputConnection = UserInputService.InputBegan:Connect(function(input)
+		if input.KeyCode == Enum.KeyCode.ButtonB or input.KeyCode == Enum.KeyCode.Escape then hide(); return end
 		if latched and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
 			local p = Vector2.new(input.Position.X, input.Position.Y)
 			local withinCard = p.X >= card.AbsolutePosition.X and p.X <= card.AbsolutePosition.X + card.AbsoluteSize.X and p.Y >= card.AbsolutePosition.Y and p.Y <= card.AbsolutePosition.Y + card.AbsoluteSize.Y
@@ -88,6 +87,12 @@ local function ensure()
 			local withinOwner = target ~= nil and p.X >= target.AbsolutePosition.X and p.X <= target.AbsolutePosition.X + target.AbsoluteSize.X and p.Y >= target.AbsolutePosition.Y and p.Y <= target.AbsolutePosition.Y + target.AbsoluteSize.Y
 			if not withinCard and not withinOwner then hide() end
 		end
+	end)
+	screen.Destroying:Connect(function()
+		refreshConnection:Disconnect()
+		inputConnection:Disconnect()
+		hide()
+		gui = nil
 	end)
 end
 
@@ -97,23 +102,26 @@ local function show(target: GuiObject, getText: () -> string, p: Vector2)
 	reader = getText
 	position = p
 	card.CanvasPosition = Vector2.zero
-	redraw()
-	card.Visible = true
+	if redraw() then card.Visible = true end
 end
 
 function Tooltip.Toggle(target: GuiObject, getText: () -> string, p: Vector2)
 	if owner == target and latched then hide(); return end
 	show(target, getText, p)
-	latched = true
+	latched = owner == target
 end
 
 function Tooltip.Attach(target: GuiObject, getText: () -> string)
-	target.MouseEnter:Connect(function(x, y)
-		if not UserInputService.TouchEnabled and not latched then show(target, getText, Vector2.new(x, y)) end
+	target.MouseEnter:Connect(function()
+		if not UserInputService.TouchEnabled and not latched then show(target, getText, HudLayout.ViewportToGui(UserInputService:GetMouseLocation())) end
 	end)
-	target.MouseMoved:Connect(function(x, y)
-		if owner == target and not latched then position = Vector2.new(x, y); redraw() end
+	target.MouseMoved:Connect(function()
+		if owner == target and not latched then position = HudLayout.ViewportToGui(UserInputService:GetMouseLocation()); redraw() end
 	end)
+	if target:IsA("GuiButton") then
+		target.SelectionGained:Connect(function() if not latched then show(target, getText, target.AbsolutePosition + target.AbsoluteSize) end end)
+		target.SelectionLost:Connect(function() if owner == target and not latched then hide() end end)
+	end
 	target.MouseLeave:Connect(function() if owner == target and not latched then hide() end end)
 	target:GetPropertyChangedSignal("Visible"):Connect(function() if not target.Visible and owner == target then hide() end end)
 	target.AncestryChanged:Connect(function() if target.Parent == nil and owner == target then hide() end end)

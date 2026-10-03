@@ -19,6 +19,7 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local HotbarService = require(script.Parent.HotbarService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
+local LeaderboardStats = require(ReplicatedStorage.Shared.LeaderboardStats)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -54,6 +55,7 @@ local function addGold(data: PlayerDataTypes.PlayerData, gold: number): number
 	if limit then
 		gold = math.max(0, math.min(gold, limit - data.Gold))
 	end
+	LeaderboardStats.RecordGold(data, gold)
 	data.Gold += gold
 	return gold
 end

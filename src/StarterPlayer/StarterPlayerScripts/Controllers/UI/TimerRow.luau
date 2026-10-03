@@ -37,14 +37,14 @@ function TimerRow.new(parent: Instance, props: Props): TimerRow
 	root.AutoButtonColor = false
 	root.Active = props.Clickable == true
 	root.BackgroundTransparency = 1
-	root.AutomaticSize = Enum.AutomaticSize.XY
-	root.Size = UDim2.fromOffset(0, 0)
+	root.AutomaticSize = Enum.AutomaticSize.Y
+	root.Size = UDim2.new(1, 0, 0, 0)
 	root.Parent = parent
 
 	local list = Instance.new("UIListLayout")
 	list.FillDirection = Enum.FillDirection.Horizontal
 	list.VerticalAlignment = Enum.VerticalAlignment.Center
-	list.Padding = UDim.new(0, 6)
+	list.Padding = UDim.new(0, Style.Theme.MobileUI.TimerRowGap)
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Parent = root
 
@@ -64,12 +64,12 @@ function TimerRow.new(parent: Instance, props: Props): TimerRow
 	label.Name = "Time"
 	label.LayoutOrder = 2
 	label.BackgroundTransparency = 1
-	label.AutomaticSize = Enum.AutomaticSize.XY
-	label.Size = UDim2.fromOffset(0, 0)
+	label.AutomaticSize = Enum.AutomaticSize.Y
+	label.Size = UDim2.new(1, 0, 0, 0)
 	label.FontFace = Style.Theme.Fonts.Timer
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.TextWrapped = false
+	label.TextWrapped = true
 	label.Text = ""
 	label.Parent = root
 	local stroke = Instance.new("UIStroke")
@@ -107,6 +107,8 @@ function TimerRow.Layout(self: TimerRow, phone: boolean)
 	self.Phone = phone
 	local iconSize = if phone then sizes.PhoneTimerIcon else sizes.TimerIcon
 	self.Label.TextSize = if phone then sizes.PhoneTimerText else sizes.TimerText
+	self.Instance.Size = UDim2.new(1, 0, 0, if self.Instance.Active then Style.Theme.MobileUI.Touch else iconSize)
+	self.Label.Size = UDim2.new(1, -iconSize - Style.Theme.MobileUI.TimerRowGap, 0, 0)
 	for _, icon in self.Icons do
 		icon.Size = UDim2.fromOffset(iconSize, iconSize)
 	end
@@ -114,35 +116,58 @@ end
 
 -- A small caption line under a timer row (same font, smaller, right-aligned; e.g. tonight's constellation).
 -- local caption = TimerRow.NewCaption(stack, 1); caption:SetText("The Veiled Eye"); caption:Layout(isPhone)
-export type Caption = { Instance: TextLabel, SetText: (Caption, string) -> (), Layout: (Caption, boolean) -> () }
+export type Caption = { Instance: ScrollingFrame, SetText: (Caption, string) -> (), Layout: (Caption, boolean) -> () }
 
 function TimerRow.NewCaption(parent: Instance, order: number): Caption
+	local root = Instance.new("ScrollingFrame")
+	root.Name = "Caption"
+	root.LayoutOrder = order
+	root.BackgroundTransparency = 1
+	root.BorderSizePixel = 0
+	root.Size = UDim2.new(1, 0, 0, Style.Theme.MobileUI.Small)
+	root.CanvasSize = UDim2.new()
+	root.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	root.ScrollingDirection = Enum.ScrollingDirection.Y
+	root.ScrollBarThickness = Style.Theme.MobileUI.Scrollbar
+	root.ScrollBarImageColor3 = Style.Theme.Colors.Trim
+	root.Selectable = true
+	root.Parent = parent
 	local label = Instance.new("TextLabel")
-	label.Name = "Caption"
-	label.LayoutOrder = order
+	label.Name = "Text"
 	label.BackgroundTransparency = 1
-	label.AutomaticSize = Enum.AutomaticSize.XY
-	label.Size = UDim2.fromOffset(0, 0)
+	label.AutomaticSize = Enum.AutomaticSize.Y
+	label.Size = UDim2.new(1, -Style.Theme.MobileUI.Scrollbar, 0, 0)
 	label.FontFace = Style.Theme.Fonts.Timer
 	label.TextColor3 = Style.Theme.Colors.TextMuted
-	label.TextXAlignment = Enum.TextXAlignment.Right
-	label.TextWrapped = false
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextWrapped = true
 	label.Text = ""
-	label.Parent = parent
+	label.Parent = root
 	local stroke = Instance.new("UIStroke")
 	stroke.Name = "Outline"
 	stroke.Color = Style.Theme.Colors.IconLabelStroke
 	stroke.Thickness = 1.5
 	stroke.Parent = label
+	local function reflow()
+		local limit = parent:GetAttribute("CaptionMaxHeight")
+		local maxHeight = if type(limit) == "number" then limit else Style.Theme.MobileUI.TimerCaptionMaxHeight
+		root.Size = UDim2.new(1, 0, 0, math.min(maxHeight, math.max(label.TextSize, math.ceil(label.TextBounds.Y))))
+		root.ScrollBarThickness = if label.TextBounds.Y > maxHeight then Style.Theme.MobileUI.Scrollbar else 0
+	end
+	label:GetPropertyChangedSignal("TextBounds"):Connect(reflow)
+	local parentLayout = parent:GetAttributeChangedSignal("CaptionMaxHeight"):Connect(reflow)
+	root.Destroying:Connect(function() parentLayout:Disconnect() end)
 	local caption = {} :: any
-	caption.Instance = label
+	caption.Instance = root
 	function caption.SetText(_self: Caption, text: string)
 		label.Text = text
-		label.Visible = text ~= ""
+		root.Visible = text ~= ""
+		reflow()
 	end
 	function caption.Layout(_self: Caption, phone: boolean)
 		local sizes = Style.Theme.Sizes
 		label.TextSize = if phone then sizes.PhoneTimerCaptionText else sizes.TimerCaptionText
+		reflow()
 	end
 	return caption :: Caption
 end

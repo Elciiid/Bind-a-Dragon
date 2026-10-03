@@ -1,12 +1,13 @@
 --!strict
 -- Rune Shrine (traits, costs Wyrm Runes) and Dragonstone Forge (grades, costs Dragonstones).
 -- Stations are instances tagged "RuneShrine" / "DragonstoneForge" (BasePart, or Model with a PrimaryPart).
--- Walking up and pressing E opens a window in two columns: your dragons on the left (rarity icon, level, current
--- trait/grade), and on the right the rune/stone count, the chosen dragon, a big Inscribe / Temper button and a grid of
--- what can come out with the chances (colored by tier). Wording is in Config/Text. The server checks the player is at
+-- Walking up and pressing E opens a responsive window: a dragon picker, the chosen dragon and its current trait/grade,
+-- the resource count, Inscribe / Temper and readable outcome rows. Narrow screens stack these inside a scroll instead
+-- of shrinking a two-column layout. Wording is in Config/Text. The server checks the player is at
 -- the station and has the currency. Styled with the UI kit.
 
 local CollectionService = game:GetService("CollectionService")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -29,8 +30,9 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 type Kind = "Trait" | "Grade"
 
 local STATIONS: { [string]: Kind } = { RuneShrine = "Trait", DragonstoneForge = "Grade" }
-local CLOSE_DISTANCE = 25 -- the window closes when you walk this far from the station
+local CLOSE_DISTANCE = 25 -- existing station-close boundary; purchases remain server validated
 local GREY = UITheme.Colors.TextMuted
+local Mobile = UITheme.MobileUI
 
 local rollTrait = ReplicatedStorage.Remotes.RollTrait :: RemoteEvent
 local rollGrade = ReplicatedStorage.Remotes.RollGrade :: RemoteEvent
@@ -47,7 +49,13 @@ local chosenName: TextLabel
 local detail: TextLabel
 local rollButton: Button.Button
 local chancesTitle: TextLabel
-local odds: ScrollingFrame
+local odds: Frame
+local body: ScrollingFrame
+local columns: Frame
+local side: Frame
+local selectionLayout: UIListLayout
+local rowFrames: { Frame } = {}
+local oddsCount = 0
 
 local openKind: Kind? = nil
 local openStation: BasePart? = nil
@@ -62,22 +70,22 @@ local function describe(dragon: PlayerDataTypes.Dragon, kind: Kind): (string, Co
 	if kind == "Trait" then
 		local trait = DragonStats.GetTrait(dragon)
 		if trait == nil then
-			return "No trait", GREY
+			return Text.Station.NoTrait, GREY
 		end
 		local parts = {}
 		if trait.Income > 1 then
-			table.insert(parts, `x{trait.Income} gold`)
+			table.insert(parts, Text.Format(Text.Station.TraitGold, { n = trait.Income }))
 		end
 		if trait.Power > 1 then
-			table.insert(parts, `x{trait.Power} power`)
+			table.insert(parts, Text.Format(Text.Station.TraitPower, { n = trait.Power }))
 		end
 		return `{trait.Name} ({table.concat(parts, ", ")})`, rarityColor(trait.Tier)
 	end
 	local grade = DragonStats.GetGrade(dragon)
 	if grade == nil then
-		return "No grade", GREY
+		return Text.Station.NoGrade, GREY
 	end
-	return `Grade {grade.Id} (x{grade.Multiplier} gold and power)`, rarityColor(grade.Tier)
+	return Text.Format(Text.Station.GradeStats, { grade = grade.Id, n = grade.Multiplier }), rarityColor(grade.Tier)
 end
 
 local function chanceText(chance: number): string
@@ -87,7 +95,30 @@ local function chanceText(chance: number): string
 		else string.format("%.2f%%", chance)
 end
 
--- The chances grid: one chip per trait/grade (name + chance), colored by its tier.
+-- One outcome row per trait/grade (name + chance), colored by its tier.
+local function layoutStation()
+	if columns == nil then return end
+	local width = math.max(1, body.AbsoluteSize.X - Mobile.Scrollbar - Mobile.Padding * 2)
+	local stacked = width < Mobile.StationColumnsAt
+	local selectionHeight = if stacked then Mobile.RowHeight + Mobile.Scrollbar + Mobile.Padding else math.max(Mobile.RowHeight, body.AbsoluteSize.Y - Mobile.Padding * 2)
+	list.Position = UDim2.new()
+	list.Size = if stacked then UDim2.new(1, 0, 0, selectionHeight) else UDim2.fromOffset(Mobile.StationDragonWidth, selectionHeight)
+	list.AutomaticCanvasSize = if stacked then Enum.AutomaticSize.X else Enum.AutomaticSize.Y
+	list.ScrollingDirection = if stacked then Enum.ScrollingDirection.X else Enum.ScrollingDirection.Y
+	selectionLayout.FillDirection = if stacked then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical
+	for _, row in rowFrames do
+		row.Size = if stacked then UDim2.fromOffset(Mobile.StationDragonWidth, Mobile.RowHeight) else UDim2.new(1, -Mobile.Scrollbar, 0, Mobile.RowHeight)
+	end
+	local sideX = if stacked then 0 else Mobile.StationDragonWidth + Mobile.Gap
+	local sideY = if stacked then selectionHeight + Mobile.Gap else 0
+	side.Position = UDim2.fromOffset(sideX, sideY)
+	local oddsTop = Mobile.Touch + Mobile.Gap + Mobile.StationSelectedHeight + Mobile.Gap + Mobile.Touch + Mobile.Gap + Mobile.Title + Mobile.Gap
+	local oddsHeight = oddsCount * Mobile.StationOddsRow + math.max(0, oddsCount - 1) * Mobile.Gap
+	side.Size = UDim2.new(1, -sideX, 0, oddsTop + oddsHeight)
+	odds.Size = UDim2.new(1, 0, 0, oddsHeight)
+	columns.Size = UDim2.new(1, -Mobile.Scrollbar - Mobile.Padding * 2, 0, math.max(selectionHeight, sideY + side.Size.Y.Offset))
+end
+
 local function drawOdds(kind: Kind, rollLuck: number)
 	for _, child in odds:GetChildren() do
 		if child:IsA("Frame") then
@@ -95,6 +126,7 @@ local function drawOdds(kind: Kind, rollLuck: number)
 		end
 	end
 	local entries: { any } = if kind == "Trait" then TraitConfig.Traits else TraitConfig.Grades
+	oddsCount = #entries
 	local weights = Luck.GetTierWeights(entries, rollLuck)
 	local total = 0
 	for _, weight in weights do
@@ -104,23 +136,24 @@ local function drawOdds(kind: Kind, rollLuck: number)
 		local color = rarityColor(entry.Tier)
 		local chip = Instance.new("Frame")
 		chip.LayoutOrder = index
+		chip.Size = UDim2.new(1, 0, 0, Mobile.StationOddsRow)
 		chip.BackgroundColor3 = UITheme.Colors.CardBottom
 		chip.BackgroundTransparency = 0.2
 		Style.Corner(chip, 6)
 		local stroke = Style.Stroke(chip, color, 1.5)
 		stroke.Transparency = 0.3
-		local name = Style.Label(chip, entry.Name or ("Grade " .. entry.Id), "Bold", 13, color)
-		name.Position = UDim2.fromOffset(6, 0)
-		name.Size = UDim2.new(0.66, -6, 1, 0)
+		local name = Style.Label(chip, entry.Name or Text.Format(Text.Station.Grade, { grade = entry.Id }), "Bold", Mobile.Body, color)
+		name.Position = UDim2.fromOffset(Mobile.Padding, 0)
+		name.Size = UDim2.new(1, -Mobile.Touch * 2 - Mobile.Padding * 2, 1, 0)
 		name.TextXAlignment = Enum.TextXAlignment.Left
-		name.TextTruncate = Enum.TextTruncate.AtEnd
-		local chance = Style.Label(chip, chanceText(weights[index] / total * 100), "Heavy", 13, UITheme.Colors.Text)
+		local chance = Style.Label(chip, chanceText(weights[index] / total * 100), "Bold", Mobile.Body, UITheme.Colors.Text)
 		chance.AnchorPoint = Vector2.new(1, 0)
-		chance.Position = UDim2.new(1, -6, 0, 0)
-		chance.Size = UDim2.new(0.34, 0, 1, 0)
+		chance.Position = UDim2.new(1, -Mobile.Padding, 0, 0)
+		chance.Size = UDim2.new(0, Mobile.Touch * 2, 1, 0)
 		chance.TextXAlignment = Enum.TextXAlignment.Right
 		chip.Parent = odds
 	end
+	layoutStation()
 end
 
 local function redraw()
@@ -146,11 +179,15 @@ local function redraw()
 	end
 	chancesTitle.Text = words.Chances
 
+	local previousSelection = GuiService.SelectedObject
+	local restoreSelection = previousSelection ~= nil and previousSelection:IsDescendantOf(list)
+	local selectedHit: TextButton? = nil
 	for _, child in list:GetChildren() do
 		if child:IsA("Frame") then
 			child:Destroy()
 		end
 	end
+	table.clear(rowFrames)
 	local sorted = {}
 	for _, dragon in data.Dragons do
 		table.insert(sorted, dragon)
@@ -168,47 +205,47 @@ local function redraw()
 		-- Row: a card (gold outline when chosen) with the rarity icon, name + level, and the current trait/grade.
 		local row = Instance.new("Frame")
 		row.LayoutOrder = index
-		row.Size = UDim2.new(1, -8, 0, 52)
-		local rarity = if species then species.Rarity else ""
+		row.Size = UDim2.new(1, -Mobile.Scrollbar, 0, Mobile.RowHeight)
 		Style.CardLook(row, if dragon.Id == selectedId then UITheme.Colors.Title else nil)
 		local picture = Instance.new("Frame")
 		picture.BackgroundTransparency = 1
 		picture.AnchorPoint = Vector2.new(0, 0.5)
-		picture.Position = UDim2.new(0, 4, 0.5, 0)
-		picture.Size = UDim2.fromOffset(44, 44)
+		picture.Position = UDim2.new(0, Mobile.Padding, 0.5, 0)
+		picture.Size = UDim2.fromOffset(Mobile.Touch, Mobile.Touch)
 		picture.ZIndex = 3
 		picture.Parent = row
 		DragonPicture.new(picture, dragon.SpeciesId, dragon.Level)
-		local name = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}`, "Title", 16, Style.Shade(rarityColor(rarity), 0.35))
+		local name = Style.Label(row, Text.Format(Text.Station.DragonLevel, { name = if species then species.Name else "?", level = dragon.Level }), "Bold", Mobile.Body, UITheme.Colors.Text)
 		Style.Outline(name, 1.5)
-		name.Position = UDim2.fromOffset(52, 6)
-		name.Size = UDim2.new(1, -54, 0, 20)
+		name.Position = UDim2.fromOffset(Mobile.Touch + Mobile.Padding * 2, Mobile.Padding / 2)
+		name.Size = UDim2.new(1, -(Mobile.Touch + Mobile.Padding * 3), 0, Mobile.Body * 2 + Mobile.Gap)
 		name.TextXAlignment = Enum.TextXAlignment.Left
-		name.TextTruncate = Enum.TextTruncate.AtEnd
-		local text = Style.Label(row, current, "Bold", 14, color)
-		text.Position = UDim2.fromOffset(52, 28)
-		text.Size = UDim2.new(1, -54, 0, 18)
+		local text = Style.Label(row, current, "Body", Mobile.Small, color)
+		text.Position = UDim2.fromOffset(Mobile.Touch + Mobile.Padding * 2, Mobile.RowHeight - Mobile.Small * 2 - Mobile.Padding / 2)
+		text.Size = UDim2.new(1, -(Mobile.Touch + Mobile.Padding * 3), 0, Mobile.Small * 2)
 		text.TextXAlignment = Enum.TextXAlignment.Left
-		text.TextTruncate = Enum.TextTruncate.AtEnd
+		text.TextWrapped = true
 		local hit = Instance.new("TextButton")
 		hit.Size = UDim2.fromScale(1, 1)
 		hit.BackgroundTransparency = 1
 		hit.Text = ""
 		hit.ZIndex = 3
 		hit.Parent = row
+		if dragon.Id == selectedId then selectedHit = hit end
 		Style.AttachPress(hit)
 		hit.Activated:Connect(function()
 			selectedId = dragon.Id
 			redraw()
 		end)
 		row.Parent = list
+		table.insert(rowFrames, row)
 	end
 
 	local selected = if selectedId then data.Dragons[selectedId] else nil
 	if selected then
 		local species = Dragons[selected.SpeciesId]
 		local current, color = describe(selected, kind)
-		chosenName.Text = `{if species then species.Name else "?"}  Lv {selected.Level}`
+		chosenName.Text = Text.Format(Text.Station.DragonLevel, { name = if species then species.Name else "?", level = selected.Level })
 		chosenName.TextColor3 = if species then rarityColor(species.Rarity) else UITheme.Colors.Text
 		detail.Text = current
 		detail.TextColor3 = color
@@ -218,9 +255,15 @@ local function redraw()
 		detail.Text = ""
 	end
 	local canRoll = selected ~= nil and currency >= cost
+	if selected and currency < cost then
+		hint.Text = Text.Format(Text.Station.RollUnavailable, {
+			count = cost, resource = if kind == "Trait" then Text.Items.WyrmRunes.Name else Text.Items.Dragonstones.Name,
+		})
+	end
 	rollButton:SetText(Text.Format(words.Button, { cost = cost }))
 	rollButton:SetEnabled(canRoll)
 	drawOdds(kind, DragonStats.GetBoostMultiplier(data, "RollLuck"))
+	if restoreSelection then GuiService.SelectedObject = selectedHit end
 end
 
 local function close()
@@ -263,10 +306,10 @@ end
 function RollStationController:Init()
 	window = Window.new({
 		Name = "RollStation",
-		Title = "Rune Shrine", -- set per station on open, with its rune/stone icon
+		Title = Text.RuneShrine.Title,
 		Icon = "WyrmRune",
 		Size = UDim2.new(0.92, 0, 0.8, 0),
-		MaxSize = Vector2.new(720, 520),
+		MaxSize = Vector2.new(Mobile.StationColumnsAt + Mobile.StationDragonWidth, Mobile.StationColumnsAt),
 	})
 	window:OnClose(function()
 		openKind = nil
@@ -274,67 +317,79 @@ function RollStationController:Init()
 	end)
 	local content = window.Content
 
-	-- Left column: your dragons
+	-- Count stays visible; the selection/details area scrolls rather than shrinking text on short phones.
+	ownedIcon = Icon.new(content, "WyrmRune") :: ImageLabel
+	ownedIcon.Size = UDim2.fromOffset(Mobile.Touch, Mobile.Touch)
+	owned = Style.Label(content, "", "Title", Mobile.Title, UITheme.Colors.Gold)
+	owned.Position = UDim2.fromOffset(Mobile.Touch + Mobile.Gap, 0)
+	owned.Size = UDim2.new(1, -(Mobile.Touch + Mobile.Gap), 0, Mobile.Touch)
+	owned.TextXAlignment = Enum.TextXAlignment.Left
+
+	body = Instance.new("ScrollingFrame")
+	body.Name = "StationBody"
+	body.Position = UDim2.fromOffset(0, Mobile.StationHeaderHeight)
+	body.Size = UDim2.new(1, 0, 1, -Mobile.StationHeaderHeight)
+	body.BackgroundTransparency = 1
+	body.BorderSizePixel = 0
+	body.ScrollBarThickness = Mobile.Scrollbar
+	body.ScrollBarImageColor3 = UITheme.Colors.Trim
+	body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	body.ScrollingDirection = Enum.ScrollingDirection.Y
+	body.CanvasSize = UDim2.new()
+	body.Parent = content
+	Style.Pad(body, Mobile.Padding)
+	columns = Instance.new("Frame")
+	columns.Name = "Columns"
+	columns.BackgroundTransparency = 1
+	columns.Parent = body
+
+	-- On narrow screens the dragon picker becomes a horizontal carousel above the full-width detail pane.
 	list = Instance.new("ScrollingFrame")
 	list.Name = "Dragons"
 	list.Size = UDim2.new(0.5, -6, 1, 0)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
-	list.ScrollBarThickness = 6
+	list.ScrollBarThickness = Mobile.Scrollbar
 	list.ScrollBarImageColor3 = UITheme.Colors.Trim
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
-	list.Parent = content
-	Style.Pad(list, 2, 3)
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 5)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = list
+	list.Parent = columns
+	selectionLayout = Instance.new("UIListLayout")
+	selectionLayout.Padding = UDim.new(0, Mobile.Gap)
+	selectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	selectionLayout.Parent = list
 
 	-- Right column: runes/stones owned, the chosen dragon, the button, the chances
-	local side = Instance.new("Frame")
+	side = Instance.new("Frame")
 	side.Name = "Side"
-	side.AnchorPoint = Vector2.new(1, 0)
-	side.Position = UDim2.fromScale(1, 0)
-	side.Size = UDim2.new(0.5, -6, 1, 0)
 	side.BackgroundTransparency = 1
-	side.Parent = content
-
-	ownedIcon = Icon.new(side, "WyrmRune") :: ImageLabel
-	ownedIcon.Size = UDim2.fromOffset(34, 34)
-	owned = Style.Label(side, "", "Title", 22, UITheme.Colors.Gold)
-	owned.Position = UDim2.fromOffset(42, 0)
-	owned.Size = UDim2.new(1, -42, 0, 34)
-	owned.TextXAlignment = Enum.TextXAlignment.Left
-	owned.TextStrokeTransparency = 0
-	hint = Style.Label(side, "", "Bold", 14, UITheme.Colors.TextMuted)
-	hint.Position = UDim2.fromOffset(0, 36)
-	hint.Size = UDim2.new(1, 0, 0, 18)
+	side.Parent = columns
+	hint = Style.Label(side, "", "Body", Mobile.Body, UITheme.Colors.TextMuted)
+	hint.Size = UDim2.new(1, 0, 0, Mobile.Touch)
 	hint.TextXAlignment = Enum.TextXAlignment.Left
 
 	chosenCard = Instance.new("Frame")
 	chosenCard.Name = "Chosen"
-	chosenCard.Position = UDim2.fromOffset(0, 60)
-	chosenCard.Size = UDim2.new(1, 0, 0, 64)
+	chosenCard.Position = UDim2.fromOffset(0, Mobile.Touch + Mobile.Gap)
+	chosenCard.Size = UDim2.new(1, 0, 0, Mobile.StationSelectedHeight)
 	Style.CardLook(chosenCard, UITheme.Colors.Title)
 	chosenCard.Parent = side
-	chosenName = Style.Label(chosenCard, "", "Title", 22)
-	chosenName.Position = UDim2.fromOffset(16, 4)
-	chosenName.Size = UDim2.new(1, -24, 0, 30)
+	chosenName = Style.Label(chosenCard, "", "Title", Mobile.Title)
+	chosenName.Position = UDim2.fromOffset(Mobile.Padding, Mobile.Padding / 2)
+	chosenName.Size = UDim2.new(1, -Mobile.Padding * 2, 0, Mobile.Title * 2)
 	chosenName.TextXAlignment = Enum.TextXAlignment.Left
 	chosenName.TextStrokeTransparency = 0
-	chosenName.TextTruncate = Enum.TextTruncate.AtEnd
-	detail = Style.Label(chosenCard, "", "Heavy", 15)
-	detail.Position = UDim2.fromOffset(16, 34)
-	detail.Size = UDim2.new(1, -24, 0, 22)
+	detail = Style.Label(chosenCard, "", "Body", Mobile.Small)
+	detail.Position = UDim2.fromOffset(Mobile.Padding, Mobile.StationSelectedHeight - Mobile.Small * 2 - Mobile.Padding / 2)
+	detail.Size = UDim2.new(1, -Mobile.Padding * 2, 0, Mobile.Small * 2)
 	detail.TextXAlignment = Enum.TextXAlignment.Left
-	detail.TextTruncate = Enum.TextTruncate.AtEnd
+	detail.TextWrapped = true
 
 	rollButton = Button.new(side, {
 		Text = Text.RuneShrine.PromptAction, -- replaced per station on open
 		Kind = "Confirm",
 		Icon = "WyrmRune",
-		TextSize = 20,
+		TextSize = Mobile.Title,
 		OnClick = function()
 			if selectedId == nil or openKind == nil then
 				return
@@ -346,43 +401,27 @@ function RollStationController:Init()
 			end
 		end,
 	})
-	rollButton.Instance.Position = UDim2.fromOffset(0, 132)
-	rollButton.Instance.Size = UDim2.new(1, 0, 0, 50)
+	local actionTop = Mobile.Touch + Mobile.Gap + Mobile.StationSelectedHeight + Mobile.Gap
+	rollButton.Instance.Position = UDim2.fromOffset(0, actionTop)
+	rollButton.Instance.Size = UDim2.new(1, 0, 0, Mobile.Touch)
 
-	chancesTitle = Style.Label(side, "", "Title", 16, UITheme.Colors.Title)
-	chancesTitle.Position = UDim2.fromOffset(0, 190)
-	chancesTitle.Size = UDim2.new(1, 0, 0, 20)
+	chancesTitle = Style.Label(side, "", "Title", Mobile.Title, UITheme.Colors.Title)
+	chancesTitle.Position = UDim2.fromOffset(0, actionTop + Mobile.Touch + Mobile.Gap)
+	chancesTitle.Size = UDim2.new(1, 0, 0, Mobile.Title)
 	chancesTitle.TextXAlignment = Enum.TextXAlignment.Left
-	-- The chances scroll, so they stay readable when the window is short (phones).
-	odds = Instance.new("ScrollingFrame")
+	-- One readable row per outcome; the entire station body supplies the scroll on short screens.
+	odds = Instance.new("Frame")
 	odds.Name = "Chances"
-	odds.Position = UDim2.fromOffset(0, 214)
-	odds.Size = UDim2.new(1, 0, 1, -214)
+	odds.Position = UDim2.fromOffset(0, actionTop + Mobile.Touch + Mobile.Gap + Mobile.Title + Mobile.Gap)
 	odds.BackgroundTransparency = 1
 	odds.BorderSizePixel = 0
-	odds.ScrollBarThickness = 4
-	odds.ScrollBarImageColor3 = UITheme.Colors.Trim
-	odds.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	odds.CanvasSize = UDim2.new()
 	odds.Parent = side
-	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.new(0.5, -4, 0, 24)
-	grid.CellPadding = UDim2.fromOffset(4, 4)
-	grid.SortOrder = Enum.SortOrder.LayoutOrder
-	grid.Parent = odds
-	Style.Pad(odds, 1, 1)
-
-	HudLayout.OnLayoutChanged(function(phone)
-		-- phones: tighter rows so the button and a few chances fit on the short screen
-		chosenCard.Position = UDim2.fromOffset(0, if phone then 56 else 60)
-		chosenCard.Size = UDim2.new(1, 0, 0, if phone then 56 else 64)
-		rollButton.Instance.Position = UDim2.fromOffset(0, if phone then 118 else 132)
-		rollButton.Instance.Size = UDim2.new(1, 0, 0, if phone then 40 else 50)
-		chancesTitle.Position = UDim2.fromOffset(0, if phone then 162 else 190)
-		odds.Position = UDim2.fromOffset(0, if phone then 184 else 214)
-		odds.Size = UDim2.new(1, 0, 1, if phone then -184 else -214)
-		grid.CellSize = UDim2.new(0.5, -4, 0, if phone then 20 else 24)
-	end)
+	local oddsList = Instance.new("UIListLayout")
+	oddsList.Padding = UDim.new(0, Mobile.Gap)
+	oddsList.SortOrder = Enum.SortOrder.LayoutOrder
+	oddsList.Parent = odds
+	body:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutStation)
+	HudLayout.OnLayoutChanged(layoutStation)
 
 	for _, key in { "Dragons", "WyrmRunes", "Dragonstones" } do
 		DataController:OnChanged(key, function()

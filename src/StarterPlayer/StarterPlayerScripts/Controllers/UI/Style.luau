@@ -158,7 +158,7 @@ function Style.AttachPress(button: GuiButton, sound: string?)
 	local outlineThickness = if outline then outline.Thickness else nil
 	local hovering, pressing = false, false
 	local function update()
-		local target = if pressing then UITheme.Motion.Press elseif hovering then UITheme.Motion.Hover else 1
+		local target = if EffectsQuality.IsLow() then 1 elseif pressing then UITheme.Motion.Press elseif hovering then UITheme.Motion.Hover else 1
 		local info = TweenInfo.new(UITheme.Motion.PressTime)
 		TweenService:Create(scale, info, { Scale = target }):Play()
 		if outline and outlineColor and outlineThickness then
@@ -379,7 +379,7 @@ function Style.Pattern(parent: GuiObject, radius: number?, zIndex: number?): Ima
 	pattern.Size = UDim2.fromScale(1, 1)
 	pattern.Image = art.PanelPattern
 	pattern.ImageColor3 = UITheme.Colors.PatternTint
-	pattern.ImageTransparency = art.PatternTransparency
+	pattern.ImageTransparency = Style.Theme.MobileUI.PatternTransparency
 	pattern.ScaleType = Enum.ScaleType.Tile
 	pattern.TileSize = UDim2.fromOffset(art.PatternTile, art.PatternTile)
 	pattern.ZIndex = zIndex or -2
@@ -396,7 +396,7 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	local sizes = UITheme.Sizes
 	local colors = UITheme.Colors
 	frame.BackgroundTransparency = 1
-	Style.Glow(frame, colors.PanelGlow, UITheme.Art.GlowSpread, 0.25, -3)
+	Style.Glow(frame, colors.PanelGlow, UITheme.Art.GlowSpread, UITheme.MobileUI.PanelGlowTransparency, -3)
 
 	local back = Instance.new("Frame")
 	back.Name = "Back"
@@ -404,7 +404,7 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	back.BackgroundColor3 = Color3.new(1, 1, 1)
 	back.BorderSizePixel = 0
 	back.ZIndex = -2
-	Style.Gradient(back, colors.PanelV2Top, colors.PanelV2Bottom)
+	Style.Gradient(back, colors.GlassTop, colors.GlassBottom)
 	Style.Corner(back, UITheme.Corner)
 	Style.GoldBorder(back, sizes.Border)
 	back.Parent = frame
@@ -550,13 +550,13 @@ function Style.CardLook(frame: GuiObject, accent: Color3?)
 	local colors = UITheme.Colors
 	frame.BackgroundColor3 = Color3.new(1, 1, 1)
 	frame.BackgroundTransparency = 0.04
-	local top = if accent then colors.CardTop:Lerp(accent, 0.3) else colors.CardTop
-	local bottom = if accent then colors.CardBottom:Lerp(accent, 0.12) else colors.CardBottom
+	local top = if accent then colors.CardTop:Lerp(accent, UITheme.MobileUI.CardAccentMix) else colors.CardTop
+	local bottom = colors.CardBottom
 	Style.Gradient(frame, top, bottom)
 	Style.Corner(frame, UITheme.SmallCorner + 4)
-	local stroke = Style.Stroke(frame, if accent then Style.Shade(accent, 0.25) else colors.Trim, if accent then 2.5 else 1.5)
+	local stroke = Style.Stroke(frame, if accent then Style.Shade(accent, 0.25) else colors.Trim, UITheme.MobileUI.CardBorder)
 	if accent then
-		Style.Glow(frame, accent, 10, 0.72, 0) -- over the card's background, under its content (ZIndex 1+)
+		stroke.Transparency = 0.2 -- reserve the strongest glow for reveal/ready states, not every card
 	else
 		stroke.Transparency = 0.45
 	end

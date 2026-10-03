@@ -1,7 +1,7 @@
 --!strict
 -- The Star Merchant, client side. A speech bubble ("Welcome, binder!") pops up over the NPC when you walk up; talking to it (the E prompt,
--- EconomyService) starts a dialog like popular Roblox shops: no window, the merchant's line in the speech bubble over its head and the
--- choices as big numbered lines on the screen (yellow "1.)" + white outlined text). Pick by clicking / tapping a line or pressing 1-5.
+-- EconomyService) starts a numbered dialog: the merchant's line appears in its world bubble and in a readable, scrollable
+-- choice sheet. Pick by clicking / tapping a line, selecting with a controller, or pressing 1-5.
 --   1.) I want to buy Stardust!            Kyle's live price + a yes / no (EconomyService validates the purchase)
 --   2.) I want to sell this!               sells the dragon you are CARRYING from the hotbar (name + gold, confirm; Epic+/mutated = 2nd confirm)
 --   3.) I want to sell my inventory!       sells every backpack dragon (not in the sanctuary) that is not a favorite (count + gold, confirm)
@@ -12,17 +12,22 @@
 
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local DataController = require(script.Parent.DataController)
+local EffectsQuality = require(script.Parent.EffectsQuality)
 local HudLayout = require(script.Parent.HudLayout)
 local MerchantIdle = require(script.Parent.MerchantIdleController)
 local Window = require(script.Parent.UI.Window)
 local Style = require(script.Parent.UI.Style)
+local Button = require(script.Parent.UI.Button)
+local RevealGate = require(script.Parent.UI.RevealGate)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -35,28 +40,32 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
 local words = Text.Merchant
 local Dialog = Economy.Merchant.Dialog
+local Mobile = UITheme.MobileUI
 
 local MerchantController = {}
 
-type Choice = { Text: string, OnPick: () -> (), Dim: boolean? }
+type Choice = { Text: string, OnPick: () -> (), Dim: boolean?, Kind: ("Confirm" | "Cancel")? }
 
 local player = Players.LocalPlayer
 local gui: ScreenGui
 local choiceFrame: Frame
+local choiceList: ScrollingFrame
+local dialogLine: TextLabel
+local wallet: TextLabel
 local bubbleLabels: { [BillboardGui]: TextLabel } = {}
 local bubbles: { [Instance]: BillboardGui } = {}
 local activePrompt: ProximityPrompt? = nil
 local activeMerchant: Instance? = nil
 local isOpen = false
 local currentLine = ""
+local closeDialog: (reaction: string?) -> ()
+local showMain: (line: string?) -> ()
 local choices: { Choice } = {}
 local choiceButtons: { TextButton } = {}
 local refreshPage: (() -> ())? = nil -- re-runs the current page (live prices, a dragon that changed)
 local autoWindow: Window.Window
 local autoRows: { [string]: { Set: (boolean) -> () } } = {}
 local inAutoPanel = false
-
-local YELLOW = "rgb(255,226,102)"
 
 local function carriedId(): string
 	local id = player:GetAttribute("CarryDragonId")
@@ -78,10 +87,10 @@ end
 local function rewardText(runes: number, stones: number): string
 	local parts = {}
 	if runes > 0 then
-		table.insert(parts, `+{runes} Rune{if runes == 1 then "" else "s"}`)
+		table.insert(parts, Text.Format(words.RuneReward, { n = runes }))
 	end
 	if stones > 0 then
-		table.insert(parts, `+{stones} Stone{if stones == 1 then "" else "s"}`)
+		table.insert(parts, Text.Format(words.StoneReward, { n = stones }))
 	end
 	return if #parts > 0 then " (" .. table.concat(parts, ", ") .. ")" else ""
 end
@@ -142,7 +151,7 @@ local function makeBubble(merchant: Instance): BillboardGui?
 	label.TextScaled = true
 	local limit = Instance.new("UITextSizeConstraint")
 	limit.MaxTextSize = 22
-	limit.MinTextSize = 10
+	limit.MinTextSize = Mobile.Small
 	limit.Parent = label
 	Style.Pad(label, 12, 6)
 	Style.Outline(label, 2)
@@ -167,6 +176,7 @@ local cameraWeight = 0
 local cameraTarget = 0
 
 local function frameMerchant()
+	if RevealGate.IsActive() then return end
 	local camera = workspace.CurrentCamera
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -199,7 +209,9 @@ local function cameraStep(dt: number)
 end
 
 local function easeCamera(on: boolean)
-	if player:GetAttribute("ReducedMotion") == true then
+	if player:GetAttribute("ReducedMotion") == true or player:GetAttribute("LowEffects") == true then
+		cameraTarget, cameraWeight = 0, 0
+		RunService:UnbindFromRenderStep("MerchantCamera")
 		return
 	end
 	cameraTarget = if on then Dialog.CameraStrength else 0
@@ -227,42 +239,60 @@ local function pick(index: number)
 end
 
 local function drawChoices()
-	clearChoices()
-	local phone = HudLayout.IsPhone()
-	local lineHeight = if phone then Dialog.PhoneLineHeight else Dialog.LineHeight
-	local x = if phone then Dialog.PhoneScreenX else Dialog.ScreenX
-	choiceFrame.Position = UDim2.fromScale(x, if phone then Dialog.PhoneScreenY else Dialog.ScreenY)
-	choiceFrame.Size = UDim2.fromScale(1 - x - 0.03 - (if phone then 0.2 else 0), 0)
-	local textSize = if phone then Dialog.PhoneTextSize else Dialog.TextSize
+	local safe = HudLayout.GetUsableRect()
+	local width = math.min(Mobile.MerchantWidth, math.max(Mobile.Touch, safe.Width - Mobile.WindowMargin * 2))
+	local height = math.min(Mobile.MerchantChoiceHeight * 5 + Mobile.MerchantLineHeight + Mobile.HeaderHeight * 2 + Mobile.Padding * 2, safe.Height - Mobile.WindowMargin * 2)
+	choiceFrame.AnchorPoint = Vector2.new(1, 0.5)
+	choiceFrame.Position = UDim2.fromOffset(safe.Max.X - Mobile.WindowMargin, safe.Min.Y + safe.Height / 2)
+	choiceFrame.Size = UDim2.fromOffset(width, math.max(Mobile.Touch * 2, height))
+	dialogLine.Text = currentLine
+	local data = DataController:Get()
+	wallet.Text = if data then Text.Format(words.Owned, { gold = Format.Number(data.Gold), stardust = Format.Number(data.Stardust) }) else ""
+	-- Price polling must not destroy the button under a finger or reset scroll position every half second.
+	for index = #choiceButtons, #choices + 1, -1 do
+		choiceButtons[index]:Destroy()
+		table.remove(choiceButtons, index)
+	end
 	for index, choice in choices do
-		local button = Instance.new("TextButton")
+		local button = choiceButtons[index]
+		if button == nil then
+			button = Instance.new("TextButton")
+			button.Activated:Connect(function()
+				Style.Play("Click")
+				pick(index)
+			end)
+			button.MouseEnter:Connect(function()
+				button.TextColor3 = UITheme.Colors.Title
+			end)
+			button.MouseLeave:Connect(function()
+				local current = choices[index]
+				button.TextColor3 = if current and current.Dim then UITheme.Colors.DisabledText else UITheme.Colors.Text
+			end)
+			button.Parent = choiceList
+			Style.Corner(button, UITheme.SmallCorner)
+			Style.Stroke(button, UITheme.Colors.Trim, Mobile.CardBorder).Transparency = 0.45
+			Style.Pad(button, Mobile.Padding, Mobile.Padding / 2)
+			table.insert(choiceButtons, button)
+		end
 		button.Name = `Choice{index}`
-		button.LayoutOrder = index
+		button.LayoutOrder = index + 1
 		button.AutoButtonColor = false
-		button.BackgroundTransparency = 1
 		button.RichText = true
 		button.TextXAlignment = Enum.TextXAlignment.Left
 		button.TextWrapped = true
-		button.Size = UDim2.new(1, 0, 0, lineHeight)
-		button.Text = `<font color="{YELLOW}">{index}.)</font> {choice.Text}`
-		Style.Text(button, "Heavy", textSize, if choice.Dim then Color3.fromRGB(170, 170, 185) else UITheme.Colors.Text)
-		Style.Outline(button, 2.5)
-		button.Parent = choiceFrame
-		local rest = UDim2.new(1, 0, 0, lineHeight)
-		button.MouseEnter:Connect(function()
-			button.TextColor3 = Color3.fromRGB(255, 244, 190)
-			TweenService:Create(button, TweenInfo.new(0.1), { Position = UDim2.fromOffset(Dialog.HoverShift, 0) }):Play()
-		end)
-		button.MouseLeave:Connect(function()
-			button.TextColor3 = if choice.Dim then Color3.fromRGB(170, 170, 185) else UITheme.Colors.Text
-			TweenService:Create(button, TweenInfo.new(0.1), { Position = UDim2.fromOffset(0, 0) }):Play()
-		end)
-		button.Activated:Connect(function()
-			Style.Play("Click")
-			pick(index)
-		end)
-		table.insert(choiceButtons, button)
-		button.Size = rest
+		button.Size = UDim2.new(1, -Mobile.Scrollbar, 0, Mobile.MerchantChoiceHeight)
+		local n = `<font color="#{UITheme.Colors.Title:ToHex()}">{index}</font>`
+		button.Text = Text.Format(words.ChoiceNumber, { n = n, choice = choice.Text })
+		Style.Text(button, "Bold", Mobile.Title, if choice.Dim then UITheme.Colors.DisabledText else UITheme.Colors.Text)
+		button.BackgroundTransparency = 0
+		local accent = if choice.Kind == "Confirm" then UITheme.Colors.Confirm elseif choice.Kind == "Cancel" then UITheme.Colors.Cancel else UITheme.Colors.CardBottom
+		button.BackgroundColor3 = UITheme.Colors.CardBottom:Lerp(accent, Mobile.CardAccentMix)
+		Style.Outline(button, UITheme.Strokes.TextStroke)
+	end
+	local selected = GuiService.SelectedObject
+	if isOpen and not inAutoPanel and string.find(UserInputService:GetLastInputType().Name, "Gamepad")
+		and (selected == nil or not selected:IsDescendantOf(choiceFrame)) then
+		GuiService.SelectedObject = choiceButtons[1]
 	end
 end
 
@@ -272,11 +302,12 @@ local function setPage(line: string, newChoices: { Choice }, refresh: (() -> ())
 	choices = newChoices
 	refreshPage = refresh
 	setBubbleText(line)
+	if not inAutoPanel then
+		choiceFrame.Visible = true
+		HudLayout.ClaimFocus(MerchantController, function() closeDialog() end)
+	end
 	drawChoices()
 end
-
-local closeDialog: (reaction: string?) -> ()
-local showMain: (line: string?) -> ()
 
 ---------------------------------------------------------------------------------------------------------------
 -- Pages
@@ -296,6 +327,7 @@ local function showBuy()
 		setPage(line, {
 			{
 				Text = words.BuyYes,
+				Kind = "Confirm",
 				Dim = not affordable,
 				OnPick = function()
 					if affordable then
@@ -334,7 +366,7 @@ local function showSellThis()
 	local risky = DragonStats.IsRiskySale(dragon)
 	local function sell()
 		ReplicatedStorage.Remotes.SellDragons:FireServer({ dragon.Id }, risky)
-		showMain(words.Done)
+		showMain() -- the server's notification reports success or rejection, not this optimistic request
 	end
 	setPage(Text.Format(words.SellThisLine, {
 		name = species.Name,
@@ -345,10 +377,11 @@ local function showSellThis()
 	}), {
 		{
 			Text = words.Deal,
+			Kind = "Cancel",
 			OnPick = function()
 				if risky then
 					setPage(Text.Format(words.RiskyLine, { desc = describeDragon(dragon) }), {
-						{ Text = words.RiskyYes, OnPick = sell },
+						{ Text = words.RiskyYes, Kind = "Cancel", OnPick = sell },
 						{ Text = words.RiskyNo, OnPick = back },
 					})
 				else
@@ -386,7 +419,7 @@ local function showSellInventory()
 	end
 	local function sell()
 		ReplicatedStorage.Remotes.SellInventory:FireServer(#risky > 0, #list)
-		showMain(words.Done)
+		showMain() -- keep confirmation honest until the authoritative sale response arrives
 	end
 	setPage(Text.Format(words.InventoryLine, {
 		count = #list,
@@ -396,6 +429,7 @@ local function showSellInventory()
 	}), {
 		{
 			Text = words.InventoryYes,
+			Kind = "Cancel",
 			OnPick = function()
 				if #risky == 0 then
 					sell()
@@ -404,7 +438,7 @@ local function showSellInventory()
 				local names = {}
 				for index, dragon in risky do
 					if index > 4 then
-						table.insert(names, `and {#risky - 4} more`)
+						table.insert(names, Text.Format(words.More, { n = #risky - 4 }))
 						break
 					end
 					local species = Dragons[dragon.SpeciesId]
@@ -412,7 +446,7 @@ local function showSellInventory()
 					table.insert(names, `{if mutation.Id ~= Mutations.NormalId then mutation.Name .. " " else ""}{if species then species.Name else "dragon"}`)
 				end
 				setPage(Text.Format(words.InventoryRiskyLine, { names = table.concat(names, ", ") }), {
-					{ Text = words.RiskyYes, OnPick = sell },
+					{ Text = words.RiskyYes, Kind = "Cancel", OnPick = sell },
 					{ Text = words.RiskyNo, OnPick = back },
 				})
 			end,
@@ -424,14 +458,16 @@ end
 local function openAutoPanel()
 	inAutoPanel = true
 	clearChoices()
+	choiceFrame.Visible = false
+	HudLayout.ReleaseFocus(MerchantController)
 	autoWindow:Open()
 end
 
 showMain = function(line: string?)
 	setPage(line or words.MenuLine, {
-		{ Text = words.ChoiceBuy, OnPick = showBuy },
-		{ Text = words.ChoiceSellThis, OnPick = showSellThis },
-		{ Text = words.ChoiceSellInventory, OnPick = showSellInventory },
+		{ Text = words.ChoiceBuy, Kind = "Confirm", OnPick = showBuy },
+		{ Text = words.ChoiceSellThis, Kind = "Cancel", OnPick = showSellThis },
+		{ Text = words.ChoiceSellInventory, Kind = "Cancel", OnPick = showSellInventory },
 		{ Text = words.ChoiceAutoSell, OnPick = openAutoPanel },
 		{ Text = words.ChoiceBye, OnPick = function() closeDialog("Bye") end },
 	})
@@ -457,7 +493,7 @@ local function makeSwitch(parent: Frame, get: () -> boolean, set: (boolean) -> (
 	switch.AutoButtonColor = false
 	switch.AnchorPoint = Vector2.new(1, 0.5)
 	switch.Position = UDim2.new(1, -8, 0.5, 0)
-	switch.Size = UDim2.fromOffset(84, 38)
+	switch.Size = UDim2.fromOffset(Mobile.Touch * 2, Mobile.Touch)
 	switch.BackgroundColor3 = Color3.new(1, 1, 1)
 	Style.Round(switch)
 	Style.GoldBorder(switch, 2.5)
@@ -483,11 +519,14 @@ local function makeSwitch(parent: Frame, get: () -> boolean, set: (boolean) -> (
 		local on = get()
 		local base = if on then colors.Confirm else colors.Neutral
 		gradient.Color = ColorSequence.new(Style.Shade(base, 0.16), Style.Shade(base, -0.2))
-		word.Text = if on then "ON" else "OFF"
+		word.Text = if on then Text.Milestones.AutoUpgradeOn else Text.Milestones.AutoUpgradeOff
 		word.Position = if on then UDim2.fromScale(0.04, 0) else UDim2.fromScale(0.38, 0)
-		TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Back), {
-			Position = if on then UDim2.new(1, -18, 0.5, 0) else UDim2.new(0, 18, 0.5, 0),
-		}):Play()
+		local position = if on then UDim2.new(1, -18, 0.5, 0) else UDim2.new(0, 18, 0.5, 0)
+		if EffectsQuality.IsLow() then
+			knob.Position = position
+		else
+			TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Back), { Position = position }):Play()
+		end
 	end
 end
 
@@ -503,32 +542,33 @@ local function buildAutoPanel()
 	list.Size = UDim2.fromScale(1, 1)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
-	list.ScrollBarThickness = 6
+	list.ScrollBarThickness = Mobile.Scrollbar
 	list.ScrollBarImageColor3 = UITheme.Colors.Trim
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
 	list.Parent = autoWindow.Content
+	Style.Pad(list, Mobile.Padding / 2, Mobile.Padding)
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, Mobile.Gap)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
-	local info = Style.Label(list, words.AutoLine, "Bold", 14, UITheme.Colors.TextMuted)
+	local info = Style.Label(list, words.AutoLine, "Body", Mobile.Body, UITheme.Colors.TextMuted)
 	info.LayoutOrder = 0
-	info.Size = UDim2.new(1, -8, 0, 40)
+	info.Size = UDim2.new(1, -Mobile.Scrollbar, 0, Mobile.Touch * 2)
 
 	local refreshers: { () -> () } = {}
 	local function row(order: number, text: string, color: Color3, key: string)
 		local frame = Instance.new("Frame")
 		frame.Name = key
 		frame.LayoutOrder = order
-		frame.Size = UDim2.new(1, -8, 0, 48)
+		frame.Size = UDim2.new(1, -Mobile.Scrollbar, 0, Mobile.MerchantChoiceHeight)
 		frame.BackgroundColor3 = Color3.new(1, 1, 1)
 		Style.CardLook(frame, color)
 		frame.Parent = list
-		local label = Style.Label(frame, text, "Title", 18, color)
+		local label = Style.Label(frame, text, "Bold", Mobile.Body, color)
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.Position = UDim2.fromOffset(14, 0)
-		label.Size = UDim2.new(1, -110, 1, 0)
+		label.Size = UDim2.new(1, -(Mobile.Touch * 2 + Mobile.Padding * 3), 1, 0)
 		Style.Outline(label, 1.5)
 		table.insert(refreshers, makeSwitch(frame, function()
 			local data = DataController:Get()
@@ -549,7 +589,7 @@ local function buildAutoPanel()
 	end
 	for order, rarityId in RARITY_ORDER do
 		local rarity = (UITheme.Rarity :: any)[rarityId]
-		row(order, `Sell new {rarityId} dragons`, if rarity then rarity.Color else UITheme.Colors.Gold, rarityId)
+		row(order, Text.Format(words.SellRarity, { rarity = rarityId }), if rarity then rarity.Color else UITheme.Colors.Gold, rarityId)
 	end
 	row(10, words.KeepMutated, UITheme.Colors.Confirm, "KeepMutated")
 	row(11, words.KeepNewSpecies, UITheme.Colors.Confirm, "KeepNewSpecies")
@@ -563,7 +603,11 @@ local function buildAutoPanel()
 	autoWindow:OnClose(function()
 		inAutoPanel = false
 		if isOpen then
-			showMain()
+			if HudLayout.HasFocus() then
+				closeDialog() -- another modal replaced the auto-sell window; never reclaim its focus
+			else
+				showMain()
+			end
 		end
 	end)
 end
@@ -593,8 +637,17 @@ local function openDialog(prompt: ProximityPrompt)
 	end
 	showMain()
 	easeCamera(true)
+	if UserInputService:GetLastInputType().Name:match("Gamepad") then
+		GuiService.SelectedObject = choiceButtons[1]
+	end
+	ContextActionService:BindAction("MerchantClose", function(_, state)
+		if player:GetAttribute("BindRevealActive") == true or player:GetAttribute("RewardPopupOpen") == true then return Enum.ContextActionResult.Pass end
+		if state == Enum.UserInputState.Begin then closeDialog("Bye") end
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.KeyCode.ButtonB, Enum.KeyCode.Escape)
 	-- 1-5 pick a line (the key is sunk so the hotbar doesn't also react)
 	ContextActionService:BindActionAtPriority("MerchantChoice", function(_, state, input)
+		if player:GetAttribute("BindRevealActive") == true or player:GetAttribute("RewardPopupOpen") == true then return Enum.ContextActionResult.Pass end
 		if state ~= Enum.UserInputState.Begin then
 			return Enum.ContextActionResult.Sink
 		end
@@ -615,10 +668,16 @@ closeDialog = function(reaction: string?)
 	inAutoPanel = false
 	player:SetAttribute("MerchantDialog", nil)
 	ContextActionService:UnbindAction("MerchantChoice")
+	ContextActionService:UnbindAction("MerchantClose")
+	if GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(gui) then
+		GuiService.SelectedObject = nil
+	end
 	if autoWindow.IsOpen then
 		autoWindow:Close()
 	end
 	clearChoices()
+	choiceFrame.Visible = false
+	HudLayout.ReleaseFocus(MerchantController)
 	gui.Enabled = false
 	easeCamera(false)
 	local merchant = activeMerchant
@@ -639,15 +698,51 @@ function MerchantController:Init()
 	choiceFrame = Instance.new("Frame")
 	choiceFrame.Name = "Choices"
 	choiceFrame.BackgroundTransparency = 1
-	choiceFrame.AnchorPoint = Vector2.new(0, 0.5)
-	choiceFrame.Position = UDim2.fromScale(Dialog.ScreenX, Dialog.ScreenY)
-	choiceFrame.Size = UDim2.fromScale(1 - Dialog.ScreenX - 0.03, 0)
-	choiceFrame.AutomaticSize = Enum.AutomaticSize.Y
+	choiceFrame.Visible = false
+	Style.WorldPanel(choiceFrame, UITheme.Colors.Stardust)
 	choiceFrame.Parent = gui
+	local title = Style.Label(choiceFrame, words.Title, "Title", Mobile.Title, UITheme.Colors.Title)
+	title.Position = UDim2.fromOffset(Mobile.Padding, Mobile.Padding)
+	title.Size = UDim2.new(1, -(Mobile.Padding * 2 + Mobile.Touch * 2 + Mobile.Gap), 0, Mobile.Title + Mobile.Gap)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	local exit = Button.new(choiceFrame, { Text = words.ChoiceBye, Kind = "Cancel", TextSize = Mobile.Body,
+		OnClick = function() closeDialog("Bye") end,
+	})
+	exit.Instance.Name = "Exit"
+	exit.Instance.AnchorPoint = Vector2.new(1, 0)
+	exit.Instance.Position = UDim2.new(1, -Mobile.Padding, 0, Mobile.Padding / 2)
+	exit.Instance.Size = UDim2.fromOffset(Mobile.Touch * 2, Mobile.Touch)
+	wallet = Style.Label(choiceFrame, "", "Body", Mobile.Small, UITheme.Colors.TextMuted)
+	wallet.Position = UDim2.fromOffset(Mobile.Padding, Mobile.HeaderHeight)
+	wallet.Size = UDim2.new(1, -Mobile.Padding * 2, 0, Mobile.Small * 2)
+	wallet.TextXAlignment = Enum.TextXAlignment.Left
+	choiceList = Instance.new("ScrollingFrame")
+	choiceList.Name = "ChoicesList"
+	choiceList.Position = UDim2.fromOffset(Mobile.Padding, Mobile.HeaderHeight + Mobile.Small * 2 + Mobile.Gap)
+	choiceList.Size = UDim2.new(1, -Mobile.Padding * 2, 1, -(Mobile.HeaderHeight + Mobile.Small * 2 + Mobile.Gap + Mobile.Padding))
+	choiceList.BackgroundTransparency = 1
+	choiceList.BorderSizePixel = 0
+	choiceList.ScrollBarThickness = Mobile.Scrollbar
+	choiceList.ScrollBarImageColor3 = UITheme.Colors.Trim
+	choiceList.ScrollingDirection = Enum.ScrollingDirection.Y
+	choiceList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	choiceList.CanvasSize = UDim2.new()
+	choiceList.Parent = choiceFrame
+	Style.Pad(choiceList, 0, Mobile.Padding / 2)
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 2)
-	layout.Parent = choiceFrame
+	layout.Padding = UDim.new(0, Mobile.Gap)
+	layout.Parent = choiceList
+	dialogLine = Style.Label(choiceList, "", "Body", Mobile.Body, UITheme.Colors.Text)
+	dialogLine.LayoutOrder = 0
+	dialogLine.Size = UDim2.new(1, -Mobile.Scrollbar, 0, 0)
+	dialogLine.AutomaticSize = Enum.AutomaticSize.Y
+	dialogLine.TextXAlignment = Enum.TextXAlignment.Left
+	dialogLine.TextYAlignment = Enum.TextYAlignment.Top
+	HudLayout.OnLayoutChanged(function() if isOpen then drawChoices() end end)
+	for _, setting in { "ReducedMotion", "LowEffects" } do
+		player:GetAttributeChangedSignal(setting):Connect(function() easeCamera(isOpen) end)
+	end
 
 	buildAutoPanel()
 

@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Style = require(script.Parent.Style)
+local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
 
 export type Props = {
 	Image: string?, -- asset id; "" or nil = use Glyph
@@ -60,6 +61,14 @@ local function track(self: HudIcon)
 		local theme = Style.Theme
 		local t = os.clock()
 		for _, icon in animated do
+			if EffectsQuality.IsLow() then
+				icon.Holder.Position = UDim2.new(0.5, 0, 0, 0)
+				icon.ReadyTag.Rotation = 0
+				icon.Sparkles.Visible = false
+				icon.Glow.BackgroundTransparency = if icon.Ready or icon.Pulsing then 0.65 else 1
+				continue
+			end
+			icon.Sparkles.Visible = icon.Ready
 			if icon.Ready then
 				local hop = math.abs(math.sin(t * theme.Motion.ReadySpeed)) * theme.Motion.ReadyBounce
 				icon.Holder.Position = UDim2.new(0.5, 0, 0, -hop)
@@ -91,6 +100,7 @@ function HudIcon.new(parent: Instance, props: Props): HudIcon
 	instance.Name = props.Label
 	instance.Text = ""
 	instance.AutoButtonColor = false
+	instance.Selectable = true
 	instance.BackgroundTransparency = 1
 
 	local holder = Instance.new("Frame")
@@ -286,7 +296,7 @@ function HudIcon.new(parent: Instance, props: Props): HudIcon
 	local motion = theme.Motion
 	local function settle()
 		local info = TweenInfo.new(motion.IconHoverTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-		TweenService:Create(scale, info, { Scale = if self.Hovering then motion.IconHover else 1 }):Play()
+		TweenService:Create(scale, info, { Scale = if self.Hovering and not EffectsQuality.IsLow() then motion.IconHover else 1 }):Play()
 		if not (self.Ready or self.Pulsing) then
 			TweenService:Create(glow, TweenInfo.new(motion.IconHoverTime), { BackgroundTransparency = if self.Hovering then 0.6 else 1 }):Play()
 		end
@@ -302,7 +312,7 @@ function HudIcon.new(parent: Instance, props: Props): HudIcon
 	end)
 	instance.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			TweenService:Create(body, TweenInfo.new(motion.IconSquishTime), { Size = UDim2.fromScale(motion.IconSquish.X, motion.IconSquish.Y) }):Play()
+			if not EffectsQuality.IsLow() then TweenService:Create(body, TweenInfo.new(motion.IconSquishTime), { Size = UDim2.fromScale(motion.IconSquish.X, motion.IconSquish.Y) }):Play() end
 		end
 	end)
 	instance.InputEnded:Connect(function(input)
@@ -316,6 +326,11 @@ function HudIcon.new(parent: Instance, props: Props): HudIcon
 	end)
 
 	instance.Parent = parent
+	instance.Destroying:Connect(function()
+		local index = table.find(animated, self)
+		if index then table.remove(animated, index) end
+		if #animated == 0 and connection then connection:Disconnect(); connection = nil end
+	end)
 	return self
 end
 
@@ -325,6 +340,10 @@ function HudIcon.Resize(self: HudIcon, iconSize: number, labelSize: number)
 	self.Instance.Size = UDim2.fromOffset(math.max(iconSize, labelSize * 5), iconSize + labelSize + 2)
 	self.Holder.Size = UDim2.fromOffset(iconSize, iconSize)
 	self.Label.Size = UDim2.new(1, 8, 0, labelSize)
+	local limit = self.Label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	limit.MinTextSize = math.min(labelSize, Style.Theme.MobileUI.Small)
+	limit.MaxTextSize = labelSize
+	limit.Parent = self.Label
 	local stroke = self.Label:FindFirstChildOfClass("UIStroke")
 	if stroke then
 		stroke.Thickness = if labelSize >= 16 then 2 else 1.5
@@ -337,7 +356,7 @@ end
 
 function HudIcon.SetBadge(self: HudIcon, count: number)
 	local text = if count > 99 then "99+" else tostring(count)
-	if self.Badge.Text ~= text and count > 0 then -- a little pop when the count changes
+	if self.Badge.Text ~= text and count > 0 and not EffectsQuality.IsLow() then -- a little pop when the count changes
 		local pop = self.Badge:FindFirstChild("Pop") :: UIScale? or Instance.new("UIScale")
 		pop.Name = "Pop"
 		pop.Parent = self.Badge

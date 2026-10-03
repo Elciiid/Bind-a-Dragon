@@ -8,6 +8,7 @@ local Ceremony = require(ReplicatedStorage.Shared.Config.Ceremony)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
 local Style = require(script.Parent.Style)
+local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
 
 local Gate = {}
 local active = false
@@ -17,9 +18,15 @@ local watching: { RBXScriptConnection } = {}
 local deferred: { () -> () } = {}
 local announced: { [string]: () -> () } = {}
 local revealed: { [string]: boolean } = {}
+local animations: { Tween } = {}
+
+local function run(callback: () -> ())
+	local ok, err = pcall(callback)
+	if not ok then warn(`[RevealGate] Deferred display failed: {err}`) end
+end
 
 function Gate.AfterDragon(id: string, callback: () -> ())
-	if revealed[id] then callback() else announced[id] = callback end
+	if revealed[id] then Gate.Defer(callback) else announced[id] = callback end
 end
 
 function Gate.ReleaseDragon(id: string)
@@ -34,13 +41,14 @@ function Gate.IsActive(): boolean
 end
 
 function Gate.Defer(callback: () -> ())
-	table.insert(deferred, callback)
+	if active then table.insert(deferred, callback) else run(callback) end
 end
 
 function Gate.Begin()
 	if cover then return end
 	local alreadyActive = active
 	active = true
+	Players.LocalPlayer:SetAttribute("BindRevealActive", true)
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local function mask(child: Instance)
 		if not child:IsA("ScreenGui") or child:GetAttribute("RevealLayer") == true then return end
@@ -74,7 +82,7 @@ function Gate.Begin()
 	label.Position = UDim2.fromScale(0.5, 0.6)
 	label.Size = UDim2.fromScale(0.8, 0.1)
 	label.TextWrapped = true
-	local reduced = Players.LocalPlayer:GetAttribute("ReducedMotion") == true
+	local reduced = Players.LocalPlayer:GetAttribute("ReducedMotion") == true or EffectsQuality.IsLow()
 	for index = 1, Ceremony.WaitingStars do
 		local star = Instance.new("ImageLabel")
 		star.BackgroundTransparency = 1
@@ -86,19 +94,24 @@ function Gate.Begin()
 		star.Position = UDim2.new(0.5, math.cos(angle) * Ceremony.WaitingRadius, 0.4, math.sin(angle) * Ceremony.WaitingRadius / 2)
 		star.Parent = frame
 		if not reduced then
-			TweenService:Create(star, TweenInfo.new(Ceremony.WaitingStarSeconds, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { ImageTransparency = 0.7 }):Play()
+			local tween = TweenService:Create(star, TweenInfo.new(Ceremony.WaitingStarSeconds, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { ImageTransparency = 0.7 })
+			table.insert(animations, tween)
+			tween:Play()
 		end
 	end
 end
 
 function Gate.Reveal()
 	-- The dragon is now visibly revealed; underlying UI stays masked until cleanup.
+	for _, tween in animations do tween:Cancel() end
+	table.clear(animations)
 	if cover then cover:Destroy(); cover = nil end
 end
 
 function Gate.Finish()
 	Gate.Reveal()
 	active = false
+	Players.LocalPlayer:SetAttribute("BindRevealActive", false)
 	for _, connection in watching do connection:Disconnect() end
 	table.clear(watching)
 	for screen, enabled in saved do
@@ -107,10 +120,18 @@ function Gate.Finish()
 	table.clear(saved)
 	local callbacks = deferred
 	deferred = {}
-	for _, callback in callbacks do
-		local ok, err = pcall(callback)
-		if not ok then warn(`[RevealGate] Deferred display failed: {err}`) end
+	for _, callback in callbacks do run(callback) end
+end
+
+-- A refusal/timeout is presentation cancellation, not a gameplay rollback. Release held announcements too;
+-- they may already describe a confirmed server grant even if a separate result packet never reached this client.
+function Gate.Cancel()
+	for id, callback in announced do
+		revealed[id] = true
+		table.insert(deferred, callback)
 	end
+	table.clear(announced)
+	Gate.Finish()
 end
 
 return Gate

@@ -18,6 +18,7 @@ local Areas = require(ReplicatedStorage.Shared.Config.Areas)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Travel = require(ReplicatedStorage.Shared.Config.Travel)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Geometry = require(ReplicatedStorage.Shared.UIGeometry)
 
 local ARRIVAL_WAIT = 6 -- seconds to watch for the teleport after asking (the server may stream first)
 local ARRIVAL_JUMP = 20 -- studs: a move this big in one step is the teleport
@@ -53,7 +54,7 @@ end
 
 function TravelController:Init()
 	local gui = HudLayout.MakeScreenGui("TravelHud", "Hud")
-	gui.ScreenInsets = Enum.ScreenInsets.None -- the row sits at the very top, in the middle of Roblox's top bar
+	HudLayout.HideWithPopups(gui)
 	local row = Instance.new("Frame")
 	row.Name = "TravelRow"
 	row.AnchorPoint = Vector2.new(0.5, 0)
@@ -78,6 +79,7 @@ function TravelController:Init()
 			task.spawn(faceOnArrival)
 		end)
 		icons[destination.Id] = icon
+		HudLayout.RegisterTutorialTarget(destination.Id, icon.Instance)
 	end
 
 	-- Altars (R18 milestone, Altar Travel): a fourth icon that opens a short list of the areas whose altar you can go to.
@@ -94,12 +96,20 @@ function TravelController:Init()
 		Size = UDim2.new(0.8, 0, 0.8, 0),
 		MaxSize = Vector2.new(360, 400),
 	})
+	local altarScroll = Instance.new("ScrollingFrame")
+	altarScroll.Size = UDim2.fromScale(1, 1)
+	altarScroll.BackgroundTransparency = 1
+	altarScroll.BorderSizePixel = 0
+	altarScroll.CanvasSize = UDim2.new()
+	altarScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	altarScroll.ScrollBarThickness = UITheme.MobileUI.Scrollbar
+	altarScroll.Parent = altarWindow.Content
 	local altarList = Instance.new("UIListLayout")
 	altarList.Padding = UDim.new(0, 8)
 	altarList.SortOrder = Enum.SortOrder.LayoutOrder
-	altarList.Parent = altarWindow.Content
+	altarList.Parent = altarScroll
 	local function fillAltars()
-		for _, child in altarWindow.Content:GetChildren() do
+		for _, child in altarScroll:GetChildren() do
 			if child:IsA("GuiObject") then
 				child:Destroy()
 			end
@@ -114,7 +124,7 @@ function TravelController:Init()
 		end)
 		for index, entry in ordered do
 			local unlocked = data ~= nil and DragonStats.IsAreaUnlocked(data, entry.Id)
-			local altarButton = Button.new(altarWindow.Content, {
+			local altarButton = Button.new(altarScroll, {
 				Text = if unlocked then entry.Area.Name else Text.Format(Text.Milestones.Altars.Locked, { n = entry.Area.RebirthsRequired }),
 				Kind = if unlocked then "Confirm" else "Cancel",
 				TextSize = 20,
@@ -135,36 +145,45 @@ function TravelController:Init()
 		fillAltars()
 		altarWindow:Toggle()
 	end)
+	local function layoutTravel(phone: boolean)
+		local sizes = UITheme.Sizes
+		local small = if phone then UITheme.MobileUI.TravelIcon else sizes.TravelIcon
+		local home = if phone then UITheme.MobileUI.TravelIcon else sizes.TravelHomeIcon
+		local label = if phone then UITheme.MobileUI.TravelText else sizes.HudLabel - 2
+		local count = if altarIcon.Instance.Visible then 4 else 3
+		local safe, insets, reserved = HudLayout.GetTravelHost()
+		local wanted = if phone then UITheme.MobileUI.TravelSlot else sizes.TravelSlot
+		local gap = UITheme.MobileUI.TravelGap
+		local usable = HudLayout.GetUsableRect()
+		local center = usable.Min.X + usable.Width / 2 - safe.Min.X
+		local box = Geometry.TopRow(safe.Width, reserved, count, wanted, UITheme.MobileUI.Touch, gap, center)
+		-- If a genuinely centered row cannot fit beside native controls, use the core-safe top
+		-- edge with the same small margin. Never push it off-center or overlap Roblox's menu/cutout.
+		if not box.Fits then
+			safe, insets = usable, Enum.ScreenInsets.CoreUISafeInsets
+			box = Geometry.TopRow(safe.Width, 0, count, wanted, UITheme.MobileUI.Touch, gap, safe.Width / 2)
+		end
+		gui.ScreenInsets = insets
+		list.Padding = UDim.new(0, gap)
+		local height = math.max(UITheme.MobileUI.Touch, home + label + 2)
+		for id, icon in icons do
+			icon:Resize(if id == "Home" then home else small, label)
+			icon.Instance.Size = UDim2.fromOffset(box.Slot, height)
+			icon.Label.Size = UDim2.new(1, 0, 0, label)
+		end
+		row.Position = UDim2.fromOffset(box.X, UITheme.MobileUI.TravelTop)
+		row.Size = UDim2.fromOffset(0, height)
+		HudLayout.SetTravelBottom(safe.Min.Y + UITheme.MobileUI.TravelTop + height)
+	end
 	local function refreshAltars()
 		local data = DataController:Get()
 		altarIcon.Instance.Visible = data ~= nil and RebirthMilestones.Has(data.Rebirths, "AltarTravel")
+		layoutTravel(HudLayout.IsPhone())
 	end
 	DataController:OnChanged("Rebirths", refreshAltars)
 	task.defer(refreshAltars)
 
-	HudLayout.OnLayoutChanged(function(phone)
-		local sizes = UITheme.Sizes
-		local small = if phone then sizes.PhoneTravelIcon else sizes.TravelIcon
-		local home = if phone then sizes.PhoneTravelHomeIcon else sizes.TravelHomeIcon
-		local label = if phone then sizes.PhoneHudLabel else sizes.HudLabel - 2
-		-- equal slots: the same width for every button (labels never clip, even spacing whatever the icon size)
-		local slot = if phone then sizes.PhoneTravelSlot else sizes.TravelSlot
-		local padding = if phone then 4 else 8
-		list.Padding = UDim.new(0, padding)
-		-- narrow screens: shrink the slots so the row (3 or 4 buttons) always fits between the margins
-		local camera = workspace.CurrentCamera
-		if camera then
-			local count = if altarIcon.Instance.Visible then 4 else 3
-			slot = math.min(slot, (camera.ViewportSize.X - 2 * sizes.PhoneMargin - (count - 1) * padding) / count)
-		end
-		for id, icon in icons do
-			icon:Resize(if id == "Home" then home else small, label)
-			icon.Instance.Size = UDim2.fromOffset(slot, icon.Instance.Size.Y.Offset)
-			icon.Label.Size = UDim2.new(1, 0, 0, label)
-		end
-		row.Position = UDim2.new(0.5, 0, 0, if phone then sizes.PhoneTravelTop else sizes.TravelTop)
-		row.Size = UDim2.fromOffset(0, home + label + 2)
-	end)
+	HudLayout.OnLayoutChanged(layoutTravel)
 end
 
 return TravelController

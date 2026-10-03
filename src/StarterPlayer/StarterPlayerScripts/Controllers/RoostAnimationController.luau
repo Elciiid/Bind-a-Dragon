@@ -24,6 +24,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local DragonRig = require(script.Parent.DragonRig)
+local AudioController = require(script.Parent.AudioController)
+local AudioConfig = require(ReplicatedStorage.Shared.Config.Audio)
 local EffectsQuality = require(script.Parent.EffectsQuality)
 local RoostZones = require(ReplicatedStorage.Shared.RoostZones)
 local RoostConfig = require(ReplicatedStorage.Shared.Config.Roost)
@@ -215,6 +217,7 @@ local function startAction(roamer: Roamer, name: string)
 	roamer.Pose.Action = name
 	roamer.Pose.ActionT = 0
 	roamer.ActionSeconds = action.Seconds
+	if name == "Roar" then AudioController.PlayDragonSound("Roar", roamer.Model) end
 end
 
 -- An idle action for a perched ("Perch") or lying ("Rest") dragon, picked by weight. Look just turns the head.
@@ -268,6 +271,7 @@ local function arrive(roamer: Roamer)
 end
 
 local function takeOff(roamer: Roamer)
+	AudioController.PlayDragonSound("Wing", roamer.Model)
 	releasePerch(roamer)
 	roamer.Spot = nil
 	roamer.State = "Fly"
@@ -718,6 +722,13 @@ local function step(roamer: Roamer, dt: number)
 
 	local pose = roamer.Pose
 	local roll = 0
+	if roamer.Mode ~= "Hidden" then
+		local interval = if flying then AudioConfig.Dragon.Wing.Cooldown else AudioConfig.Dragon.HatchlingInterval
+		if math.floor((roamer.Phase - dt) / interval) ~= math.floor(roamer.Phase / interval) then
+			if flying and isAirborne(roamer) then AudioController.PlayDragonSound("Wing", roamer.Model)
+			elseif roamer.Movement == "Hop" then AudioController.PlayDragonSound("Chirp", roamer.Model) end
+		end
+	end
 	if roamer.Rig then
 		height += DragonRig.Heave(pose) - RigConfig.RestDrop * roamer.BodyHeight * pose.Rest
 		if pose.Action == "Shake" then

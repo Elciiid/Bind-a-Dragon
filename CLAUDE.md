@@ -3,6 +3,25 @@
 This file gives Claude Code the context for this project. Read it before making changes.
 Keep it updated: when a system is finished or a design decision changes, edit the relevant section.
 
+**Mobile UI / tutorial / reveal (2026-10-04, `codex/mobile-ui-tutorial-reveal`):** presentation code is implemented;
+Studio validation is owner-operated and still pending. This branch starts from main `3c93596` and includes the
+owner-approved, previously unmerged leaderboard/audio/onboarding changes. Physical 16px
+body text, 44px touch actions, safe-area bounds, responsive scrolling/reflow and lower-noise glass surfaces replace
+panel/card scale-downs. The tutorial now uses a reusable card, real target outlines, contextual input hints and
+supporting trails. Confirmed binds use an isolated viewport reveal and frozen-odds result card; the player's camera
+is never overridden. Quick Binds applies to every rarity; Reduced Motion and Low Effects are respected. Starborn
+remains retired: use the existing four mutations, with Primordial/prestige presentation.
+HUD follow-up: side icons form a vertically centered column; Gold/Stardust sit bottom-left; top navigation has
+16px gaps, a small 6px top margin, and centers on the full usable screen with native-control-safe fallback.
+Settings uses the top-bar-safe host, placing it beside rather than inside Roblox's microphone control. No economy, normal RNG,
+Spire server behavior, main, production data or place content was changed by this UI pass. On 2026-10-04 the owner
+authorized committing and pushing this feature branch; Nas will handle the merge. Do not merge, modify main, create
+a PR or publish a place without a separate request. Current source checks and the complete owner testing checklist:
+[`docs/Mobile_UI_Polish.md`](docs/Mobile_UI_Polish.md).
+The historical UI renewal row below describes earlier implementations; this note/report supersede its inset,
+scaled-phone-card, tooltip, ceremony and station-layout descriptions. Earlier owner onboarding tests do not certify
+the new presentation.
+
 **Hakai gameplay polish economy (2026-10-02, feature branch):** level prices grow x1.08 per level with a server-saved
 retained-income anchor and exact bulk/Auto-Upgrade sums; `Rebirth.LateGrowth = 2.31`. Paired 1,000-seed cohorts/profile
 produce raw Dedicated R30 median **7.961 days** (3.5 scheduled active h/day + capped 50% offline); paid AFK **16.00 days**.
@@ -29,6 +48,8 @@ climb the Spire for rewards → rebirth to unlock areas and raise level cap → 
 
 ## Current status
 
+**Onboarding follow-up verification (2026-10-03):** Owner confirmed the raised trails and styled hint in Hakai Test, skip/completion persistence, and completion of the remaining guided mobile, Reduced Motion and once-only-upgrade tests. This supersedes the onboarding row's pending-retest note below. These are owner-reported results; final edge-case outputs were not supplied. See `docs/Onboarding_Implementation.md` for evidence limits.
+
 **Phase:** Production. The core loop is playable in Studio; the approved economy rebalance (Phases 1–6) is built; next are the weekly-update systems and UI polish.
 _Update this section as work progresses._
 
@@ -37,6 +58,10 @@ _Update this section as work progresses._
 | Project setup (Rojo, Git, folder structure) | Done (Rojo 7.6.1, `default.project.json`, Init/Start bootstraps) |
 | Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData`. Studio uses a separate `PlayerData_Studio` store |
 | Client data sync | Done: snapshot + auto-diffed changes (`DataService` → `DataController`); `PRIVATE_KEYS` stay server-only. Gold/Stardust HUD in `CurrencyController` |
+| Mobile-first UI, tutorial and bind reveal (2026-10-04 feature branch) | Code implemented on `codex/mobile-ui-tutorial-reveal`: shared safe geometry/physical controls; reflowing Inventory, stations and Spire; reusable targeted tutorial; queued viewport reveal with exact frozen odds and safe skip/fallback. Luau compile, Rojo 7.6.1 build and portable contracts pass. Owner requested code-only work; all new Studio visual/input tests and before/after captures remain pending. See `docs/Mobile_UI_Polish.md`. |
+| World leaderboards (2026-10-03 feature branch) | Implemented: tagged SurfaceGui boards for Rebirths, credited lifetime gold, and rarest base pair odds; budgeted monotonic OrderedDataStore writes, cached top ten/viewer ranks, Studio-suffixed stores and Rebirths leaderstats. Static checks pass; user-operated Hakai Test verification pending. Spire earnings are omitted because SpireService is protected; historical earnings cannot be recovered. See `docs/Leaderboards_Implementation.md`. |
+| Area audio / dragon sounds (2026-10-03 feature branch) | Implemented: five area day/night palettes, crossfades, rarity fanfares, remote-driven Spire music, unique timed feedback and capped nearby 3D dragon cues. Config checks pass; 15 new public APM/PSE listings verified for provenance only. Actual load permissions, listening, loop seams and Studio flows remain user-test pending; `AudioController.GetLoadReport()` exposes runtime diagnostics. All IDs and checklist: `docs/Audio_Manifest.md`. |
+| First-time onboarding (2026-10-03 feature branch) | Implemented: server-owned skippable progress, once-only daytime Rare-or-better conditional bind with accurately labeled odds, falling-star prelude, Inventory pointer and separate free-upgrade action, next-night and contextual hints. Four appended fields use Reconcile without a version bump. Owner confirmed Home advancement, one upgrade and step-5 completion; ground decals failed visibility. Follow-up replaces them with raised, outlined star billboards and restyles the hint with the existing panel kit, title/progress and 30-second final guidance; revised rendering needs owner retest. Five pools/500,000 rolls and portable layout checks cover source behavior, not Studio visuals. Protected HUD/Inventory pointer fallbacks remain; evidence/checklist in `docs/Onboarding_Implementation.md`, proposal in `docs/Onboarding_Proposal.md`. |
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server; `GetNightBlend` for visuals), `DayNightService`, `DayNightController` (clock + the day/night card at the top: sun/moon icon, phase + time left, tonight's luck line, progress bar, pop on phase change; wording in `Config/Text.SkyHud`, sizes `UITheme.Sizes.SkyCard`/`PhoneSkyCard`; design by Kyle) |
 | Atmosphere (meadow wow pass, phase 1) | Done (NightGlow parts with a SurfaceAppearance glow through its emissive: `GlowStrength` attribute): per-area Day/Night looks in `Config/Atmosphere` (`AtmosphereController`: ambient, haze, bloom, color correction, sun rays, far blur, 3D clouds (`Terrain.Clouds`, per-area cover/density/color); blends at dusk/dawn and on area change; night tint by element), tonight's constellation drawn in the sky + shooting stars (`SkyController`, drawings in `Config/Constellations` Stars/Lines; drawn 2,000 studs out following the camera like a skybox, as depth-tested pixel-sized BillboardGuis, so the Spire, buildings and mountains hide it and the haze doesn't fade it), lanterns (tag `Lantern`, Atomic) lit at dusk with flicker, max 8 lights (`WorldLifeController`), drifting particles per area (petals/fireflies, embers, snow...), music + ambience crossfade and 3D world sounds (`AudioController`, `Config/Audio`). `EffectsQuality` = Low effects (setting or low graphics quality). Lighting uses `Lighting.LightingStyle = Realistic` (set in Studio; replaces the old Future technology) |
 | Altar glow + binding ceremony (wow pass, phase 2) | Done: `AltarGlowController` (every `StarAltar`: beam from the main crystal, glow sprites on `Glow/GlowAnchor` parts (Rank 1 = main crystal; only `MaxLights` cast light), rising sparkles, pulsing Highlight up close; element color, brighter when favored; `Config/AltarGlow`). `CeremonyController` (`Config/Ceremony`): after the server's BindResult, camera eases in, tonight's sky stars streak into the altar, rarity/mutation burst + flash, the dragon rises with its name; Legendary/Mythic/Primordial = big; skippable; no ceremony for Auto-bind or idle players; Quick binds remain supported |
