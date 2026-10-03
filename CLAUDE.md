@@ -580,12 +580,17 @@ Lighting; tags stripped; terrain can't be copied).
   Peak: dark orange). Shots: `docs/img/simplify_b2_fog_*`. LightingStyle: Soft (set by the owner) reads better with the new colors
   than Realistic (darker shadows, harsher contrast; `simplify_b2_style_realistic_q10.jpg`). No new far-mountain geometry without
   the owner's approval; note that a 3D mesh would vanish at quality 1 like the terrain does.
-- **Foothill life (done):** `ValleyDetail.RunFoothills()` (rules `D.Foothills`, safe to run twice): the slopes above y 18 get
-  two close bright greens in big soft patches (noise scale 210 studs): terrain Grass (122, 152, 58) and Mud recolored
-  (84, 126, 44) (Mud = `Valley_ForestA`, same texture, no grass blades); 12 big Emerald broadleaf trees (44-54 tall, one per
-  30-degree sector at a random distance, 8-70 studs past the valley edge, so never a line) in `StarterMeadow.Life.Foothills`
-  below the fir line; +28 parts, ~18k triangles (StarterMeadow ~211k). Shots `docs/img/simplify_foothills_*`. Mud no longer
-  means "forest floor": don't re-run `ValleyTerrain.PaintForest()` (it would paint the old teal patches back).
+- **Mountains = rock and snow, grass only low (done; replaces the earlier two-shade "foothill life" patches):**
+  `ValleyDetail.RunFoothills()` (rules `D.Foothills`, safe to run twice, terrain materials only): outside the valley edge
+  (`V.EdgeAt`, more than 6 studs past it) every Grass/Mud voxel above the **grass line, y 20** (wandering +-10 studs in big
+  ~90-stud waves so it is a soft natural edge, not a contour) is Rock; below it one bright green (terrain Grass
+  (122, 152, 58)). Inside the valley edge everything green stays Grass (valley floor, sanctuary terraces, Spire hill). Snowcaps
+  (Sand above y 220) and roads/river beds untouched; Rock stays the light grey-lilac (160, 160, 170). Trees: forest firs standing
+  above the line were removed (42 -> 14), the 12 big Emerald broadleaf trees (`StarterMeadow.Life.Foothills`, 40-50 tall, one per
+  30-degree sector at a random distance, 2-45 studs past the edge) stand only on grass at least 5 studs under the line; the
+  ancient tree on the waterfall cliff stays as the landmark (on rock). StarterMeadow 1,051 parts / ~167k triangles. Shots
+  `docs/img/simplify_grassline_{before,after}_{overview,plaza_q10,gate,east}.jpg` (overview from Edit mode, haze/clouds off).
+  Mud is no longer used in the Valley: don't re-run `ValleyTerrain.PaintForest()` (it paints the old teal forest floor back).
 - **Batch 3 (done):** the default `Sky` shows no Roblox stars/sun/moon (`StarCount` 0, `CelestialBodiesShown` false;
   `AtmosphereController`): only SkyController's stars and constellation (`simplify_b3_night_sky_q10.jpg`). Every area's haze is
   light and in its theme (Config/Atmosphere: Density 0.3, Offset 0.55, light warm peach / icy blue / grey-violet / eclipse

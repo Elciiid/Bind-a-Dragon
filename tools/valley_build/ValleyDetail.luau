@@ -1151,36 +1151,46 @@ function D.RunSimplify(): string
 	return string.format("removed %d, firs %d, magic %d, flowers %d, small shadows off %d", removed, #kept, #SM.Life.Magic:GetChildren(), #SM.Life.Flowers:GetChildren(), shadowsOff)
 end
 
--- Foothill life (Simplify 2026-10-04): the big grass slopes read as one flat green wall, so they get two close shades of bright
--- green in big soft patches (terrain Grass + Mud recolored a little darker; Mud's Valley_ForestA variant is the same texture,
--- without grass blades) and a few big friendly broadleaf trees spread over the lower foothills (one per bearing sector at a
--- random distance, so never in a line), below the fir line. Deterministic and safe to run twice (it repaints the patches from
--- scratch and rebuilds its own folder SM.Life.Foothills). Terrain materials only, no shape change.
+-- Grass line (Simplify 2026-10-04): mountains are rock and snow; grass only on the valley floor, the sanctuary terraces and the
+-- lowest foothills. Every Grass/Mud voxel outside the valley edge above the grass line (GrassLine, wandering up/down by
+-- GrassLineWobble in big soft waves so it is not a ruler-straight contour) becomes Rock; below it, one bright green (Grass).
+-- Inside the valley edge everything green stays Grass (the Spire hill, the terraces). Snowcaps (Sand above ValleyTerrain's snow
+-- line) and roads/river beds are not touched. Then a few big friendly broadleaf trees on the low foothills (one per bearing
+-- sector at a random distance, never in a line) and every forest tree standing on rock is removed (the ancient tree stays).
+-- Deterministic and safe to run twice; terrain materials only, no shape change; rebuilds its own folder SM.Life.Foothills.
 D.Foothills = {
-	PatchAbove = 18, -- only ground above this height (the slopes; the valley floor and terraces stay plain)
-	PatchScale = 210, -- studs per noise cycle: big patches
-	PatchDetail = 0.3, -- share of a second, finer (x2.3) noise in the patch edges
-	PatchThreshold = 0.06, -- noise above this = the darker shade
-	Light = Color3.fromRGB(122, 152, 58), -- terrain Grass (unchanged)
-	Dark = Color3.fromRGB(84, 126, 44), -- terrain Mud: a close darker bright green (no teal)
-	Trees = 12, -- one per 30-degree bearing sector (sectors with no free spot get none)
-	TreeBand = { 8, 70 }, -- studs past the valley edge (V.EdgeAt): the lower foothills, below the fir line
-	TreeHeight = { 44, 54 },
+	GrassLine = 20, -- studs: above this (outside the valley edge) the ground is rock
+	GrassLineWobble = 5, -- the line rises/falls this much ...
+	WobbleScale = 90, -- ... in waves this many studs across
+	InsideValley = -6, -- studs past the valley edge (V.EdgeAt); closer in than this always stays grass
+	Green = Color3.fromRGB(122, 152, 58), -- terrain Grass: the one bright green
+	Trees = 12, -- one per 30-degree bearing sector (sectors with no free grass spot get none)
+	TreeBand = { 2, 45 }, -- studs past the valley edge
+	TreeBelowLine = 5, -- a tree's ground must be this far under the grass line
+	TreeHeight = { 40, 50 },
 	TreeSpacing = 60, -- from each other
 	TreeClear = 22, -- from any other tree
 	Kinds = { "Fantasy_EmeraldTree_A", "Fantasy_EmeraldTree_B" },
 	Seed = 7201,
 }
 
+local function grassLineAt(x: number, z: number): number
+	local F = D.Foothills
+	return F.GrassLine + F.GrassLineWobble * noise(x / F.WobbleScale, z / F.WobbleScale, 5.3) * 2
+end
+
+local function pastEdge(x: number, z: number): number
+	return sqrt(x * x + z * z) - V.EdgeAt(math.deg(math.atan2(x, -z)))
+end
+
 function D.RunFoothills(): string
 	local F = D.Foothills
 	local T = workspace.Terrain
 	local Mt = Enum.Material
-	-- 1) patches
-	T:SetMaterialColor(Mt.Grass, F.Light)
-	T:SetMaterialColor(Mt.Mud, F.Dark)
+	-- 1) the grass line
+	T:SetMaterialColor(Mt.Grass, F.Green)
 	local RES = 4
-	local painted = 0
+	local toRock, toGrass = 0, 0
 	for cx = -1024, 768, 256 do
 		for cz = -1024, 768, 256 do
 			local region = Region3.new(Vector3.new(cx, -48, cz), Vector3.new(cx + 256, 304, cz + 256)):ExpandToGrid(RES)
@@ -1195,20 +1205,22 @@ function D.RunFoothills(): string
 				local wx = minX + (x - 0.5) * RES
 				for z = 1, sz do
 					local wz = minZ + (z - 0.5) * RES
-					local n = noise(wx / F.PatchScale, wz / F.PatchScale, 3.7) + F.PatchDetail * noise(wx / F.PatchScale * 2.3, wz / F.PatchScale * 2.3, 9.1)
-					local dark = n > F.PatchThreshold
+					local inside = pastEdge(wx, wz) < F.InsideValley
+					local line = grassLineAt(wx, wz)
 					for y = 1, sy do
-						local wy = minY + (y - 0.5) * RES
 						local m = mat[x][y][z]
-						if m == Mt.Mud then
-							mat[x][y][z] = Mt.Grass -- start clean (safe to run twice)
-							m = Mt.Grass
-							any = true
-						end
-						if m == Mt.Grass and wy > F.PatchAbove and dark then
-							mat[x][y][z] = Mt.Mud
-							painted += 1
-							any = true
+						if m == Mt.Grass or m == Mt.Mud then
+							local wy = minY + (y - 0.5) * RES
+							local want = if inside or wy <= line then Mt.Grass else Mt.Rock
+							if want ~= m then
+								mat[x][y][z] = want
+								any = true
+								if want == Mt.Rock then
+									toRock += 1
+								else
+									toGrass += 1
+								end
+							end
 						end
 					end
 				end
@@ -1218,8 +1230,19 @@ function D.RunFoothills(): string
 			end
 		end
 	end
-	-- 2) a few big friendly trees on the lower foothills
+	-- 2) forest trees standing on rock go (the ancient tree is a landmark and stays)
 	local life = SM:FindFirstChild("Life") or B.Folder(SM, "Life")
+	local removed = 0
+	for _, fold in { SM.Nature:FindFirstChild("Trees"), life:FindFirstChild("Forest") } do
+		for _, m in (if fold then fold:GetChildren() else {}) do
+			local p = m:GetPivot().Position
+			if pastEdge(p.X, p.Z) >= F.InsideValley and p.Y > grassLineAt(p.X, p.Z) - 1 then
+				m:Destroy()
+				removed += 1
+			end
+		end
+	end
+	-- 3) a few big friendly trees on the low, green foothills
 	local folder = B.Folder(life, "Foothills", true)
 	local others = {}
 	for _, fold in { SM.Nature:FindFirstChild("Trees"), SM.Nature:FindFirstChild("MagicTrees"), SM.Nature:FindFirstChild("Landmark"), life:FindFirstChild("Forest"), life:FindFirstChild("Magic") } do
@@ -1232,14 +1255,14 @@ function D.RunFoothills(): string
 	local placed = {}
 	local step = 360 / F.Trees
 	for sector = 0, F.Trees - 1 do
-		for _ = 1, 60 do
+		for _ = 1, 80 do
 			local th = (sector + rng:NextNumber(0.1, 0.9)) * step - 180
 			local u = rng:NextNumber(F.TreeBand[1], F.TreeBand[2])
 			local R = V.EdgeAt(th) + u
 			local x, z = math.sin(math.rad(th)) * R, -math.cos(math.rad(th)) * R
 			local at = Vector2.new(x, z)
 			local slope, h = slopeAt(x, z)
-			local ok = slope < 1.1 and h > 4 and h < 110 and open(x, z, 8) and not clear(x, z)
+			local ok = slope < 1.1 and h > 2 and h < grassLineAt(x, z) - F.TreeBelowLine and open(x, z, 8) and not clear(x, z)
 			for _, p in placed do
 				ok = ok and (p - at).Magnitude >= F.TreeSpacing
 			end
@@ -1259,7 +1282,7 @@ function D.RunFoothills(): string
 			d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
 		end
 	end
-	return string.format("dark patch voxels %d, foothill trees %d", painted, #folder:GetChildren())
+	return string.format("to rock %d, to grass %d voxels; forest trees on rock removed %d; foothill trees %d", toRock, toGrass, removed, #folder:GetChildren())
 end
 
 return D
