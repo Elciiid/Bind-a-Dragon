@@ -133,6 +133,15 @@ local Text = {
 
 	-- Day/night card at the top of the screen (DayNightController). {time} = m:ss left in the phase,
 	-- {constellation} = tonight's constellation, {where} = the luck line below, {luck} = a multiplier like "x1.5".
+	-- Join loading screen (LoadingController, Config/Loading); Dots animate after the title.
+	Loading = {
+		Title = "Waking up the dragons",
+		Tips = {
+			"Bind a dragon at the Star Altar when night falls!",
+			"Dragons in your sanctuary earn gold, even while you're away.",
+			"Climb the Dragon Spire for runes and stones!",
+		},
+	},
 	SkyHud = {
 		DayIcon = "☀", -- glyphs that Builder Sans draws (☾ and ✦ show as boxes)
 		NightIcon = "🌙",

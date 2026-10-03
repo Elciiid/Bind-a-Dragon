@@ -87,7 +87,8 @@ return {
 	-- Sanctuary looks (Valley rework, SanctuaryLookController): each sanctuary shows one look, a kit of set pieces built in
 	-- Studio by ValleyBuild.BuildSanctuaryLooks into ReplicatedStorage.Assets.SanctuaryLooks.<LookId>.<PlotName> (world
 	-- positions; every top-level child is a piece that grows in / shrinks away). The server sets the plot attribute
-	-- SanctuaryLook (RoostService); each client clones in only the look of sanctuaries near the camera. Until the Essence
+	-- SanctuaryLook (RoostService); each client clones in every sanctuary's look in the Valley (with Low effects only the near
+	-- ones). Until the Essence
 	-- feature exists a sanctuary shows the highest look whose MinPoints its owner's upgrade points reach
 	-- (Shared/SanctuaryLooks); in Studio a Player attribute TestAttribute (a look id) forces that look on the player's sanctuary.
 	SanctuaryLooks = {
@@ -98,7 +99,8 @@ return {
 			{ Id = "CelestialSanctum", Name = "Celestial Sanctum", MinPoints = 8 }, -- placeholder threshold
 		} :: { { Id: string, Name: string, MinPoints: number } },
 		TestAttribute = "TestSanctuaryLook",
-		CloneDistance = 320, -- a kit is cloned in while the camera is this close to the sanctuary's center ...
+		KeepAllIn = { "StarterMeadow" }, -- in these areas every sanctuary's kit stays cloned in (no pop-in); not with Low effects
+		CloneDistance = 320, -- Low effects / other areas: a kit is cloned in while the camera is this close to the sanctuary's center ...
 		DropDistance = 380, -- ... and dropped again beyond this
 		LightDistance = 120, -- kit lights (PointLight) are on only this close to the camera
 		SpinDistance = 220, -- spinning kit models (armillary rings; attributes SpinAxis / SpinSpeed) turn only this close to the camera

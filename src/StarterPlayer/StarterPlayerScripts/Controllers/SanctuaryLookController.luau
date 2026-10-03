@@ -2,9 +2,10 @@
 -- Sanctuary looks, client side (Valley rework; Config/WorldUI.SanctuaryLooks). Each sanctuary shows one look: a kit of
 -- set pieces (Wild Hollow, Crystal Garden, Celestial Sanctum) built in Studio by ValleyBuild.BuildSanctuaryLooks into
 -- ReplicatedStorage.Assets.SanctuaryLooks.<LookId>.<PlotName>, in world position; every top-level child of a kit is a
--- Model (a piece). The server sets the plot attribute "SanctuaryLook" (RoostService). This controller clones in the kit
--- of sanctuaries near the camera only (CloneDistance / DropDistance) and drops it again when the camera goes away, so
--- far sanctuaries cost nothing. When a sanctuary's look changes while it is near, the old kit sinks away, the new one
+-- Model (a piece). The server sets the plot attribute "SanctuaryLook" (RoostService). While the player is in one of
+-- Settings.KeepAllIn (the Valley) every sanctuary's kit stays cloned in, so none pops in while walking (Simplify 2026-10-04;
+-- the loading screen waits for them, IsReady); with Low effects (phones, low graphics quality) and in other areas kits are
+-- cloned only near the camera (CloneDistance / DropDistance) and dropped again when the camera goes away. When a sanctuary's look changes while it is near, the old kit sinks away, the new one
 -- grows in piece after piece from the gate outward with a sparkle burst and a sound, and its owner gets a reward pop-up.
 -- Kit lights are on only close to the camera. A look with no kit built yet falls back to the default look's kit.
 
@@ -13,6 +14,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local AtmosphereController = require(script.Parent.AtmosphereController)
 local EffectsQuality = require(script.Parent.EffectsQuality)
 local NotificationController = require(script.Parent.NotificationController)
 local SanctuaryLooks = require(ReplicatedStorage.Shared.SanctuaryLooks)
@@ -229,16 +231,22 @@ local function scan()
 	end
 end
 
--- Clone kits in near the camera, drop them beyond DropDistance, switch the kit lights by distance.
+-- Every kit stays in while the player is in a KeepAllIn area (and not on Low effects); otherwise by camera distance.
+local function keepAll(): boolean
+	return not EffectsQuality.IsLow() and table.find(Settings.KeepAllIn, AtmosphereController.GetArea()) ~= nil
+end
+
+-- Clone kits in (all of them, or near the camera), drop them beyond DropDistance, switch the kit lights by distance.
 local function update()
 	local camera = workspace.CurrentCamera
 	local from = if camera then camera.CFrame.Position else Vector3.zero
+	local all = keepAll()
 	for _, sanctuary in sanctuaries do
 		local distance = (sanctuary.Center - from).Magnitude
 		sanctuary.Near = distance < Settings.SpinDistance
-		if sanctuary.Kit == nil and sanctuary.Look == nil and distance < Settings.CloneDistance then
+		if sanctuary.Kit == nil and sanctuary.Look == nil and (all or distance < Settings.CloneDistance) then
 			showKit(sanctuary, wantedLook(sanctuary.Plot), false)
-		elseif sanctuary.Look ~= nil and distance > Settings.DropDistance then
+		elseif sanctuary.Look ~= nil and not all and distance > Settings.DropDistance then
 			hideKit(sanctuary, false)
 		end
 		for _, light in sanctuary.Lights do
@@ -285,6 +293,23 @@ local function stepMoves()
 			end
 		end
 	end
+end
+
+-- True once every known sanctuary that should show a kit right now has one (for the loading screen). False until the
+-- first scan found at least one plot.
+function SanctuaryLookController.IsReady(): boolean
+	local any = false
+	local camera = workspace.CurrentCamera
+	local from = if camera then camera.CFrame.Position else Vector3.zero
+	local all = keepAll()
+	for _, sanctuary in sanctuaries do
+		any = true
+		local wanted = all or (sanctuary.Center - from).Magnitude < Settings.CloneDistance
+		if wanted and sanctuary.Look == nil then
+			return false
+		end
+	end
+	return any
 end
 
 function SanctuaryLookController:Start()

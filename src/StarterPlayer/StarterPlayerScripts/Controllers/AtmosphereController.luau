@@ -131,7 +131,11 @@ end
 
 function AtmosphereController:Init()
 	atmosphere = ensure("Atmosphere", "Atmosphere")
-	ensure("Sky", "Sky") -- the Atmosphere (haze) only renders when Lighting has a Sky; a default one is enough
+	-- the Atmosphere (haze) only renders when Lighting has a Sky; it must not add Roblox's own stars, sun or moon on top of ours
+	-- (SkyController draws the stars and tonight's constellation)
+	local sky = ensure("Sky", "Sky") :: Sky
+	sky.StarCount = 0
+	sky.CelestialBodiesShown = false
 	bloom = ensure("BloomEffect", "Bloom")
 	color = ensure("ColorCorrectionEffect", "AreaColor")
 	sunRays = ensure("SunRaysEffect", "SunRays")
