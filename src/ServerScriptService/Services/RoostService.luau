@@ -22,7 +22,7 @@
 -- Dragon art: ReplicatedStorage/Assets/Dragons/<SpeciesId>/<StageId> (Model), else .../<SpeciesId> (Model),
 -- else .../Placeholder, which is tinted by element (parts with a "Tint" attribute: Primary/Secondary/Accent).
 -- Evolution branch color: placeholder Accent parts, and any part in real art with attribute BranchAccent = true,
--- take the element color of the dragon's latest night branch. Mutations add a lightweight, client-culled aura.
+-- take the element color of the dragon's latest night branch. Mutation auras are drawn by the clients (MutationAuraController).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -382,14 +382,9 @@ local function buildDragonModel(dragon: PlayerDataTypes.Dragon, plot: Model): Mo
 	if length > 0.1 then
 		model:ScaleTo(model:GetScale() * stage.Length / length)
 	end
-	-- Mutations never replace or recolor dragon art; a lightweight aura is identification only.
+	-- Mutations never replace or recolor dragon art; each client draws the aura (MutationAuraController, from the MutationId attribute
+	-- set below), so the server builds no effect objects for it.
 	local mutation = Mutations.Get(dragon.MutationId)
-	if mutation.Id ~= Mutations.NormalId then
-		local sparkles = Instance.new("Sparkles")
-		sparkles.Name = "MutationAura"
-		sparkles.SparkleColor = mutation.Color
-		sparkles.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-	end
 	-- The rebirth champion (R30 milestone): placeholder look until real art = the model's colors blend toward gold, plus
 	-- golden sparkles (named MutationAura so clients cull it with the mutation auras).
 	if dragon.Champion then

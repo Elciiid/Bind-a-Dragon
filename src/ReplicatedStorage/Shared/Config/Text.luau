@@ -199,6 +199,7 @@ local Text = {
 		Mutation = "Mutation!",
 		NewDragonTag = "{rarity} · {element}",
 		AutoTag = "Auto-bind · {rarity} · {element}",
+		AutoSold = "Auto-sold for {gold} gold!", -- the stamp on the reveal pop-up when auto sell sold the new dragon
 		Evolve = "Evolved!",
 		EvolveTag = "{stage}{under}", -- {under} = EvolveUnder or ""
 		EvolveUnder = " · {constellation}",

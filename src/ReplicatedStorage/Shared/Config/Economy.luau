@@ -63,7 +63,6 @@ return {
 			KeepMutated = true,
 			KeepNewSpecies = true,
 		},
-		AutoSellToastDelay = 7, -- seconds after the bind before "Auto-sold ..." shows (the reveal ceremony is over by then)
 	},
 
 	RoostUpgrades = {

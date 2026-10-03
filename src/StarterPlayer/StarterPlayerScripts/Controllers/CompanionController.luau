@@ -2,8 +2,8 @@
 -- Carried dragon companions: every client draws the dragon each player carries (HotbarService publishes it as Player attributes
 -- CarrySpecies / CarryMutation / CarryStage / CarryChampion) flying beside that player at a small size (Config/Hotbar
 -- Companion*). Purely visual and local: the model is a client-only clone from ReplicatedStorage.Assets.Dragons (the shared
--- placeholder, tinted by element, when a species has no art), scaled by stage (Config/Hotbar CompanionLengthFraction), with a mutation aura (Sparkles named
--- MutationAura, in the mutation's color; checkpoint 5 gives each mutation its own look). Real art with a bone map in
+-- placeholder, tinted by element, when a species has no art), scaled by stage (Config/Hotbar CompanionLengthFraction), with its mutation aura
+-- (MutationAuraController, Config/Auras). Real art with a bone map in
 -- Config/DragonRigs flaps its wings (Controllers/DragonRig). Companions farther than RenderDistance from the camera aren't drawn.
 
 local Players = game:GetService("Players")
@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 
 local DragonRig = require(script.Parent.DragonRig)
 local EffectsQuality = require(script.Parent.EffectsQuality)
+local MutationAuraController = require(script.Parent.MutationAuraController)
 local Elements = require(ReplicatedStorage.Shared.Config.Elements)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local Evolution = require(ReplicatedStorage.Shared.Config.Evolution)
@@ -118,20 +119,12 @@ local function buildModel(speciesId: string, mutationId: string, stageId: string
 			part:Destroy() -- no nameplates on companions
 		end
 	end
-	-- mutation aura (identification only; never replaces the art)
-	local mutation = Mutations.Get(mutationId)
-	if anchor and not EffectsQuality.IsLow() then
-		if mutation.Id ~= Mutations.NormalId then
-			local sparkles = Instance.new("Sparkles")
-			sparkles.Name = "MutationAura"
-			sparkles.SparkleColor = mutation.Color
-			sparkles.Parent = anchor
-		elseif champion then
-			local sparkles = Instance.new("Sparkles")
-			sparkles.Name = "MutationAura"
-			sparkles.SparkleColor = MilestoneConfig.Champion.Color
-			sparkles.Parent = anchor
-		end
+	-- mutation auras are drawn by MutationAuraController (tracked in refresh); the rebirth champion keeps its gold sparkles
+	if anchor and champion and Mutations.Get(mutationId).Id == Mutations.NormalId and not EffectsQuality.IsLow() then
+		local sparkles = Instance.new("Sparkles")
+		sparkles.Name = "MutationAura"
+		sparkles.SparkleColor = MilestoneConfig.Champion.Color
+		sparkles.Parent = anchor
 	end
 	return model
 end
@@ -196,6 +189,7 @@ local function refresh(player: Player)
 		Frame = 0,
 		Seed = rng:NextInteger(0, 999),
 	}
+	MutationAuraController:Track(model, mutation, "Companion")
 end
 
 local function watch(player: Player)

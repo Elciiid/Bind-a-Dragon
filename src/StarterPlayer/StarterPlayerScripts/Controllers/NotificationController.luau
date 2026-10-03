@@ -224,10 +224,11 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			Chips = chips,
 			Details = details,
 			Hint = hint,
+			Stamp = if moment == "NewDragon" and type(payload.AutoSoldGold) == "number" then Text.Format(words.AutoSold, { gold = Format.Number(payload.AutoSoldGold) }) else nil,
 			Seconds = if details then OddsConfig.PopupDetailSeconds else nil,
 			Color = if mutation.Id ~= Mutations.NormalId then mutation.Color else rarityColor(species.Rarity),
 			Picture = function(frame)
-				DragonPicture.new(frame, payload.SpeciesId, payload.Level)
+				DragonPicture.new(frame, payload.SpeciesId, payload.Level, payload.MutationId)
 			end,
 			Button = words.Button,
 		})

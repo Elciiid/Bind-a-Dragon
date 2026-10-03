@@ -1,14 +1,14 @@
 --!strict
 -- Animates every instance tagged "StarMerchant" that is skinned art (the Star Merchant dragon NPC) by moving its bones from code
 -- (like DragonRig; bones and numbers in Config/MerchantRig):
---   idle        breathing, a slow lean, the tail sways down its chain, the head bobs and tilts, ears flick, and a turn toward the
---               local player when they come close
---   Greet       a wave hello when a player walks up (once per GreetCooldown)
+--   idle        breathing, a slow lean, the tail sways down its chain, the head bobs and tilts, ears flick, the cape stirs, and a turn
+--               toward the local player when they come close
 --   Bye         a goodbye wave + nod (MerchantController calls Play when the dialog closes)
 --   Hop         after any sale (player attribute MerchantSales, set by SellService): a happy hop with both arms up and a coin tossed
 --               from the hand
--- Client-only: the art is never moved on the server. If the imported model kept fewer bones, missing ones are skipped; with only the
--- root bone the whole body breathes, leans, turns and hops.
+-- Every rotation is written in the model's own frame (X right, Y up, Z behind) and converted to each bone's rest frame, so the imported
+-- skeleton's odd local axes don't matter. Client-only: the art is never moved on the server. If the imported model kept fewer bones,
+-- missing ones are skipped; with only the root bone the whole body breathes, leans, turns and hops.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -23,12 +23,12 @@ type Merchant = {
 	Body: BasePart,
 	Root: Bone,
 	Bones: { [string]: Bone },
+	Rest: { [Bone]: CFrame }, -- each bone's rest rotation relative to the body part (the model frame)
 	Roles: { [string]: { Bone } },
 	Full: boolean, -- more than the root bone is available
 	Turn: number,
 	Seed: number,
 	Reaction: Reaction?,
-	LastGreet: number,
 }
 
 local merchants: { [Instance]: Merchant } = {}
@@ -46,6 +46,18 @@ local function collectBones(body: BasePart): { [string]: Bone }
 	return found
 end
 
+-- Puts bones the importer parented to the wrong parent under the right one, keeping their world pose (Config/MerchantRig.Reparent).
+local function fixParents(bones: { [string]: Bone })
+	for _, fix in Rig.Reparent do
+		local bone, parent = bones[fix.Bone], bones[fix.Parent]
+		if bone and parent and bone.Parent ~= parent then
+			local world = bone.WorldCFrame
+			bone.Parent = parent
+			bone.WorldCFrame = world
+		end
+	end
+end
+
 local function build(merchant: Instance): Merchant?
 	local model = if merchant:IsA("Model") then merchant else nil
 	local body = model and model.PrimaryPart
@@ -56,6 +68,14 @@ local function build(merchant: Instance): Merchant?
 	local root = bones[Rig.Root] or body:FindFirstChildWhichIsA("Bone")
 	if root == nil then
 		return nil
+	end
+	fixParents(bones)
+	local rest: { [Bone]: CFrame } = {}
+	for _, bone in bones do
+		bone.Transform = CFrame.identity
+	end
+	for _, bone in bones do
+		rest[bone] = body.CFrame:ToObjectSpace(bone.WorldCFrame).Rotation
 	end
 	local roles: { [string]: { Bone } } = {}
 	local count = 0
@@ -75,12 +95,12 @@ local function build(merchant: Instance): Merchant?
 		Body = body,
 		Root = root,
 		Bones = bones,
+		Rest = rest,
 		Roles = roles,
 		Full = count >= 8,
 		Turn = 0,
 		Seed = (model:GetPivot().Position.X * 7.3) % 10,
 		Reaction = nil,
-		LastGreet = -1e9,
 	}
 end
 
@@ -109,9 +129,10 @@ local function angleOf(channel: any, t: number, boneIndex: number, weight: numbe
 	return channel.Amount * math.sin(TAU * t / channel.Period + (channel.Phase or 0) + (channel.PhasePerBone or 0) * (boneIndex - 1)) * weight
 end
 
+-- Adds a rotation (model-frame axis) to what a bone already has this frame.
 local function addRotation(rotations: { [Bone]: CFrame }, bone: Bone, axis: Vector3, angle: number)
 	local current = rotations[bone] or CFrame.identity
-	rotations[bone] = current * CFrame.fromAxisAngle(axis, angle)
+	rotations[bone] = CFrame.fromAxisAngle(axis, angle) * current
 end
 
 local function spawnCoin(state: Merchant, start: Vector3)
@@ -160,22 +181,15 @@ local function step(dt: number)
 			continue
 		end
 		local t = now + state.Seed
-		local rotations: { [Bone]: CFrame } = {}
+		local rotations: { [Bone]: CFrame } = {} -- model-frame rotation per bone
 		local lift = 0 -- studs the whole body is raised (the hop)
 
 		-- who the merchant faces: the player when close (positive turn = toward the model's right), else an occasional glance
 		local target = math.sin(TAU * t / Rig.LookAwayPeriod) * Rig.LookAwayTurn
-		local near = false
 		if playerPosition then
 			local local_ = frame:PointToObjectSpace(playerPosition)
 			if local_.Magnitude <= Rig.TurnRange then
-				near = true
 				target = math.clamp(math.atan2(local_.X, -local_.Z), -Rig.MaxTurn, Rig.MaxTurn)
-			end
-			-- a wave hello when someone walks up
-			if local_.Magnitude <= Rig.GreetRange and now - state.LastGreet > Rig.GreetCooldown and state.Reaction == nil then
-				state.LastGreet = now
-				state.Reaction = { Name = "Greet", Start = now }
 			end
 		end
 		state.Turn += (target - state.Turn) * (1 - math.exp(-Rig.TurnSpeed * dt))
@@ -190,17 +204,18 @@ local function step(dt: number)
 					end
 				end
 			end
-			-- the turn, shared along the spine, neck and head
+			-- the turn, shared along the pelvis, spine, neck and head (a turn toward +X = about -Y)
 			for role, share in Rig.TurnShare do
-				for _, bone in state.Roles[role] or {} do
-					addRotation(rotations, bone, Rig.TurnAxis, state.Turn * share / math.max(1, #state.Roles[role]))
+				local bones = state.Roles[role]
+				for _, bone in bones or {} do
+					addRotation(rotations, bone, Rig.TurnAxis, -state.Turn * Rig.TurnSign * share / math.max(1, #bones))
 				end
 			end
 		else
 			-- root only: the whole body breathes, leans, turns
 			local breath = math.sin(TAU * t / 3.4)
 			local sway = math.sin(TAU * t / 7.5)
-			rotations[state.Root] = CFrame.Angles(0, state.Turn, 0) * CFrame.Angles(breath * 0.028, 0, sway * 0.045)
+			rotations[state.Root] = CFrame.Angles(0, -state.Turn * Rig.TurnSign, 0) * CFrame.Angles(breath * 0.028, 0, sway * 0.045)
 		end
 
 		-- the current reaction
@@ -237,19 +252,22 @@ local function step(dt: number)
 			end
 		end
 
-		-- apply: rotations on every bone we drive, the hop as a lift of the root (bone space is unscaled: divide by the model's scale)
+		-- apply: each model-frame rotation converted to the bone's rest frame; the hop lifts the root (bone space is unscaled: divide by
+		-- the model's scale)
+		local scale = state.Model:GetScale()
 		for _, bone in state.Bones do
 			local rotation = rotations[bone]
-			if bone == state.Root then
-				bone.Transform = CFrame.new(0, lift / state.Model:GetScale(), 0) * (rotation or CFrame.identity)
-			else
-				bone.Transform = rotation or CFrame.identity
+			local rest = state.Rest[bone]
+			local transform = if rotation then rest:Inverse() * rotation * rest else CFrame.identity
+			if bone == state.Root and lift > 0 then
+				transform = CFrame.new(rest:VectorToObjectSpace(Vector3.new(0, lift / scale, 0))) * transform
 			end
+			bone.Transform = transform
 		end
 	end
 end
 
--- Starts a reaction on a merchant ("Greet", "Bye" or "Hop"). A hop is not cut short by another reaction.
+-- Starts a reaction on a merchant ("Bye" or "Hop"). A hop is not cut short by another reaction.
 function MerchantIdleController:Play(merchant: Instance, name: string)
 	local state = merchants[merchant]
 	if state == nil or Rig.Reactions[name] == nil then
@@ -262,10 +280,11 @@ function MerchantIdleController:Play(merchant: Instance, name: string)
 	state.Reaction = { Name = name, Start = os.clock() }
 	if name == "Hop" then
 		local settings = Rig.Reactions.Hop.Coin
-		local hand = (state.Roles.ArmL and state.Roles.ArmL[#state.Roles.ArmL]) or state.Root
+		local handRole = state.Roles[settings.Hand or "ArmR"]
+		local hand = (handRole and handRole[#handRole]) or state.Root
 		task.delay(settings.Delay, function()
 			if state.Body.Parent then
-				spawnCoin(state, hand.WorldPosition + Vector3.new(0, 0.5, 0))
+				spawnCoin(state, hand.TransformedWorldCFrame.Position + Vector3.new(0, 0.5, 0))
 			end
 		end)
 	end

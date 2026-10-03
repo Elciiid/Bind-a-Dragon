@@ -344,7 +344,7 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		local data = DataController:Get()
 		local current = data and data.Dragons[dragonId]
 		if current then
-			DragonPicture.new(ghost, current.SpeciesId, current.Level)
+			DragonPicture.new(ghost, current.SpeciesId, current.Level, current.MutationId)
 		end
 	end)
 	layoutCard(entry, HudLayout.IsPhone())
@@ -363,7 +363,7 @@ local function updateCard(card: Card, dragon: PlayerDataTypes.Dragon, data: Play
 		for _, child in card.Picture:GetChildren() do
 			child:Destroy()
 		end
-		DragonPicture.new(card.Picture, dragon.SpeciesId, dragon.Level)
+		DragonPicture.new(card.Picture, dragon.SpeciesId, dragon.Level, dragon.MutationId)
 	end
 	local name = if species then species.Name else dragon.SpeciesId
 	local mutation = Mutations.Get(dragon.MutationId)

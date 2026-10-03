@@ -7,7 +7,7 @@
 --   3.) I want to sell my inventory!       sells every backpack dragon (not in the sanctuary) that is not a favorite (count + gold, confirm)
 --   4.) Edit auto sell settings!           a small panel: per-rarity switches + keep mutated / keep new species (SellService, data.AutoSell)
 --   5.) Goodbye!                           closes. The dialog also closes when you walk away or the merchant's tag goes away.
--- While talking the camera eases toward the merchant (not with Reduced Motion) and the merchant NPC waves / reacts (MerchantIdleController).
+-- While talking the camera eases toward the merchant (not with Reduced Motion) and the merchant NPC waves goodbye / hops after a sale (MerchantIdleController).
 -- Prices come from the same shared functions the server uses (DragonStats.GetSellValue, Config/Economy.Selling).
 
 local CollectionService = game:GetService("CollectionService")
@@ -585,7 +585,6 @@ local function openDialog(prompt: ProximityPrompt)
 	player:SetAttribute("MerchantDialog", true)
 	gui.Enabled = true
 	if merchant then
-		MerchantIdle:Play(merchant, "Greet")
 		local bubble = bubbles[merchant]
 		if bubble then
 			bubble.Enabled = true

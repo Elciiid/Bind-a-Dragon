@@ -146,6 +146,8 @@ local function performBind(
 	data.StarAtlas[constellationId] = (data.StarAtlas[constellationId] or 0) + 1
 
 	local breakdown = BindingOdds.Breakdown(areaId, element, luck, speciesId, mutationId)
+	IndexService:Sync(player, data)
+	local autoSoldGold = SellService:AutoSellNewDragon(player, data, dragonId, newSpecies) -- after the Index recorded it
 	bindResult:FireClient(player, {
 		DragonId = dragonId,
 		SpeciesId = speciesId,
@@ -158,9 +160,8 @@ local function performBind(
 		MutationOneIn = if breakdown then breakdown.MutationOneIn else 1, -- its mutation inside that species
 		UsedEchoSigil = usedSigil,
 		Auto = not usePotion,
+		AutoSoldGold = autoSoldGold, -- set when auto sell sold the new dragon: the reveal shows "Auto-sold for X gold!"
 	})
-	IndexService:Sync(player, data)
-	SellService:AutoSellNewDragon(player, data, dragonId, newSpecies) -- after the Index recorded it
 	QuestService:Progress(player, "Bind", 1)
 	if Luck.IsFavored(areaId, state.Constellation) then
 		QuestService:Progress(player, "FavoredBind", 1)

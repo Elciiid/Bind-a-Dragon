@@ -126,7 +126,7 @@ local function refreshSlot(index: number, data: any)
 			slot.Picture:Destroy()
 			slot.Picture = nil
 		end
-		slot.Picture = DragonPicture.new(slot.PictureHolder, dragon.SpeciesId, dragon.Level)
+		slot.Picture = DragonPicture.new(slot.PictureHolder, dragon.SpeciesId, dragon.Level, dragon.MutationId)
 	end
 	local name = if species then species.Name else dragon.SpeciesId
 	local label = `{if mutated then mutation.Name .. " " else ""}{name} · Lv {dragon.Level}`
@@ -280,7 +280,7 @@ function HotbarController:Init()
 			local data = DataController:Get()
 			local dragon = data and data.Dragons[payload.DragonId]
 			if dragon then
-				DragonPicture.new(ghost, dragon.SpeciesId, dragon.Level)
+				DragonPicture.new(ghost, dragon.SpeciesId, dragon.Level, dragon.MutationId)
 			end
 		end)
 		DragDrop.AddTarget(button, function(payload)

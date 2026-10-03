@@ -17,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local AltarGlowController = require(script.Parent.AltarGlowController)
 local SkyController = require(script.Parent.SkyController)
 local EffectsQuality = require(script.Parent.EffectsQuality)
+local MutationAuraController = require(script.Parent.MutationAuraController)
 local Style = require(script.Parent.UI.Style)
 local Banner = require(script.Parent.UI.Banner)
 local TweenService = game:GetService("TweenService")
@@ -104,13 +105,6 @@ local function dragonModel(speciesId: string, mutationId: string): Model?
 				part.Color = (tints :: any)[tint]
 			end
 		end
-	end
-	local mutation = Mutations.Get(mutationId)
-	if mutation.Id ~= Mutations.NormalId and not EffectsQuality.IsLow() then
-		local aura = Instance.new("Sparkles")
-		aura.Name = "MutationAura"
-		aura.SparkleColor = mutation.Color
-		aura.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -395,6 +389,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			local high = center + Vector3.new(0, Ceremony.Reveal.RiseHeight, 0)
 			model:PivotTo(CFrame.new(low0))
 			model.Parent = folder
+			MutationAuraController:Track(model, request.MutationId, "Reveal", true) -- the mutation's own aura, always full detail
 			if request.OnReveal then request.OnReveal() end
 			-- Name banner on screen (lower middle), in the rarity color
 			local reveal = Instance.new("Frame")

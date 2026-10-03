@@ -42,6 +42,11 @@ function EffectsQuality.IsLow(): boolean
 	return current
 end
 
+-- Graphics quality at/below the auto-low level (without the Low effects setting or Reduced Motion).
+function EffectsQuality.QualityIsLow(): boolean
+	return qualityIsLow()
+end
+
 -- Calls fn(isLow) now and whenever it changes.
 function EffectsQuality.OnChanged(fn: (boolean) -> ())
 	table.insert(listeners, fn)

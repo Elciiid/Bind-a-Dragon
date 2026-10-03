@@ -25,6 +25,7 @@ type BindResult = {
 	SpeciesOneIn: number,
 	MutationOneIn: number,
 	Auto: boolean, -- bound by the Auto-bind pass
+	AutoSoldGold: number?, -- auto sell sold the new dragon for this much gold (shown inside the reveal pop-up)
 }
 
 local BindingController = {}
@@ -70,6 +71,7 @@ function BindingController:Start()
 				Level = 1,
 				MutationId = result.MutationId,
 				Auto = result.Auto,
+				AutoSoldGold = result.AutoSoldGold,
 				BaseOneIn = result.BaseOneIn,
 				EffectiveOneIn = result.EffectiveOneIn,
 				SpeciesOneIn = result.SpeciesOneIn,

@@ -63,6 +63,10 @@ local buttonRow: Frame
 local autoRepeat = false
 local chip: TextLabel? = nil
 local pickerRow: Frame
+local phoneRow: Frame -- phones: < Medium > (the four-button row would need text under 11 px)
+local phoneName: TextLabel
+local phonePrev: Button.Button
+local phoneNext: Button.Button
 local pickerButtons: { [string]: Button.Button } = {}
 local pickerCovers: { [string]: TextButton } = {}
 local boardPanel: Frame
@@ -181,9 +185,9 @@ local function makePortrait(parent: Instance, color: Color3, side: number): Port
 end
 
 -- Shows a dragon in a portrait (rebuilt only when the species or stage changes).
-local function setPortrait(portrait: Portrait, speciesId: string?, level: number?, name: string?)
+local function setPortrait(portrait: Portrait, speciesId: string?, level: number?, name: string?, mutationId: string?)
 	portrait.Name.Text = name or (if speciesId and Dragons[speciesId] then Dragons[speciesId].Name else "?")
-	local key = if speciesId then `{speciesId}:{DragonStats.GetStage(level or 1).Id}` else ""
+	local key = if speciesId then `{speciesId}:{DragonStats.GetStage(level or 1).Id}:{mutationId or ""}` else ""
 	if key == portrait.Key then
 		return
 	end
@@ -192,7 +196,7 @@ local function setPortrait(portrait: Portrait, speciesId: string?, level: number
 		child:Destroy()
 	end
 	if speciesId then
-		DragonPicture.new(portrait.Holder, speciesId, level)
+		DragonPicture.new(portrait.Holder, speciesId, level, mutationId)
 	end
 end
 
@@ -340,9 +344,18 @@ local function setMode(newMode: Mode)
 	local rightEdge = 12 + Theme.Sizes.SpirePortrait + 12
 	message.Position = UDim2.fromOffset(rightEdge, if phone then 22 else 26)
 	message.Size = UDim2.new(1, -(rightEdge + 16), 0, if phone then 40 else 30)
-	pickerRow.Visible = not fighting
-	pickerRow.Position = UDim2.fromOffset(rightEdge, if phone then 72 else 70)
-	pickerRow.Size = UDim2.new(1, -(rightEdge + 16), 0, if phone then height else 44)
+	pickerRow.Visible = not fighting and not phone
+	pickerRow.Position = UDim2.fromOffset(rightEdge, 70)
+	pickerRow.Size = UDim2.new(1, -(rightEdge + 16), 0, 44)
+	phoneRow.Visible = not fighting and phone
+	phoneRow.Position = UDim2.fromOffset(rightEdge, 72)
+	phoneRow.Size = UDim2.new(1, -(rightEdge + 16), 0, height)
+	if phone then
+		-- 18 px on screen (the HUD is scaled down): the name has the whole row between the two arrows
+		phoneName.TextSize = 18 * unit
+		phonePrev.Label.TextSize = 20 * unit
+		phoneNext.Label.TextSize = 20 * unit
+	end
 	local smallest = math.huge
 	for _, button in pickerButtons do
 		fitLabel(button, (if phone then 17 else 18) * unit, (rightWidth - 24) / 4 - 14)
@@ -394,7 +407,7 @@ local function showReady()
 	local species = if best then Dragons[best.SpeciesId] else nil
 	local mutation = if best then Mutations.Get(best.MutationId) else Mutations.Get(nil)
 	local bestName = if species and mutation.Id ~= Mutations.NormalId then `{mutation.Name} {species.Name}` else if species then species.Name else nil
-	setPortrait(mine, if best then best.SpeciesId else nil, if best then best.Level else nil, bestName)
+	setPortrait(mine, if best then best.SpeciesId else nil, if best then best.Level else nil, bestName, if best then best.MutationId else nil)
 	setBars(1, 1)
 	setFloorBadge(format(words.Best, { record = record }), false)
 	message.Text = words.Ready
@@ -442,7 +455,7 @@ local function onUpdate(update: { [string]: any })
 		setFloorBadge(format(words.Floor, { floor = update.Floor }), update.Boss == true)
 		local mutation = Mutations.Get(update.MutationId)
 		local dragonName = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {update.Dragon}` else update.Dragon
-		setPortrait(mine, update.SpeciesId, update.Level, dragonName)
+		setPortrait(mine, update.SpeciesId, update.Level, dragonName, update.MutationId)
 		setPortrait(enemy, update.EnemyId, math.max(1, update.Floor), update.Enemy)
 		playerWins = update.Power >= update.EnemyPower
 		local stronger = math.max(update.Power, update.EnemyPower, 1)
@@ -517,7 +530,7 @@ function SpireController.RefreshPicker()
 	if data == nil then
 		return
 	end
-	local picked = if climbing then difficulty else data.SpireDifficulty
+	local picked = difficulty -- Pick sets it at once; the server confirms by changing data.SpireDifficulty
 	for id, button in pickerButtons do
 		local unlocked = DragonStats.IsDifficultyUnlocked(data, id)
 		button:SetEnabled(unlocked)
@@ -526,6 +539,8 @@ function SpireController.RefreshPicker()
 		end
 		pickerCovers[id].Visible = not unlocked
 	end
+	phoneName.Text = difficultyName(picked)
+	phoneName.TextColor3 = Theme.Colors.Title
 end
 
 local flashToken = 0
@@ -568,6 +583,23 @@ function SpireController.Pick(id: string)
 	spireAction:FireServer("Difficulty", id)
 	if id == SpireConfig.Leaderboard.Difficulty then
 		SpireController.RequestBoard()
+	end
+end
+
+-- Phones: the next / previous difficulty in the list (a locked one says what unlocks it and stays where it is).
+function SpireController.Step(direction: number)
+	local data = DataController:Get()
+	if climbing or data == nil then
+		return
+	end
+	local order = SpireConfig.Difficulties.Order
+	local index = table.find(order, difficulty) or 1
+	local target = order[(index - 1 + direction) % #order + 1]
+	if DragonStats.IsDifficultyUnlocked(data, target) then
+		SpireController.Pick(target)
+		SpireController.RefreshPicker()
+	else
+		SpireController.FlashLocked(target)
 	end
 end
 
@@ -835,6 +867,34 @@ function SpireController:Init()
 		end)
 		pickerCovers[id] = cover
 	end
+	-- phones: the picked difficulty between two arrows (tap an arrow: the next one; a locked one says what unlocks it)
+	phoneRow = Instance.new("Frame")
+	phoneRow.Name = "DifficultyPhone"
+	phoneRow.BackgroundTransparency = 1
+	phoneRow.Visible = false
+	phoneRow.ZIndex = 3
+	phoneRow.Parent = hud
+	phonePrev = Button.new(phoneRow, { Text = "<", Kind = "Neutral", TextSize = 24, OnClick = function()
+		SpireController.Step(-1)
+	end })
+	phonePrev.Instance.Name = "Prev"
+	phonePrev.Instance.Size = UDim2.new(0.24, 0, 1, 0)
+	phonePrev.Instance.ZIndex = 4
+	phoneNext = Button.new(phoneRow, { Text = ">", Kind = "Neutral", TextSize = 24, OnClick = function()
+		SpireController.Step(1)
+	end })
+	phoneNext.Instance.Name = "Next"
+	phoneNext.Instance.AnchorPoint = Vector2.new(1, 0)
+	phoneNext.Instance.Position = UDim2.fromScale(1, 0)
+	phoneNext.Instance.Size = UDim2.new(0.24, 0, 1, 0)
+	phoneNext.Instance.ZIndex = 4
+	phoneName = Style.Label(phoneRow, "", "Title", 24, Theme.Colors.Title)
+	phoneName.Name = "Name"
+	phoneName.AnchorPoint = Vector2.new(0.5, 0.5)
+	phoneName.Position = UDim2.fromScale(0.5, 0.5)
+	phoneName.Size = UDim2.new(0.5, 0, 1, 0)
+	phoneName.ZIndex = 4
+	Style.Outline(phoneName, 2)
 	SpireController.BuildBoard()
 
 	-- Hide: a small round button on the top-right corner; the HUD shrinks into the mini floor badge

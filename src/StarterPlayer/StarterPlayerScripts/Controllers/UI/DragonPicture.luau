@@ -1,16 +1,21 @@
 --!strict
 -- A picture of a dragon for cards and pop-ups: a ViewportFrame with its real art (ReplicatedStorage.Assets.Dragons.
 -- <SpeciesId>.<StageId> or <SpeciesId>), seen from the front-side; species that only have the shared placeholder model
--- show their big rarity icon instead. Mutation identity is displayed by cards, labels, and world aura.
+-- show their big rarity icon instead. A mutated dragon's picture has a glow ring in the mutation's colors (Config/Auras).
 -- Dragons with a bone map (Config/DragonRigs) are shown in the perched pose with the wings FOLDED (the same pose the roost uses on the
 -- ground), and the picture is framed on that posed body (the bones' screen extent + a margin), so wide-winged dragons are not shrunk by their
 -- spread wings. Every card, hotbar slot and pop-up uses this one component.
 --
--- Usage: DragonPicture.new(frame, speciesId, level?) -> GuiObject (fills `frame`)
+-- Usage: DragonPicture.new(frame, speciesId, level?, mutationId?) -> GuiObject (fills `frame`); a mutated dragon gets a glow ring.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Icon = require(script.Parent.Icon)
+local Style = require(script.Parent.Style)
+local AuraConfig = require(ReplicatedStorage.Shared.Config.Auras)
+local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local RigConfig = require(ReplicatedStorage.Shared.Config.DragonRigs)
@@ -57,7 +62,46 @@ local function artFor(speciesId: string, stageId: string): Model?
 	return if species:IsA("Model") then species else nil
 end
 
-function DragonPicture.new(parent: GuiObject, speciesId: string, level: number?): GuiObject
+-- A mutated dragon's picture gets a glow ring in the mutation's colors (Config/Auras): a colored outline + a soft glow; the Primordial
+-- ring's rainbow slowly turns (not with Reduced Motion). A child of the picture, so it goes when the picture does.
+local function addRing(host: GuiObject, mutationId: string?)
+	local mutation = Mutations.Get(mutationId)
+	local aura = (AuraConfig.Auras :: any)[mutation.Id] :: AuraConfig.Aura?
+	if mutation.Id == Mutations.NormalId or aura == nil then
+		return
+	end
+	local ring = Instance.new("Frame")
+	ring.Name = "AuraRing"
+	ring.BackgroundTransparency = 1
+	ring.Size = UDim2.fromScale(1, 1)
+	ring.ZIndex = 6
+	ring.Parent = host
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = ring
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = AuraConfig.Ring.Thickness
+	stroke.Color = Color3.new(1, 1, 1)
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = ring
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = aura.RingGradient or ColorSequence.new(aura.Color)
+	gradient.Parent = stroke
+	Style.Glow(ring, aura.Color, 7, AuraConfig.Ring.GlowTransparency, 5)
+	if aura.RingGradient and Players.LocalPlayer:GetAttribute("ReducedMotion") ~= true then
+		local started = os.clock()
+		local connection: RBXScriptConnection
+		connection = RunService.Heartbeat:Connect(function()
+			if ring.Parent == nil then
+				connection:Disconnect()
+				return
+			end
+			gradient.Rotation = ((os.clock() - started) / AuraConfig.Ring.SpinSeconds * 360) % 360
+		end)
+	end
+end
+
+function DragonPicture.new(parent: GuiObject, speciesId: string, level: number?, mutationId: string?): GuiObject
 	local stage = DragonStats.GetStage(level or 1)
 	local model = artFor(speciesId, stage.Id)
 	if model == nil then
@@ -71,6 +115,7 @@ function DragonPicture.new(parent: GuiObject, speciesId: string, level: number?)
 		icon.ZIndex = 4
 		local ratio = Instance.new("UIAspectRatioConstraint")
 		ratio.Parent = icon
+		addRing(icon, mutationId)
 		return icon
 	end
 
@@ -78,9 +123,11 @@ function DragonPicture.new(parent: GuiObject, speciesId: string, level: number?)
 	view.Name = "Picture"
 	view.BackgroundTransparency = 1
 	view.Size = UDim2.fromScale(1, 1)
-	view.LightDirection = Vector3.new(-1, -1, -0.6)
-	view.Ambient = Color3.fromRGB(170, 160, 200)
-	view.LightColor = Color3.fromRGB(255, 246, 230)
+	-- lit from the camera's side (the camera looks from the front-left, above): light travels from there onto the dragon, so the faces we
+	-- see are lit, with a bright ambient so small pictures never go dark
+	view.LightDirection = Vector3.new(-0.55, -0.75, 0.8)
+	view.Ambient = Color3.fromRGB(235, 228, 245)
+	view.LightColor = Color3.fromRGB(255, 252, 245)
 	view.ZIndex = 4 -- above a glow behind it
 	view.Parent = parent
 	local clone = model:Clone()
@@ -133,6 +180,7 @@ function DragonPicture.new(parent: GuiObject, speciesId: string, level: number?)
 	camera.CFrame = CFrame.lookAt(target + direction * distance, target)
 	camera.Parent = view
 	view.CurrentCamera = camera
+	addRing(view, mutationId)
 	return view
 end
 

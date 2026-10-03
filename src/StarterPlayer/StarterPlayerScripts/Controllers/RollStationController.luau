@@ -178,7 +178,7 @@ local function redraw()
 		picture.Size = UDim2.fromOffset(44, 44)
 		picture.ZIndex = 3
 		picture.Parent = row
-		DragonPicture.new(picture, dragon.SpeciesId, dragon.Level)
+		DragonPicture.new(picture, dragon.SpeciesId, dragon.Level, dragon.MutationId)
 		local name = Style.Label(row, `{if species then species.Name else "?"}  Lv {dragon.Level}`, "Title", 16, Style.Shade(rarityColor(rarity), 0.35))
 		Style.Outline(name, 1.5)
 		name.Position = UDim2.fromOffset(52, 6)

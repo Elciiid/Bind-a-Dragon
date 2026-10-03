@@ -36,9 +36,15 @@ export type Props = {
 	Details: { Title: string, Rows: { { string } } }?, -- tap the card: rows of { name, value }
 	Hint: string?, -- small text under the chips ("Tap for details")
 	Seconds: number?, -- how long it stays before closing itself (default 8)
+	Stamp: string?, -- a gold stamp at the bottom of the card ("Auto-sold for 81.6B gold!")
 }
 
 local EXTRA_HEIGHT = 56 -- the card grows by this much when it has a Line / Chips
+local STAMP_HEIGHT = 44 -- ... and by this much more when it has a Stamp
+
+local function extraHeight(props: Props): number
+	return (if props.Line or props.Chips then EXTRA_HEIGHT else 0) + (if props.Stamp then STAMP_HEIGHT else 0)
+end
 
 local RewardPopup = {}
 
@@ -74,9 +80,7 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 	local sizes = theme.Sizes
 	local color = props.Color or theme.Colors.Gold
 	local card = sizes.RewardCard
-	if props.Line or props.Chips then
-		card = Vector2.new(card.X, card.Y + EXTRA_HEIGHT)
-	end
+	card = Vector2.new(card.X, card.Y + extraHeight(props))
 
 	local root = Instance.new("Frame")
 	root.Name = "Reward"
@@ -187,6 +191,25 @@ function RewardPopup.Build(parent: Instance, props: Props): (Frame, UIScale, But
 		hint.Position = UDim2.new(0.5, 0, 0, sizes.RewardIcon + 144)
 		hint.Size = UDim2.new(1, -20, 0, 18)
 		hint.ZIndex = 3
+	end
+	if props.Stamp then
+		-- a gold stamp under the dragon's details (the base card + the Line/Chips rows end at the Hint)
+		local stampTop = sizes.RewardIcon + 112 + (if props.Chips then 32 else 0) + (if props.Hint then 22 else 0)
+		local stamp = Style.Label(panel, props.Stamp, "Title", 22, theme.Colors.Gold)
+		stamp.Name = "Stamp"
+		stamp.AnchorPoint = Vector2.new(0.5, 0)
+		stamp.Position = UDim2.new(0.5, 0, 0, stampTop)
+		stamp.Size = UDim2.new(1, -40, 0, 34)
+		stamp.TextScaled = true
+		stamp.BackgroundTransparency = 0.25
+		stamp.BackgroundColor3 = Style.Shade(theme.Colors.Gold, -0.7)
+		stamp.ZIndex = 3
+		Style.Round(stamp)
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = theme.Colors.Gold
+		stroke.Thickness = 2
+		stroke.Parent = stamp
+		Style.Outline(stamp, 1.5)
 	end
 	if props.Tag and props.Tag ~= "" and not props.Line then
 		local tag = Style.Label(panel, props.Tag, "Title", 17, theme.Colors.Text)
@@ -306,7 +329,7 @@ local function showNext()
 		dim.Position = UDim2.fromOffset(safe.Min.X, safe.Min.Y)
 		dim.Size = UDim2.fromOffset(safe.Width, safe.Height)
 		local overhang = theme.Sizes.Banner / 2 + theme.Sizes.BannerStar * 0.62
-		local cardHeight = theme.Sizes.RewardCard.Y + (if props.Line or props.Chips then EXTRA_HEIGHT else 0)
+		local cardHeight = theme.Sizes.RewardCard.Y + extraHeight(props)
 		fit = math.max(0.1, math.min(1, (safe.Width - Layout.SafeMargin * 2) / theme.Sizes.RewardCard.X, (safe.Height - Layout.SafeMargin * 2) / (cardHeight + overhang)))
 		root.Position = UDim2.fromOffset(safe.Width / 2, (safe.Height + overhang * fit) / 2)
 		scale.Scale = fit

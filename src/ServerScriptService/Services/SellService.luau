@@ -231,8 +231,9 @@ local function onSetAutoSell(player: Player, settings: unknown)
 end
 
 -- Called by BindingService right after a bind (before the Index records the species): sells the new dragon when it matches the player's
--- auto sell settings. `newSpecies` = the species was not in the Index before this bind. The toast follows after the reveal.
-function SellService:AutoSellNewDragon(player: Player, data: PlayerDataTypes.PlayerData, dragonId: string, newSpecies: boolean)
+-- auto sell settings and returns the gold it paid (nil = kept). `newSpecies` = the species was not in the Index before this bind. The
+-- reveal pop-up shows the sale (BindResult.AutoSoldGold), so there is no separate toast.
+function SellService:AutoSellNewDragon(player: Player, data: PlayerDataTypes.PlayerData, dragonId: string, newSpecies: boolean): number?
 	local dragon = data.Dragons[dragonId]
 	local settings = data.AutoSell
 	local species = dragon and Dragons[dragon.SpeciesId]
@@ -251,13 +252,7 @@ function SellService:AutoSellNewDragon(player: Player, data: PlayerDataTypes.Pla
 	if DragonStats.GetSellProtection(dragon, data) ~= nil then
 		return
 	end
-	local name = species.Name
-	local gold = completeSale(player, data, { dragon })
-	task.delay(Selling.AutoSellToastDelay, function()
-		if player.Parent == Players then
-			notify:FireClient(player, `Auto-sold {name} for {Format.Number(gold)} gold`, "success")
-		end
-	end)
+	return (completeSale(player, data, { dragon }))
 end
 
 function SellService:Start()
