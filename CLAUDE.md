@@ -544,7 +544,7 @@ Game passes and developer products in `Config/Products` (IDs are 0 until created
 
 The Valley is being simplified toward a bright, chunky, readable Roblox look (Adopt Me / Pet Simulator / Bee Swarm): few big
 shapes, open grass, clear roads, magic only at the altar, portals, gates and Spire. Batches: 1 cuts + lighting (done), 2
-skyline backdrop, 3 sanctuary looks + all-six cloning + loading screen. Screenshots `docs/img/simplify_*`. Backup:
+terrain repaint + haze + walkable steps (done), 3 sanctuary looks + all-six cloning + loading screen. Screenshots `docs/img/simplify_*`. Backup:
 `ServerStorage.Backups.StarterMeadow_2026-10-04_BeforeSimplify` (StarterMeadow folders, kits, tiers, Horizon, RemasterTools,
 Lighting; tags stripped; terrain can't be copied).
 - **Cause of the late pop-in (measured):** not streaming. Roblox stops drawing far geometry by graphics quality: at quality 1 about
@@ -561,12 +561,29 @@ Lighting; tags stripped; terrain can't be copied).
   flowers, lily pads, crystals and tree foliage are not touchable/queryable. Bridge vaults and parapets are unions now (148 -> 51
   parts, PreciseConvexDecomposition). Lighting (`Config/Atmosphere` StarterMeadow): brighter ambient, Haze 0.2, Bloom 0.2,
   SunRays 0.03, no far blur, Contrast 0.05, Saturation 0.2; night Bloom 0.6, Haze 0.3; works with LightingStyle Realistic or Soft.
+- **Batch 2 (done):** terrain repaint (materials only, no shape change; a place version was saved first): Mud (the dark teal
+  "forest floor") -> Grass everywhere, Rock between y 40 and 130 -> Grass (river beds/cliffs below 40 stay Rock), snow (`Sand`)
+  below y 220 -> Rock, so only the tallest peaks keep snowcaps; Rock color lightened to (160, 160, 170); roads (Brick) and water
+  untouched. Star-blossom canopies tinted soft pink / lilac (`D.Simplify.BlossomTints`, GlowStrength 0.25). Walkable steps
+  (invisible collision, art untouched): `Plaza.WalkSteps` (2 rings in front of the altar art's 3.5-stud first ledge),
+  `PortalTerrace.WalkSteps` (a half step at the grand stairs' 2.2-stud first step, a 27-degree ramp onto each portal arch base);
+  tested: a walking character climbs the altar from all 4 sides, the grand and Spire stairs, and walks into all 4 portals.
+- **Far distance = haze, not billboards.** A painted skyline of BillboardGui panels was built and **rejected by the owner (ugly)**;
+  don't bring it back (the uploaded images are unused). Roblox stops drawing everything (terrain, parts, meshes) past ~300 studs at
+  graphics quality 1 and ~500 at 5, by design; only GUIs (BillboardGuis) escape that. Instead the far distance fades into a bright,
+  sky-colored haze: **the Atmosphere only renders when Lighting has a Sky object** (the place had none, so every area's haze in
+  `Config/Atmosphere` was invisible until now); `AtmosphereController` creates a default `Sky` if missing. Valley Day/Night:
+  Density 0.3, Offset 0.55, Haze 1.5 / 1.2, bright sky colors; at a manual graphics quality <= `AutoLowQuality` (3) the haze
+  thickens to `LowQualityHaze` (Density 0.38, Offset 0.7, Haze 1.8). The other areas now show their configured haze too (Volcano
+  Peak: dark orange). Shots: `docs/img/simplify_b2_fog_*`. LightingStyle: Soft (set by the owner) reads better with the new colors
+  than Realistic (darker shadows, harsher contrast; `simplify_b2_style_realistic_q10.jpg`). No new far-mountain geometry without
+  the owner's approval; note that a 3D mesh would vanish at quality 1 like the terrain does.
 - **Numbers:** StarterMeadow 2,021 parts / ~624k triangles -> 1,067 parts / ~193k (unions counted as 12; 19 meshes whose triangles
   can't be read are not counted). Workspace 2,088 -> 1,134 parts.
 - **Don't re-run** `ValleyDetail.BuildNature`, `BuildLife`, `BuildRuins`, `ValleyBuild.BuildTiles` or `BuildDressing`; if one ever is,
   run `D.RunSimplify()` right after it.
-- **Set by hand (owner):** Workspace `StreamingMinRadius` 256, `StreamingTargetRadius` 1024 (scripts can't read or write them; no
-  code depends on them); `Lighting.LightingStyle` Soft.
+- **Set by hand (owner, done 2026-10-04):** Workspace `StreamingMinRadius` 256, `StreamingTargetRadius` 1024 (scripts can't read or
+  write them; no code depends on them); `Lighting.LightingStyle` Soft.
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 

@@ -959,6 +959,10 @@ D.Simplify = {
 	LilyPads = 6,
 	MarketProps = { { 36, 124 }, { 38, 128 }, { -38, 102 }, { -38, 108 } }, -- the crates/barrels kept
 	SmallShadow = 4, -- parts whose biggest side is under this cast no shadow
+	-- star-blossom canopies (SurfaceAppearance.Color multiplies the near-white leaves): soft pink and lilac, alternating, instead of
+	-- the washed-out cream; GlowStrength lowered (only used if a canopy is ever tagged NightGlow again)
+	BlossomTints = { Color3.fromRGB(240, 160, 200), Color3.fromRGB(196, 168, 245) },
+	BlossomGlow = 0.25,
 }
 
 function D.RunSimplify(): string
@@ -1122,6 +1126,25 @@ function D.RunSimplify(): string
 		for _, d in fold:GetDescendants() do
 			if d:IsA("BasePart") and d.Name ~= "TrunkCollider" then
 				d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+			end
+		end
+	end
+	-- 8) star-blossom tint (sorted by position so the pink/lilac pattern is the same on every run)
+	local blossoms = {}
+	for _, m in SM.Life.Magic:GetChildren() do
+		if m.Name == "Fantasy_StarBlossom" then
+			table.insert(blossoms, m)
+		end
+	end
+	table.sort(blossoms, function(a, b)
+		local pa, pb = a:GetPivot().Position, b:GetPivot().Position
+		return if pa.X ~= pb.X then pa.X < pb.X else pa.Z < pb.Z
+	end)
+	for i, m in blossoms do
+		for _, d in m:GetDescendants() do
+			if d:IsA("SurfaceAppearance") and d.Parent and string.find(d.Parent.Name, "Canopy") then
+				d.Color = S.BlossomTints[(i - 1) % #S.BlossomTints + 1]
+				d.Parent:SetAttribute("GlowStrength", S.BlossomGlow)
 			end
 		end
 	end

@@ -92,11 +92,13 @@ local Areas: { [string]: AreaLook } = {
 			OutdoorAmbient = Color3.fromRGB(165, 165, 172),
 			Brightness = 3.2,
 			Exposure = 0.12,
-			HazeColor = Color3.fromRGB(205, 225, 245),
-			Decay = Color3.fromRGB(150, 180, 215),
-			Density = 0.08, -- clear air
-			Offset = 0,
-			Haze = 0.2,
+			-- a bright, sky-colored haze so the far distance fades out instead of ending at the low-quality draw distance
+			-- (Atmosphere only renders with a Sky object in Lighting: AtmosphereController makes sure there is one)
+			HazeColor = Color3.fromRGB(235, 244, 255),
+			Decay = Color3.fromRGB(225, 238, 255),
+			Density = 0.3,
+			Offset = 0.55,
+			Haze = 1.5,
 			Glare = 0,
 			BloomIntensity = 0.2,
 			BloomSize = 24,
@@ -117,11 +119,11 @@ local Areas: { [string]: AreaLook } = {
 			OutdoorAmbient = Color3.fromRGB(120, 136, 200),
 			Brightness = 2.2,
 			Exposure = 0.55,
-			Density = 0.14,
-			Offset = 0,
-			HazeColor = Color3.fromRGB(80, 100, 165),
-			Decay = Color3.fromRGB(40, 52, 115),
-			Haze = 0.3,
+			Density = 0.3, -- the same fade as by day, into the night sky's blue
+			Offset = 0.55,
+			HazeColor = Color3.fromRGB(70, 90, 150),
+			Decay = Color3.fromRGB(55, 72, 135),
+			Haze = 1.2,
 			BloomIntensity = 0.6, -- Simplify 2026-10-04: softer glow (was 1.2)
 			BloomSize = 30,
 			BloomThreshold = 1.1,
@@ -284,6 +286,9 @@ return {
 	Areas = Areas,
 	DefaultArea = "StarterMeadow", -- used when the player's area can't be found
 	AutoLowQuality = 3, -- Low effects turns on by itself at this Roblox graphics quality level or below (1-10)
+	-- At a graphics quality at/below AutoLowQuality Roblox stops drawing anything past ~300 studs; a thicker haze (at least these
+	-- values) melts that edge into the sky. Applies in every area (AtmosphereController).
+	LowQualityHaze = { Density = 0.38, Offset = 0.7, Haze = 1.8 },
 	TransitionSeconds = 25, -- dusk and dawn: how long day and night blend (end of day / end of night)
 	AreaBlendSeconds = 2, -- blend time when changing area (teleport)
 	NightTint = 0.3, -- how strongly tonight's element colors the night ambient

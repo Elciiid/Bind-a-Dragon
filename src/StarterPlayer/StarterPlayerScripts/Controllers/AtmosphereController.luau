@@ -3,6 +3,8 @@
 -- (ambient, haze, bloom, color correction, sun rays, a gentle far blur, 3D clouds); they blend with the clock at
 -- dusk/dawn and blend to the new area's look after a teleport. Tonight's element tints the night ambient.
 -- The player's area = the nearest AreaSpawn (tag "AreaSpawn" + AreaId). Other controllers use GetArea/GetNightBlend.
+-- The haze fades the far distance into the sky, so Roblox's graphics-quality draw distance has no hard edge; at a low
+-- graphics quality it is thicker (Config/Atmosphere LowQualityHaze).
 
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -89,12 +91,13 @@ local function apply(look: Look, tintColor: Color3, tint: number)
 	Lighting.Brightness = look.Brightness
 	Lighting.ExposureCompensation = look.Exposure
 	Lighting.ColorShift_Top = look.SunColor
-	atmosphere.Density = look.Density
-	atmosphere.Offset = look.Offset
+	local thick = if EffectsQuality.QualityIsLow() then AtmosphereConfig.LowQualityHaze else nil
+	atmosphere.Density = if thick then math.max(look.Density, thick.Density) else look.Density
+	atmosphere.Offset = if thick then math.max(look.Offset, thick.Offset) else look.Offset
 	atmosphere.Color = look.HazeColor
 	atmosphere.Decay = look.Decay
 	atmosphere.Glare = look.Glare
-	atmosphere.Haze = look.Haze
+	atmosphere.Haze = if thick then math.max(look.Haze, thick.Haze) else look.Haze
 	local low = EffectsQuality.IsLow()
 	bloom.Intensity = look.BloomIntensity
 	bloom.Size = if low then math.min(look.BloomSize, 20) else look.BloomSize
@@ -128,6 +131,7 @@ end
 
 function AtmosphereController:Init()
 	atmosphere = ensure("Atmosphere", "Atmosphere")
+	ensure("Sky", "Sky") -- the Atmosphere (haze) only renders when Lighting has a Sky; a default one is enough
 	bloom = ensure("BloomEffect", "Bloom")
 	color = ensure("ColorCorrectionEffect", "AreaColor")
 	sunRays = ensure("SunRaysEffect", "SunRays")
