@@ -943,4 +943,189 @@ function D.BuildLife()
 	return string.format("forest %d, magic %d, patches %d, lanterns %d", count, #magic:GetChildren(), patches, #lamps:GetChildren())
 end
 
+---------------------------------------------------------------------------------------------------------------
+-- Simplify (2026-10-04): the kid-friendly Roblox look (KISS). Prunes what BuildNature / BuildLife / BuildRuins / BuildTiles /
+-- BuildDressing placed, by rule (deterministic, safe to run twice): a line of big firs on the foothills, friendly trees only at
+-- the landmarks, a few flower patches, no ruins/ferns/boulders/night flora/tiles/avenue or road lanterns, fewer lily pads, crates
+-- and gate crystals; night glow only on the altar, portals, gates and Spire; small parts cast no shadow, decoration is not
+-- touchable/queryable. If any Build* above is ever re-run, run D.Simplify() right after it.
+D.Simplify = {
+	FirBand = { 0, 110 }, -- foothill firs kept: this far past the valley edge (studs, V.EdgeAt)
+	FirSpacing = 50, -- at least this far apart, tallest first
+	MaxFirs = 42,
+	-- Life.Flowers patches kept (BuildLife patch centers): the W/E wedges, the market, the entrance, the plaza's north field
+	FlowerPatches = { { -118, -22 }, { 118, -22 }, { -112, -70 }, { 112, -70 }, { -86, 118 }, { 86, 118 }, { -30, 214 }, { 30, 214 }, { -48, -72 }, { 48, -72 } },
+	FlowersPerPatch = 7,
+	LilyPads = 6,
+	MarketProps = { { 36, 124 }, { 38, 128 }, { -38, 102 }, { -38, 108 } }, -- the crates/barrels kept
+	SmallShadow = 4, -- parts whose biggest side is under this cast no shadow
+}
+
+function D.RunSimplify(): string
+	local S = D.Simplify
+	local removed = 0
+	local function kill(inst: Instance)
+		inst:Destroy()
+		removed += 1
+	end
+	local function flat(p: Vector3): Vector2
+		return Vector2.new(p.X, p.Z)
+	end
+	-- 1) forest: keep a spaced line of the tallest firs on the foothills; every other forest tree goes
+	local candidates = {}
+	for _, fold in { SM.Nature:FindFirstChild("Trees"), SM.Life:FindFirstChild("Forest") } do
+		for _, m in (if fold then fold:GetChildren() else {}) do
+			local p = m:GetPivot().Position
+			local u = sqrt(p.X * p.X + p.Z * p.Z) - V.EdgeAt(math.deg(math.atan2(p.X, -p.Z)))
+			local _, size = m:GetBoundingBox()
+			if string.find(m.Name, "TealFir") and u >= S.FirBand[1] and u <= S.FirBand[2] then
+				table.insert(candidates, { Model = m, At = flat(p), Height = size.Y })
+			else
+				kill(m)
+			end
+		end
+	end
+	table.sort(candidates, function(a, b)
+		return a.Height > b.Height
+	end)
+	local kept = {}
+	for _, c in candidates do
+		local ok = #kept < S.MaxFirs
+		for _, k in kept do
+			if ok and (k.At - c.At).Magnitude < S.FirSpacing then
+				ok = false
+			end
+		end
+		if ok then
+			table.insert(kept, c)
+		else
+			kill(c.Model)
+		end
+	end
+	-- 2) magical trees: the star-blossom pair at each sanctuary gate + the pair at the avenue start (Life.Magic) and the two
+	-- crystal trees framing the altar's north approach (Nature.MagicTrees) stay; the ruin and avenue-top trees go
+	local spots = { Vector2.new(-24, -92), Vector2.new(24, -92) }
+	for _, sanct in V.Sanct do
+		local out = Vector2.new(-sanct.X, -sanct.Z).Unit
+		local across = Vector2.new(-out.Y, out.X)
+		for _, sgn in { -1, 1 } do
+			table.insert(spots, Vector2.new(sanct.X, sanct.Z) + out * 100 + across * 34 * sgn)
+		end
+	end
+	for _, m in SM.Life.Magic:GetChildren() do
+		local near = false
+		for _, s in spots do
+			near = near or (flat(m:GetPivot().Position) - s).Magnitude < 20
+		end
+		if not (near and m.Name == "Fantasy_StarBlossom") then
+			kill(m)
+		end
+	end
+	-- 3) whole folders that go
+	for _, path in { { "Ruins" }, { "Tiles" }, { "Nature", "Ferns" }, { "Nature", "Boulders" }, { "Nature", "NightFlora" }, { "Nature", "Flowers" }, { "Life", "Lanterns" }, { "Dressing", "RoadLanterns" } } do
+		local node: Instance? = SM
+		for _, name in path do
+			node = node and node:FindFirstChild(name)
+		end
+		for _, c in (if node then node:GetChildren() else {}) do
+			kill(c)
+		end
+	end
+	-- 4) flowers: the kept patches, the nearest FlowersPerPatch to each center
+	local keepFlowers = {}
+	for _, c in S.FlowerPatches do
+		local center = Vector2.new(c[1], c[2])
+		local list = {}
+		for _, m in SM.Life.Flowers:GetChildren() do
+			local d = (flat(m:GetPivot().Position) - center).Magnitude
+			if d < 26 then
+				table.insert(list, { Model = m, D = d })
+			end
+		end
+		table.sort(list, function(a, b)
+			return a.D < b.D
+		end)
+		for i = 1, math.min(S.FlowersPerPatch, #list) do
+			keepFlowers[list[i].Model] = true
+		end
+	end
+	for _, m in SM.Life.Flowers:GetChildren() do
+		if not keepFlowers[m] then
+			kill(m)
+		end
+	end
+	-- 5) dressing: fewer lily pads, crates/barrels and portal crystals (the biggest cluster per portal)
+	local pads = SM.Dressing.LilyPads:GetChildren()
+	table.sort(pads, function(a, b)
+		local pa, pb = (a :: any).Position, (b :: any).Position
+		return if pa.X ~= pb.X then pa.X < pb.X else pa.Z < pb.Z
+	end)
+	local padKept = {}
+	for _, pad in pads do
+		local p = flat((pad :: any).Position)
+		local ok = #padKept < S.LilyPads
+		for _, k in padKept do
+			ok = ok and (k - p).Magnitude > 20
+		end
+		if ok then
+			table.insert(padKept, p)
+		else
+			kill(pad)
+		end
+	end
+	for _, m in SM.Dressing.MarketProps:GetChildren() do
+		local p = flat(if m:IsA("Model") then m:GetPivot().Position else (m :: any).Position)
+		local keep = false
+		for _, k in S.MarketProps do
+			keep = keep or (p - Vector2.new(k[1], k[2])).Magnitude < 1.5
+		end
+		if not keep then
+			kill(m)
+		end
+	end
+	local best: { [string]: Model } = {}
+	for _, m in SM.Dressing.GateCrystals:GetChildren() do
+		local _, size = (m :: Model):GetBoundingBox()
+		local b = best[m.Name]
+		if b == nil or select(2, b:GetBoundingBox()).Magnitude < size.Magnitude then
+			best[m.Name] = m :: Model
+		end
+	end
+	for _, m in SM.Dressing.GateCrystals:GetChildren() do
+		if best[m.Name] ~= m then
+			kill(m)
+		end
+	end
+	-- 6) night glow only on the altar, portals, gates and Spire
+	for _, inst in CollectionService:GetTagged("NightGlow") do
+		if inst:IsDescendantOf(SM.Bridges) or inst:IsDescendantOf(SM.Life) or inst:IsDescendantOf(SM.Nature.MagicTrees)
+			or inst:IsDescendantOf(SM.Market) then
+			CollectionService:RemoveTag(inst, "NightGlow")
+		end
+	end
+	-- 7) cheap flags: small parts cast no shadow; decoration can't be touched or hit by queries
+	local shadowsOff = 0
+	for _, d in SM:GetDescendants() do
+		if d:IsA("BasePart") and d.CastShadow and math.max(d.Size.X, d.Size.Y, d.Size.Z) < S.SmallShadow then
+			d.CastShadow = false
+			shadowsOff += 1
+		end
+	end
+	for _, fold in { SM.Life.Flowers, SM.Dressing.LilyPads, SM.Dressing.GateCrystals, SM.Plaza.CrystalRing } do
+		for _, d in fold:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.CanTouch, d.CanQuery = false, false
+			end
+		end
+	end
+	for _, fold in { SM.Nature.Trees, SM.Life.Forest, SM.Life.Magic, SM.Nature.MagicTrees, SM.Nature.Landmark } do
+		for _, d in fold:GetDescendants() do
+			if d:IsA("BasePart") and d.Name ~= "TrunkCollider" then
+				d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+			end
+		end
+	end
+	return string.format("removed %d, firs %d, magic %d, flowers %d, small shadows off %d", removed, #kept, #SM.Life.Magic:GetChildren(), #SM.Life.Flowers:GetChildren(), shadowsOff)
+end
+
 return D

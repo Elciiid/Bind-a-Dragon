@@ -175,6 +175,8 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   height, so the script writes solids 2 lower (`SurfaceLift`); keep that in mind for any other terrain script.
 - `SpawnLocation` at the valley mouth (0, 1.3, 160) facing north (new players); `AreaSpawn` (arrivals from other
   areas) on the portal terrace (0, 13.5, -150) facing the altar.
+- **Simplify 2026-10-04 removed the Tiles, Ruins, ferns, boulders, night flora and most trees/flowers listed below; see the
+  "Simplify 2026-10-04" section for what is left.**
 - `Tiles`: real Granite stone tiles in warm cream shades (to match the cream roads) flush on the flagstone (`ValleyBuild.BuildTiles`, 132 parts): a two-row ring around
   the plaza's outer step (gap at the grand bridge, none over the river bank) and a two-row ring around the market
   obelisk, with gold inlays (`NightGlow`) at the compass points.
@@ -537,6 +539,34 @@ Game passes and developer products in `Config/Products` (IDs are 0 until created
 - Measured (Studio, tree triangles from the kit `Triangles` attributes, whole world): trees 308 / ~441k (before 172 / ~250k);
   StarterMeadow parts 2,017 (891 mesh) vs 1,651 (546 mesh). To trim: lower `D.MaxLifeTrees` (140) and rebuild `Life`.
 - The east cascade's beam attachments used to be placed in world space before parenting (beam never visible); fixed.
+
+## Simplify 2026-10-04 (style rule: **kid-friendly Roblox look, KISS**)
+
+The Valley is being simplified toward a bright, chunky, readable Roblox look (Adopt Me / Pet Simulator / Bee Swarm): few big
+shapes, open grass, clear roads, magic only at the altar, portals, gates and Spire. Batches: 1 cuts + lighting (done), 2
+skyline backdrop, 3 sanctuary looks + all-six cloning + loading screen. Screenshots `docs/img/simplify_*`. Backup:
+`ServerStorage.Backups.StarterMeadow_2026-10-04_BeforeSimplify` (StarterMeadow folders, kits, tiers, Horizon, RemasterTools,
+Lighting; tags stripped; terrain can't be copied).
+- **Cause of the late pop-in (measured):** not streaming. Roblox stops drawing far geometry by graphics quality: at quality 1 about
+  300 studs (from the plaza no Spire, portals, mountains or landmarks), at 5 about 500 (no far mountains/landmarks), at 10 all.
+  Automatic quality moves between levels, so things appear while walking; an unfocused Studio window drops quality. Terrain was
+  fully streamed in Play. Our own code added to it: sanctuary look kits clone only within 320 studs (batch 3 fixes that).
+  BillboardGuis are not culled (a test panel 800 studs out drew at quality 1 and nearby hills still hid it).
+- **Batch 1 (done):** `ValleyDetail.RunSimplify()` (live module + reference `tools/valley_build/ValleyDetail.luau`, rules in
+  `D.Simplify`, safe to run twice) pruned by rule: trees 309 -> 61 (42 big teal firs as a spaced line on the foothills, 16
+  star-blossoms at the sanctuary gates and the avenue start, the 2 crystal trees at the altar's north approach, the ancient tree);
+  flowers 143 -> 56 (8 patches); removed the ruins, tiles, ferns, boulders, night flora, the lantern avenue and road lanterns
+  (the altar, sanctuary gate, bridge, entrance and stairs lanterns stay); lily pads 28 -> 6, crates/barrels 8 -> 4, gate crystals
+  12 -> 4 (one per portal); NightGlow removed from bridges, trees and the market obelisk; small parts (< 4 studs) cast no shadow;
+  flowers, lily pads, crystals and tree foliage are not touchable/queryable. Bridge vaults and parapets are unions now (148 -> 51
+  parts, PreciseConvexDecomposition). Lighting (`Config/Atmosphere` StarterMeadow): brighter ambient, Haze 0.2, Bloom 0.2,
+  SunRays 0.03, no far blur, Contrast 0.05, Saturation 0.2; night Bloom 0.6, Haze 0.3; works with LightingStyle Realistic or Soft.
+- **Numbers:** StarterMeadow 2,021 parts / ~624k triangles -> 1,067 parts / ~193k (unions counted as 12; 19 meshes whose triangles
+  can't be read are not counted). Workspace 2,088 -> 1,134 parts.
+- **Don't re-run** `ValleyDetail.BuildNature`, `BuildLife`, `BuildRuins`, `ValleyBuild.BuildTiles` or `BuildDressing`; if one ever is,
+  run `D.RunSimplify()` right after it.
+- **Set by hand (owner):** Workspace `StreamingMinRadius` 256, `StreamingTargetRadius` 1024 (scripts can't read or write them; no
+  code depends on them); `Lighting.LightingStyle` Soft.
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 

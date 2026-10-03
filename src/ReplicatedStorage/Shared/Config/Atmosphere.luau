@@ -85,31 +85,32 @@ end
 local Areas: { [string]: AreaLook } = {
 	StarterMeadow = {
 		-- The Starlit Highlands, Starter Meadow by day: sunny late morning, crisp clear air, bright ambient, soft shadows,
-		-- gentle bloom.
+		-- gentle bloom. Simplify 2026-10-04 (kid-friendly Roblox look, KISS): brighter ambient, less haze/bloom/rays, no far
+		-- blur, softer contrast, a bit more color. Works with Lighting.LightingStyle Realistic or Soft.
 		Day = look({
-			Ambient = Color3.fromRGB(112, 112, 122),
-			OutdoorAmbient = Color3.fromRGB(150, 150, 158),
+			Ambient = Color3.fromRGB(130, 130, 140),
+			OutdoorAmbient = Color3.fromRGB(165, 165, 172),
 			Brightness = 3.2,
 			Exposure = 0.12,
 			HazeColor = Color3.fromRGB(205, 225, 245),
 			Decay = Color3.fromRGB(150, 180, 215),
-			Density = 0.12, -- crisp air; the horizon landmarks (700+ studs) stay clear
+			Density = 0.08, -- clear air
 			Offset = 0,
-			Haze = 0.4,
-			Glare = 0.15,
-			BloomIntensity = 0.35,
+			Haze = 0.2,
+			Glare = 0,
+			BloomIntensity = 0.2,
 			BloomSize = 24,
 			BloomThreshold = 1.6,
-			Contrast = 0.1,
-			Saturation = 0.12,
+			Contrast = 0.05,
+			Saturation = 0.2,
 			Tint = Color3.fromRGB(252, 252, 250),
-			SunRays = 0.07,
-			DepthBlur = 0.03,
+			SunRays = 0.03,
+			DepthBlur = 0,
 			SunColor = Color3.fromRGB(50, 38, 18),
 			CloudCover = 0.62, -- fair-weather clouds over the peaks, blue sky between
 			CloudDensity = 0.26,
 		}),
-		-- Night is the show: bright starry sky, clearly visible; gold runes and glowing flowers/mushrooms carry the colour.
+		-- Night is the show: bright starry sky, clearly visible; the altar, portals, gates and Spire glow (NightGlow).
 		-- (brighter since the Valley: the valley floor, paths and sanctuaries stay readable in blue moonlight)
 		Night = look({
 			Ambient = Color3.fromRGB(92, 104, 158),
@@ -120,8 +121,8 @@ local Areas: { [string]: AreaLook } = {
 			Offset = 0,
 			HazeColor = Color3.fromRGB(80, 100, 165),
 			Decay = Color3.fromRGB(40, 52, 115),
-			Haze = 0.5,
-			BloomIntensity = 1.2,
+			Haze = 0.3,
+			BloomIntensity = 0.6, -- Simplify 2026-10-04: softer glow (was 1.2)
 			BloomSize = 30,
 			BloomThreshold = 1.1,
 			Contrast = 0.08,
