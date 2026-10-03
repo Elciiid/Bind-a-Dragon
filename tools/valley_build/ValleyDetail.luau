@@ -1151,4 +1151,115 @@ function D.RunSimplify(): string
 	return string.format("removed %d, firs %d, magic %d, flowers %d, small shadows off %d", removed, #kept, #SM.Life.Magic:GetChildren(), #SM.Life.Flowers:GetChildren(), shadowsOff)
 end
 
+-- Foothill life (Simplify 2026-10-04): the big grass slopes read as one flat green wall, so they get two close shades of bright
+-- green in big soft patches (terrain Grass + Mud recolored a little darker; Mud's Valley_ForestA variant is the same texture,
+-- without grass blades) and a few big friendly broadleaf trees spread over the lower foothills (one per bearing sector at a
+-- random distance, so never in a line), below the fir line. Deterministic and safe to run twice (it repaints the patches from
+-- scratch and rebuilds its own folder SM.Life.Foothills). Terrain materials only, no shape change.
+D.Foothills = {
+	PatchAbove = 18, -- only ground above this height (the slopes; the valley floor and terraces stay plain)
+	PatchScale = 210, -- studs per noise cycle: big patches
+	PatchDetail = 0.3, -- share of a second, finer (x2.3) noise in the patch edges
+	PatchThreshold = 0.06, -- noise above this = the darker shade
+	Light = Color3.fromRGB(122, 152, 58), -- terrain Grass (unchanged)
+	Dark = Color3.fromRGB(84, 126, 44), -- terrain Mud: a close darker bright green (no teal)
+	Trees = 12, -- one per 30-degree bearing sector (sectors with no free spot get none)
+	TreeBand = { 8, 70 }, -- studs past the valley edge (V.EdgeAt): the lower foothills, below the fir line
+	TreeHeight = { 44, 54 },
+	TreeSpacing = 60, -- from each other
+	TreeClear = 22, -- from any other tree
+	Kinds = { "Fantasy_EmeraldTree_A", "Fantasy_EmeraldTree_B" },
+	Seed = 7201,
+}
+
+function D.RunFoothills(): string
+	local F = D.Foothills
+	local T = workspace.Terrain
+	local Mt = Enum.Material
+	-- 1) patches
+	T:SetMaterialColor(Mt.Grass, F.Light)
+	T:SetMaterialColor(Mt.Mud, F.Dark)
+	local RES = 4
+	local painted = 0
+	for cx = -1024, 768, 256 do
+		for cz = -1024, 768, 256 do
+			local region = Region3.new(Vector3.new(cx, -48, cz), Vector3.new(cx + 256, 304, cz + 256)):ExpandToGrid(RES)
+			local ch = T:ReadVoxelChannels(region, RES, { "SolidMaterial", "SolidOccupancy", "LiquidOccupancy" })
+			local mat = ch.SolidMaterial
+			local sx, sy, sz = region.Size.X / RES, region.Size.Y / RES, region.Size.Z / RES
+			local minX = region.CFrame.Position.X - region.Size.X / 2
+			local minY = region.CFrame.Position.Y - region.Size.Y / 2
+			local minZ = region.CFrame.Position.Z - region.Size.Z / 2
+			local any = false
+			for x = 1, sx do
+				local wx = minX + (x - 0.5) * RES
+				for z = 1, sz do
+					local wz = minZ + (z - 0.5) * RES
+					local n = noise(wx / F.PatchScale, wz / F.PatchScale, 3.7) + F.PatchDetail * noise(wx / F.PatchScale * 2.3, wz / F.PatchScale * 2.3, 9.1)
+					local dark = n > F.PatchThreshold
+					for y = 1, sy do
+						local wy = minY + (y - 0.5) * RES
+						local m = mat[x][y][z]
+						if m == Mt.Mud then
+							mat[x][y][z] = Mt.Grass -- start clean (safe to run twice)
+							m = Mt.Grass
+							any = true
+						end
+						if m == Mt.Grass and wy > F.PatchAbove and dark then
+							mat[x][y][z] = Mt.Mud
+							painted += 1
+							any = true
+						end
+					end
+				end
+			end
+			if any then
+				T:WriteVoxelChannels(region, RES, { SolidMaterial = mat, SolidOccupancy = ch.SolidOccupancy, LiquidOccupancy = ch.LiquidOccupancy })
+			end
+		end
+	end
+	-- 2) a few big friendly trees on the lower foothills
+	local life = SM:FindFirstChild("Life") or B.Folder(SM, "Life")
+	local folder = B.Folder(life, "Foothills", true)
+	local others = {}
+	for _, fold in { SM.Nature:FindFirstChild("Trees"), SM.Nature:FindFirstChild("MagicTrees"), SM.Nature:FindFirstChild("Landmark"), life:FindFirstChild("Forest"), life:FindFirstChild("Magic") } do
+		for _, m in (if fold then fold:GetChildren() else {}) do
+			local p = m:GetPivot().Position
+			table.insert(others, Vector2.new(p.X, p.Z))
+		end
+	end
+	local rng = Random.new(F.Seed)
+	local placed = {}
+	local step = 360 / F.Trees
+	for sector = 0, F.Trees - 1 do
+		for _ = 1, 60 do
+			local th = (sector + rng:NextNumber(0.1, 0.9)) * step - 180
+			local u = rng:NextNumber(F.TreeBand[1], F.TreeBand[2])
+			local R = V.EdgeAt(th) + u
+			local x, z = math.sin(math.rad(th)) * R, -math.cos(math.rad(th)) * R
+			local at = Vector2.new(x, z)
+			local slope, h = slopeAt(x, z)
+			local ok = slope < 1.1 and h > 4 and h < 110 and open(x, z, 8) and not clear(x, z)
+			for _, p in placed do
+				ok = ok and (p - at).Magnitude >= F.TreeSpacing
+			end
+			for _, p in others do
+				ok = ok and (p - at).Magnitude >= F.TreeClear
+			end
+			if ok then
+				local kind = F.Kinds[rng:NextInteger(1, #F.Kinds)]
+				D.PlaceFantasyTree(folder, kind, Vector3.new(x, h - 0.5 - slope * 2, z), rng, u < 32, rng:NextNumber(F.TreeHeight[1], F.TreeHeight[2]))
+				table.insert(placed, at)
+				break
+			end
+		end
+	end
+	for _, d in folder:GetDescendants() do
+		if d:IsA("BasePart") and d.Name ~= "TrunkCollider" then
+			d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+		end
+	end
+	return string.format("dark patch voxels %d, foothill trees %d", painted, #folder:GetChildren())
+end
+
 return D

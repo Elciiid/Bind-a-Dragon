@@ -580,6 +580,12 @@ Lighting; tags stripped; terrain can't be copied).
   Peak: dark orange). Shots: `docs/img/simplify_b2_fog_*`. LightingStyle: Soft (set by the owner) reads better with the new colors
   than Realistic (darker shadows, harsher contrast; `simplify_b2_style_realistic_q10.jpg`). No new far-mountain geometry without
   the owner's approval; note that a 3D mesh would vanish at quality 1 like the terrain does.
+- **Foothill life (done):** `ValleyDetail.RunFoothills()` (rules `D.Foothills`, safe to run twice): the slopes above y 18 get
+  two close bright greens in big soft patches (noise scale 210 studs): terrain Grass (122, 152, 58) and Mud recolored
+  (84, 126, 44) (Mud = `Valley_ForestA`, same texture, no grass blades); 12 big Emerald broadleaf trees (44-54 tall, one per
+  30-degree sector at a random distance, 8-70 studs past the valley edge, so never a line) in `StarterMeadow.Life.Foothills`
+  below the fir line; +28 parts, ~18k triangles (StarterMeadow ~211k). Shots `docs/img/simplify_foothills_*`. Mud no longer
+  means "forest floor": don't re-run `ValleyTerrain.PaintForest()` (it would paint the old teal patches back).
 - **Batch 3 (done):** the default `Sky` shows no Roblox stars/sun/moon (`StarCount` 0, `CelestialBodiesShown` false;
   `AtmosphereController`): only SkyController's stars and constellation (`simplify_b3_night_sky_q10.jpg`). Every area's haze is
   light and in its theme (Config/Atmosphere: Density 0.3, Offset 0.55, light warm peach / icy blue / grey-violet / eclipse
