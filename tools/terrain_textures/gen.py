@@ -405,6 +405,10 @@ TEXTURES = {
     "valley_grass_c": lambda: tex_paint_grass(321, wash=0.08, warm=0.10, flecks=60),
     # D (2026-10-02, kids restyle): clover dots + a few warm buds on a slightly deeper base, for the sunny lawn look
     "valley_grass_d": lambda: tex_paint_grass(331, wash=0.07, warm=0.08, flecks=120, fleck_r=(3.5, 6.0), base=(214, 222, 204), fleck_color=(255, 252, 238), buds=34, bud_r=(5.0, 8.0)),
+    # Rock (Simplify 2026-10-04): a calm, near-white painted wash with warm patches and no normal map, so the mountain facets read
+    # soft (Roblox's own Rock texture is high contrast); MaterialService Valley_RockA on Rock, 40 studs/tile, color from the
+    # terrain Rock color (warm grey-lilac).
+    "valley_rock_a": lambda: tex_paint_grass(361, wash=0.06, warm=0.05, base=(238, 234, 232)),
     "valley_road_a": lambda: tex_flagstone(slabs(5, 331), [hexc("EADCBE"), hexc("E2D0AE"), hexc("EFE4CC"), hexc("DCC8A4")], hexc("A88E6A"), 331),
     "valley_road_b": lambda: tex_flagstone(slabs(5, 341), [hexc("E4C99A"), hexc("D8B884"), hexc("ECD4A8"), hexc("CFAE7C")], hexc("8E7452"), 341, moss=hexc("7D8E5E"), moss_share=0.35),
     "valley_road_c": lambda: tex_flagstone(slabs(5, 351), [hexc("F1EADA"), hexc("E6DCC6"), hexc("DCD8CE"), hexc("EDE2C8")], hexc("B4A48A"), 351, grout_w=2.4),

@@ -585,7 +585,12 @@ Lighting; tags stripped; terrain can't be copied).
   (`V.EdgeAt`, more than 6 studs past it) every Grass/Mud voxel above the **grass line, y 20** (wandering +-10 studs in big
   ~90-stud waves so it is a soft natural edge, not a contour) is Rock; below it one bright green (terrain Grass
   (122, 152, 58)). Inside the valley edge everything green stays Grass (valley floor, sanctuary terraces, Spire hill). Snowcaps
-  (Sand above y 220) and roads/river beds untouched; Rock stays the light grey-lilac (160, 160, 170). Trees: forest firs standing
+  (Sand above y 220) and roads/river beds untouched. **Rock (tweak 2026-10-04):** warm stone grey (terrain Rock color
+  (122, 110, 108), grey-lilac with a hint of tan, darker so the mountains hold shape against the sky) and a calm texture:
+  MaterialVariant `Valley_RockA` (near-white soft painted wash, no normal map, 40 studs/tile, `tools/terrain_textures/gen.py`
+  `valley_rock_a`, rbxassetid://134103070141076) set as the base-material override for Rock, because Roblox's own Rock texture
+  is high contrast and read as ice behind the gates. The override also restyles the two horizon parts that use Rock (ValleyVolcano
+  rock, StormTower mesa); no other parts use Rock, keep it that way. Shots `docs/img/simplify_rock_{before,after}_*`. Trees: forest firs standing
   above the line were removed (42 -> 14), the 12 big Emerald broadleaf trees (`StarterMeadow.Life.Foothills`, 40-50 tall, one per
   30-degree sector at a random distance, 2-45 studs past the edge) stand only on grass at least 5 studs under the line; the
   ancient tree on the waterfall cliff stays as the landmark (on rock). StarterMeadow 1,051 parts / ~167k triangles. Shots
