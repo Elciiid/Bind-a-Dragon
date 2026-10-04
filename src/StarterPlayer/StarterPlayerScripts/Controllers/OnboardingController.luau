@@ -413,7 +413,25 @@ local function plan(step: number, root: BasePart?): Plan
 		return { Line = Lines.Home, Icon = Config.Icons.Home, WorldTarget = homePlot(), GuiTarget = visibleTarget("Home"), ScreenTwinkle = false }
 	elseif step == Steps.Upgrade then
 		if HudLayout.HasFocus() then
-			return { Line = Lines.Upgrade, Icon = Config.Icons.Upgrade, GuiTarget = visibleTarget("DragonUpgrade"), ScreenTwinkle = true }
+			-- only inside the Inventory's Dragons tab; any other window: the guide waits
+			-- (it may be scrolled out of view: drawScreenTwinkle scrolls its card in)
+			local upgrade = HudLayout.GetTutorialTarget("DragonUpgrade")
+			local window = upgrade and upgrade:FindFirstAncestor("Window")
+			if upgrade == nil or window == nil or not window:IsA("GuiObject") or not window.Visible or HudLayout.GetVisibleRect(window) == nil then
+				return none
+			end
+			local page = upgrade:FindFirstAncestorWhichIsA("ScrollingFrame")
+			if page and not page:IsDescendantOf(window) then
+				return none
+			end
+			local tab: Instance? = upgrade
+			while tab and tab ~= window do
+				if tab:IsA("GuiObject") and not tab.Visible then
+					return none -- another tab is showing
+				end
+				tab = tab.Parent
+			end
+			return { Line = Lines.Upgrade, Icon = Config.Icons.Upgrade, GuiTarget = upgrade, ScreenTwinkle = true }
 		end
 		return { Line = Lines.OpenBag, Icon = Config.Icons.OpenBag, GuiTarget = visibleTarget("Inventory"), ScreenTwinkle = true }
 	elseif step == Steps.Night and now < waitUntil then
@@ -475,9 +493,47 @@ local function hudRects(): { Rect }
 	add({ "Hud", "Currency" })
 	add({ "Hotbar", "Hotbar" })
 	add({ "Luck", "LuckPanel" })
+	-- toasts showing right now (each line, so an empty queue blocks nothing)
+	local toasts = gui:FindFirstChild("Notifications")
+	local column = toasts and toasts:FindFirstChild("Toasts")
+	if column then
+		for _, toast in column:GetChildren() do
+			local line = toast:FindFirstChild("Line", true)
+			if line and line:IsA("GuiObject") and line.AbsoluteSize.X > 0 then
+				table.insert(rects, rectOf(line))
+			end
+		end
+	end
+	-- Roblox's own touch controls (phones): the jump button and the thumbstick
+	local touch = gui:FindFirstChild("TouchGui")
+	if touch and touch:IsA("ScreenGui") and touch.Enabled then
+		for _, child in touch:GetDescendants() do
+			if child:IsA("GuiObject") and child.Visible and (child.Name == "JumpButton" or child.Name == "ThumbstickFrame" or child.Name == "ThumbstickStart") then
+				table.insert(rects, rectOf(child))
+			end
+		end
+	end
+	local topbar = gui:FindFirstChild("HudTopbar")
+	if topbar and topbar:IsA("ScreenGui") and topbar.Enabled then
+		for _, child in topbar:GetDescendants() do
+			if child:IsA("GuiButton") and child.Visible and child.AbsoluteSize.X > 0 then
+				table.insert(rects, rectOf(child)) -- the settings gear
+			end
+		end
+	end
 	local stack = HudLayout.GetTimerStack()
-	if stack.Visible and stack.AbsoluteSize.Y > 0 then
-		table.insert(rects, rectOf(stack))
+	if stack.Visible then
+		-- its visible rows (the stack's own frame is much bigger than what it shows)
+		for _, row in stack:GetDescendants() do
+			if row:IsA("TextLabel") and row.Visible and row.Text ~= "" and row.AbsoluteSize.X > 0 then
+				local bounds = row.TextBounds
+				local at = row.AbsolutePosition - screen.AbsolutePosition
+				local x = if row.TextXAlignment == Enum.TextXAlignment.Right then at.X + row.AbsoluteSize.X - bounds.X else at.X
+				table.insert(rects, Rect.new(x - 40, at.Y, x + bounds.X, at.Y + math.max(bounds.Y, row.AbsoluteSize.Y)))
+			elseif row:IsA("ImageLabel") and row.Visible and row.AbsoluteSize.X > 0 and row.ImageTransparency < 1 then
+				table.insert(rects, rectOf(row))
+			end
+		end
 	end
 	if skipButton.Visible then
 		table.insert(rects, rectOf(skipButton))
@@ -535,8 +591,16 @@ end
 
 type Spot = { At: Vector2, Anchor: Vector2 }
 
--- Places the line at the first candidate spot inside `bound` that covers nothing in `avoid`; else the first one, clamped.
-local function placeLine(candidates: { Spot }, bound: Rect, avoid: { Rect }): Rect
+local function overlapArea(a: Rect, b: Rect): number
+	local w = math.min(a.Max.X, b.Max.X) - math.max(a.Min.X, b.Min.X)
+	local h = math.min(a.Max.Y, b.Max.Y) - math.max(a.Min.Y, b.Min.Y)
+	return if w > 0 and h > 0 then w * h else 0
+end
+
+-- Places the line at the first candidate spot inside `bound` that covers nothing in `avoid` (hard: the HUD, the arrow,
+-- the prompt, the player) or `soft` (the target's art). If none is clear (a phone where the altar fills the screen),
+-- the spot covering the least wins, the HUD weighing far more than the art.
+local function placeLine(candidates: { Spot }, bound: Rect, avoid: { Rect }, soft: { Rect }?): Rect
 	local size = screenBubble.Frame.AbsoluteSize
 	local margin = 8
 	local function rectAt(spot: Spot): Rect
@@ -544,27 +608,47 @@ local function placeLine(candidates: { Spot }, bound: Rect, avoid: { Rect }): Re
 		local y = math.clamp(spot.At.Y - size.Y * spot.Anchor.Y, bound.Min.Y + margin, math.max(bound.Min.Y + margin, bound.Max.Y - size.Y - margin))
 		return Rect.new(x, y, x + size.X, y + size.Y)
 	end
-	local chosen: Rect? = nil
+	local best: Rect? = nil
+	local bestScore = math.huge
 	for _, spot in candidates do
 		local r = rectAt(spot)
-		local clear = true
+		local score = 0
 		for _, a in avoid do
-			if overlaps(r, a) then
-				clear = false
+			score += overlapArea(r, a) * 20
+		end
+		for _, a in soft or {} do
+			score += overlapArea(r, a)
+		end
+		if score < bestScore then
+			best, bestScore = r, score
+			if score == 0 then
 				break
 			end
 		end
-		if clear then
-			chosen = r
-			break
-		end
 	end
-	local r = chosen or rectAt(candidates[1])
+	local r = best or rectAt(candidates[1])
 	screenBubbleHolder.Position = UDim2.fromOffset(r.Min.X, r.Min.Y)
 	screenBubble.Frame.AnchorPoint = Vector2.zero
 	screenBubble.Frame.Position = UDim2.new()
 	screenBubbleHolder.Visible = true
 	return r
+end
+
+-- Spots along the free screen edges: under the travel row and above the hotbar, left / middle / right.
+local function edgeSpots(bound: Rect): { Spot }
+	local spots: { Spot } = {}
+	local bottom = bound.Max.Y
+	local hotbar = player.PlayerGui:FindFirstChild("Hotbar")
+	local bar = hotbar and hotbar:FindFirstChildWhichIsA("GuiObject")
+	if bar and bar.Visible then
+		bottom = math.min(bottom, bar.AbsolutePosition.Y - screen.AbsolutePosition.Y - 4)
+	end
+	for _, fx in { 0.5, 0.3, 0.7 } do
+		local x = bound.Min.X + (bound.Max.X - bound.Min.X) * fx
+		table.insert(spots, { At = Vector2.new(x, bound.Min.Y + 4), Anchor = Vector2.new(0.5, 0) })
+		table.insert(spots, { At = Vector2.new(x, bottom), Anchor = Vector2.new(0.5, 1) })
+	end
+	return spots
 end
 
 local function aroundPoint(p: Vector2, gap: number): { Spot }
@@ -604,23 +688,25 @@ local function moveScreenTwinkle(goal: Vector2, dt: number)
 	screenTwinkle.Visible = true
 end
 
--- Twinkle on the screen beside the line: left of it, else right of it, else above it (whichever covers nothing).
+-- Twinkle on the screen beside the line: left of it, right of it or above it, whichever covers the least.
 local function placeScreenTwinkle(line: Rect, dt: number, avoid: { Rect })
 	local cy = (line.Min.Y + line.Max.Y) / 2
-	local spots = { Vector2.new(line.Min.X - 30, cy), Vector2.new(line.Max.X + 30, cy), Vector2.new((line.Min.X + line.Max.X) / 2, line.Min.Y - 30) }
-	local goal = spots[1]
+	local r0 = 36 -- Twinkle with its halo
+	local spots = {
+		Vector2.new(line.Min.X - r0, cy), Vector2.new(line.Max.X + r0, cy),
+		Vector2.new(line.Min.X + r0, line.Min.Y - r0), Vector2.new(line.Max.X - r0, line.Min.Y - r0),
+		Vector2.new((line.Min.X + line.Max.X) / 2, line.Min.Y - r0), Vector2.new((line.Min.X + line.Max.X) / 2, line.Max.Y + r0),
+	}
+	local goal, bestScore = spots[1], math.huge
 	for _, spot in spots do
-		local r = Rect.new(spot - Vector2.new(26, 26), spot + Vector2.new(26, 26))
-		local clear = spot.X > 26 and spot.X < screen.AbsoluteSize.X - 26
+		local r = Rect.new(spot - Vector2.new(r0, r0), spot + Vector2.new(r0, r0))
+		local view = screen.AbsoluteSize
+		local score = if spot.X < r0 or spot.X > view.X - r0 or spot.Y < r0 or spot.Y > view.Y - r0 then 1e9 else 0
 		for _, a in avoid do
-			if overlaps(r, a) then
-				clear = false
-				break
-			end
+			score += overlapArea(r, a)
 		end
-		if clear then
-			goal = spot
-			break
+		if score < bestScore then
+			goal, bestScore = spot, score
 		end
 	end
 	moveScreenTwinkle(goal, dt)
@@ -651,9 +737,7 @@ local function drawWorld(p: Plan, root: BasePart, dt: number, extraAvoid: { Rect
 		table.insert(avoid, r)
 	end
 	local box = screenBox(target)
-	if box then
-		table.insert(avoid, box)
-	end
+	local soft = if box then { box } else {}
 	local body = screenBox(root.Parent) -- never on the player's own character
 	if body then
 		table.insert(avoid, body)
@@ -685,8 +769,15 @@ local function drawWorld(p: Plan, root: BasePart, dt: number, extraAvoid: { Rect
 		if atSpot and box then
 			twinkle.Parent = nil
 			twinklePos = nil
-			local line = placeLine(aroundBox(box, Config.Bubble.Gap), screenBound(), avoid)
-			placeScreenTwinkle(line, dt, avoid)
+			local bound = screenBound()
+			local candidates = aroundBox(box, Config.Bubble.Gap)
+			for _, spot in edgeSpots(bound) do
+				table.insert(candidates, spot)
+			end
+			local line = placeLine(candidates, bound, avoid, soft)
+			local twinkleAvoid = table.clone(avoid)
+			table.insert(twinkleAvoid, line)
+			placeScreenTwinkle(line, dt, twinkleAvoid)
 			return
 		end
 		local near = flat.Magnitude <= Config.Twinkle.NearDistance
@@ -705,8 +796,10 @@ local function drawWorld(p: Plan, root: BasePart, dt: number, extraAvoid: { Rect
 	local at = worldToScreen(twinkle.Position)
 	local bound = screenBound()
 	local candidates = if at then aroundPoint(at, Config.Bubble.Gap + 24) else {}
-	table.insert(candidates, { At = Vector2.new((bound.Min.X + bound.Max.X) / 2, bound.Min.Y + 12), Anchor = Vector2.new(0.5, 0) })
-	placeLine(candidates, bound, avoid)
+	for _, spot in edgeSpots(bound) do
+		table.insert(candidates, spot)
+	end
+	placeLine(candidates, bound, avoid, soft)
 end
 
 -- The arrow + glow on a HUD button. `bound` = where the arrow may go (the window it's in, else the screen).
@@ -732,8 +825,9 @@ local function drawScreenTarget(target: GuiObject?, bound: Rect): Rect?
 	local reach = pad + arrowSize + Config.Arrow.Bounce
 	screenArrowHolder.Size = UDim2.fromOffset(arrowSize, arrowSize)
 	local arrowRect: Rect
-	if center.Y < screen.AbsoluteSize.Y * 0.2 then
-		screenArrowHolder.Rotation = 180 -- points up, from below
+	local leftColumn = center.X < screen.AbsoluteSize.X * 0.2 and bound.Max.X - (pos.X + size.X) >= Config.Arrow.SideRoom
+	if center.Y < screen.AbsoluteSize.Y * 0.2 and not leftColumn then
+		screenArrowHolder.Rotation = 180 -- points up, from below (the top row: Home)
 		screenArrowHolder.Position = UDim2.fromOffset(center.X, pos.Y + size.Y + pad + arrowSize / 2 + bounce)
 		arrowRect = Rect.new(center.X - arrowSize / 2, pos.Y + size.Y, center.X + arrowSize / 2, pos.Y + size.Y + reach)
 	elseif bound.Max.X - (pos.X + size.X) >= Config.Arrow.SideRoom then
