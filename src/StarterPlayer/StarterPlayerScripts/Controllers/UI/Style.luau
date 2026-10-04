@@ -544,6 +544,57 @@ function Style.Outline(label: TextLabel | TextButton, thickness: number?)
 	outline.Parent = label
 end
 
+-- Floating text with no box (toasts, Twinkle's line, small text buttons): title font, a thick dark outline and a soft drop
+-- shadow behind it, so it reads over any scene. Returns the holder (auto-sized to the text) and the main label; set the text
+-- on the label (the shadow follows). wrapWidth > 0 wraps the text at that many pixels.
+function Style.ShadowText(parent: Instance, text: string, size: number, color: Color3, wrapWidth: number?): (Frame, TextLabel)
+	local float = UITheme.FloatText
+	local holder = Instance.new("Frame")
+	holder.Name = "ShadowText"
+	holder.BackgroundTransparency = 1
+	holder.AutomaticSize = Enum.AutomaticSize.XY
+	holder.Size = UDim2.new()
+	holder.Parent = parent
+	local function make(name: string, textColor: Color3, z: number): TextLabel
+		local label = Instance.new("TextLabel")
+		label.Name = name
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.Font = UITheme.Fonts.Title
+		label.TextSize = size
+		label.TextColor3 = textColor
+		label.TextStrokeTransparency = 1
+		label.TextWrapped = (wrapWidth or 0) > 0
+		label.AutomaticSize = if (wrapWidth or 0) > 0 then Enum.AutomaticSize.Y else Enum.AutomaticSize.XY
+		label.Size = if (wrapWidth or 0) > 0 then UDim2.fromOffset(wrapWidth :: number, 0) else UDim2.new()
+		label.ZIndex = z
+		label.Parent = holder
+		return label
+	end
+	local shadow = make("Shadow", float.ShadowColor, 1)
+	shadow.TextTransparency = float.ShadowTransparency
+	shadow.Position = UDim2.fromOffset(float.ShadowOffset.X, float.ShadowOffset.Y)
+	local shadowStroke = Instance.new("UIStroke")
+	shadowStroke.Color = float.ShadowColor
+	shadowStroke.Thickness = float.Outline + 1
+	shadowStroke.Transparency = float.ShadowTransparency
+	shadowStroke.Parent = shadow
+	local main = make("Text", color, 2)
+	local stroke = Instance.new("UIStroke")
+	stroke.Name = "Outline"
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	stroke.Color = UITheme.Colors.IconLabelStroke
+	stroke.Thickness = float.Outline
+	stroke.Parent = main
+	main:GetPropertyChangedSignal("Text"):Connect(function() shadow.Text = main.Text end)
+	main:GetPropertyChangedSignal("TextSize"):Connect(function() shadow.TextSize = main.TextSize end)
+	main:GetPropertyChangedSignal("Size"):Connect(function() shadow.Size = main.Size end)
+	main:GetPropertyChangedSignal("TextXAlignment"):Connect(function() shadow.TextXAlignment = main.TextXAlignment end)
+	main:GetPropertyChangedSignal("TextWrapped"):Connect(function() shadow.TextWrapped = main.TextWrapped end)
+	main:GetPropertyChangedSignal("AutomaticSize"):Connect(function() shadow.AutomaticSize = main.AutomaticSize end)
+	return holder, main
+end
+
 -- A card inside a panel (UI renewal part 2): tinted by its accent (rarity / element / kind) with a soft glow in that
 -- color and a bright outline; without an accent it's a plain lighter panel with a soft gold outline.
 function Style.CardLook(frame: GuiObject, accent: Color3?)

@@ -585,7 +585,8 @@ function InventoryController:Init()
 		local stacked = width < mobile.Touch * 11
 		local actionsTop = if stacked then mobile.Body * 1.5 + mobile.Gap else 0
 		local headerHeight = actionsTop + mobile.Touch
-		local scrollHeader = content.AbsoluteSize.Y < headerHeight + mobile.Gap + mobile.Touch * 2
+		-- the header scrolls with the cards when the list would be shorter than one whole card (no card is ever cut off)
+		local scrollHeader = content.AbsoluteSize.Y < headerHeight + mobile.Gap + math.max(mobile.Touch * 2, CARD.Y + mobile.Padding * 2)
 		if scrollHeader then width -= mobile.Padding end
 		header.Parent = if scrollHeader then list else content
 		header.LayoutOrder = 1

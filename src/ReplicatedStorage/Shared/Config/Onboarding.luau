@@ -19,11 +19,9 @@ return {
 	Twinkle = {
 		Ahead = 12, -- studs ahead of the player, toward the target
 		Height = 2.5, -- studs above the player's root (low, so the bubble stays clear of the travel row)
-		NearDistance = 34, -- studs from the target: Twinkle waits beside the player and the arrow points at the Bind spot
-		-- (step 1 says "Hold E at the altar!" only while the Bind prompt shows)
+		NearDistance = 34, -- studs from the target: Twinkle hovers over it. While the Bind prompt shows (step 1 "Hold E at the
+		-- altar!") Twinkle hops onto the screen and the line sits above the altar, clear of its art and glow
 		HoverAbove = 6, -- studs above the target's top while hovering there
-		SpotSide = -6, -- at the altar: Twinkle waits this far to the player's side (camera right; negative = left, clear of the luck panel) ...
-		SpotAbove = 3, -- ... this high above the player's root (the arrow alone points at the Bind spot)
 		FollowSpeed = 4, -- how fast Twinkle catches up (higher = snappier)
 		BobHeight = 0.6, -- studs (Reduced Motion: 0)
 		BobSpeed = 2.4, -- radians per second
@@ -36,15 +34,15 @@ return {
 		-- is Bubble.AlwaysOnTop. Note: Studio screenshots don't show AlwaysOnTop guis (they do show in play).
 		AlwaysOnTop = false,
 	},
-	-- Twinkle's speech bubble: the one line, big and outlined (title font).
+	-- Twinkle's line: floating text (no box), big title font with a thick outline and a soft shadow, one big icon.
 	Bubble = {
-		TextSize = 28, -- pixels on PC
+		TextSize = 30, -- pixels on PC
 		PhoneTextSize = 20, -- pixels on phones (never under 16)
 		IconSize = 40, -- the one big icon (phones x0.75)
-		PaddingX = 16,
-		PaddingY = 10,
-		Above = 2.4, -- studs above Twinkle (world)
-		Gap = 14, -- pixels between Twinkle and its bubble (screen)
+		Gap = 14, -- pixels between Twinkle and its line (screen)
+		WindowInset = 22, -- inside a window: pixels kept clear of its edge (gold border) ...
+		WindowTop = 40, -- ... plus this much under its top (the banner and the close button)
+		ScrollSeconds = 1.5, -- after a window opens: keep the target's whole card scrolled into view this long
 		AlwaysOnTop = true, -- the line is always readable, never hidden by the altar art or a wall
 	},
 	-- The big bouncing arrow on the target.
@@ -67,10 +65,11 @@ return {
 		ScreenThickness = 4,
 		PulseSpeed = 3, -- the screen outline breathes (Reduced Motion: steady)
 	},
-	-- The small Skip button (top-right corner, in the top bar row; two taps so a kid can't skip by accident).
+	-- The small Skip text button (top-right corner, in the top bar row; two taps so a kid can't skip by accident).
 	Skip = {
-		Size = Vector2.new(96, 36), -- pixels on PC
-		PhoneSize = Vector2.new(96, 44), -- touch target
+		TextSize = 20, -- pixels
+		Size = Vector2.new(64, 44), -- hit area on PC (at least; grows with the text)
+		PhoneSize = Vector2.new(64, 44), -- touch target
 		Margin = 12, -- pixels from the right edge
 		ConfirmSeconds = 3, -- "Skip? Tap again" waits this long for the second tap
 	},

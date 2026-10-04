@@ -419,6 +419,21 @@ return {
 		PanelTexture = "", -- subtle scale/star texture tiled on panels
 	},
 
+	-- Floating text with no box (Style.ShadowText): toasts, Twinkle's line, small text buttons. Title font, a thick dark
+	-- outline and a soft drop shadow so it reads over any scene. Toast colors by kind: white info, gold success / reward,
+	-- rose error.
+	FloatText = {
+		Outline = 3, -- pixels
+		ShadowOffset = Vector2.new(2, 4), -- pixels down-right
+		ShadowColor = Color3.fromRGB(10, 6, 24),
+		ShadowTransparency = 0.55,
+		ToastSize = 28, -- pixels on PC
+		PhoneToastSize = 19, -- pixels on phones (16+)
+		ToastIcon = 34, -- a small icon only where it helps (potions, currencies, quests...)
+		PhoneToastIcon = 26,
+		Rise = 14, -- pixels a toast rises while fading in (Low effects / Reduced Motion: none)
+	},
+
 	-- ScreenGui DisplayOrder layers: popups always draw above the HUD.
 	Layers = {
 		Hud = 0,

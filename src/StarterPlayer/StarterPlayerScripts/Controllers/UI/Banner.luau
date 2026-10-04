@@ -72,11 +72,17 @@ function Banner.new(parent: Instance, props: Props): Banner
 	local gloss = Instance.new("Frame") -- glassy light on the top half
 	gloss.Name = "Gloss"
 	gloss.BackgroundColor3 = Color3.new(1, 1, 1)
-	gloss.BackgroundTransparency = 0.82
+	gloss.BackgroundTransparency = 0.8
 	gloss.Position = UDim2.new(0, 5, 0, 3)
 	gloss.Size = UDim2.new(1, -10, 0.42, 0)
 	gloss.ZIndex = 7
 	Style.Corner(gloss, 8)
+	-- fades out toward its bottom: a hard edge here sat exactly on the window's top border and read as one line cutting
+	-- through the banner
+	local glossFade = Instance.new("UIGradient")
+	glossFade.Rotation = 90
+	glossFade.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.55, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	glossFade.Parent = gloss
 	gloss.Parent = ribbon
 
 	local row = Instance.new("Frame")

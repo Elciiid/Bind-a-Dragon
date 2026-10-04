@@ -3,13 +3,14 @@
 -- welcome bind and the free level are server-owned (OnboardingService); this never advances a step or grants anything.
 --
 -- KISS: Twinkle, a little glowing guide star (client-only: a neon star with a short trail), flies ahead of the player to
--- the next target and says ONE short line in a speech bubble (title font, outlined, one big icon). The real target gets a
--- big bouncing arrow and a soft glow outline: the altar (step 1, and step 5 at night), your sanctuary + the Home button
--- (step 2), the Inventory button and then the Upgrade button (step 3, Twinkle moves onto the screen). Step 4 says
--- "Bind again tonight!" for a few seconds, then Twinkle naps until night. A small Skip button sits in the top-right corner
--- (two taps). Everything hides while a reveal / reward pop-up / the merchant dialog is up; a window hides the world guide
--- (step 3 keeps guiding inside the Inventory). Never covers the prompt (Twinkle hovers above the target), the hotbar or
--- the timers. Low effects: no trail, no light. Reduced Motion: no bobbing or bouncing.
+-- the next target and says ONE short line: floating screen text with no box (Style.ShadowText: title font, thick outline,
+-- soft shadow, one big icon), placed next to Twinkle on the first spot that covers nothing: not the target's glow, the
+-- arrow or the HUD (travel row, menu, money, timers, hotbar, luck panel). The real target gets a big bouncing arrow and a
+-- soft glow outline: the altar (step 1; at the Bind spot the line sits above the altar), your sanctuary + the Home button
+-- (step 2), the Inventory button and then the Upgrade button (step 3: Twinkle moves onto the screen and stays inside the
+-- window). Step 4 says "Bind again tonight!" for a few seconds, then Twinkle naps until night (step 5 points at the altar).
+-- A small Skip text button sits in the top-right corner (two taps). Everything hides while a reveal / reward pop-up / the
+-- merchant dialog is up; a window hides the world guide. Low effects: no trail, no light. Reduced Motion: no bob/bounce.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
@@ -17,12 +18,12 @@ local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local TextService = game:GetService("TextService")
 local EffectsQuality = require(script.Parent.EffectsQuality)
 local DataController = require(script.Parent.DataController)
 local HudLayout = require(script.Parent.HudLayout)
 local Style = require(script.Parent.UI.Style)
 local Icon = require(script.Parent.UI.Icon)
-local Button = require(script.Parent.UI.Button)
 local RevealGate = require(script.Parent.UI.RevealGate)
 local Config = require(ReplicatedStorage.Shared.Config.Onboarding)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
@@ -71,65 +72,77 @@ end
 ---------------------------------------------------------------------------------------------------------------
 -- The speech bubble (one line, one big icon), used in the world and on the screen
 
-type Bubble = { Frame: Frame, Icon: GuiObject?, IconKey: string, Label: TextLabel, Set: (Bubble, string, string) -> () }
+type Bubble = {
+	Frame: Frame, Icon: GuiObject?, IconKey: string, Label: TextLabel,
+	Set: (Bubble, string, string) -> (),
+	Wrap: (Bubble, number?) -> (), -- wrap the line at this many pixels (nil = one line)
+	NaturalWidth: (Bubble) -> number, -- the line's width on one line, icon included
+}
 
 local function newBubble(parent: Instance): Bubble
 	local phone = HudLayout.IsPhone()
 	local bubbleConfig = Config.Bubble
-	-- the panel (violet + gold) sized from its content: the icon and the line in a row
+	-- no box: the icon and the line in a row, floating text with a thick outline and a soft shadow (Style.ShadowText)
 	local frame = Instance.new("Frame")
 	frame.Name = "Bubble"
+	frame.BackgroundTransparency = 1
 	frame.AnchorPoint = Vector2.new(0.5, 1)
 	frame.Position = UDim2.fromScale(0.5, 1)
-	frame.Size = UDim2.fromOffset(10, 10)
+	frame.AutomaticSize = Enum.AutomaticSize.XY
+	frame.Size = UDim2.new()
 	frame.Parent = parent
-	Style.WorldPanel(frame, nil, true)
-	local content = Instance.new("Frame")
-	content.Name = "Content"
-	content.BackgroundTransparency = 1
-	content.AutomaticSize = Enum.AutomaticSize.XY
-	content.Size = UDim2.new()
-	content.ZIndex = 3
-	content.Parent = frame
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, bubbleConfig.PaddingX)
-	padding.PaddingRight = UDim.new(0, bubbleConfig.PaddingX)
-	padding.PaddingTop = UDim.new(0, bubbleConfig.PaddingY)
-	padding.PaddingBottom = UDim.new(0, bubbleConfig.PaddingY)
-	padding.Parent = content
 	local list = Instance.new("UIListLayout")
 	list.FillDirection = Enum.FillDirection.Horizontal
 	list.VerticalAlignment = Enum.VerticalAlignment.Center
 	list.Padding = UDim.new(0, 10)
 	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Parent = content
-	content:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		frame.Size = UDim2.fromOffset(content.AbsoluteSize.X, content.AbsoluteSize.Y)
-	end)
-	local size = if phone then bubbleConfig.PhoneTextSize else bubbleConfig.TextSize
-	local label = Style.Label(content, "", "Title", math.max(16, size), Theme.Colors.Text)
+	list.Parent = frame
+	local size = math.max(16, if phone then bubbleConfig.PhoneTextSize else bubbleConfig.TextSize)
+	local textHolder, label = Style.ShadowText(frame, "", size, Theme.Colors.Text)
+	textHolder.LayoutOrder = 2
 	label.Name = "Line"
-	label.TextWrapped = false
-	label.AutomaticSize = Enum.AutomaticSize.XY
-	label.Size = UDim2.new()
-	label.LayoutOrder = 2
-	label.ZIndex = 3
-	Style.Outline(label, 2.5)
 	local bubble: Bubble
 	bubble = {
 		Frame = frame, Icon = nil, IconKey = "", Label = label,
 		Set = function(self: Bubble, text: string, iconKey: string)
 			if self.Label.Text ~= text then self.Label.Text = text end
+			-- the layout can switch (phone / PC) after the guide is built: pick the size each time
+			local now = HudLayout.IsPhone()
+			local wanted = math.max(16, if now then bubbleConfig.PhoneTextSize else bubbleConfig.TextSize)
+			if self.Label.TextSize ~= wanted then self.Label.TextSize = wanted end
+			if now ~= phone then
+				phone = now
+				self.IconKey = "" -- rebuild the icon at the new size
+			end
 			if self.IconKey ~= iconKey then
 				self.IconKey = iconKey
 				if self.Icon then self.Icon:Destroy() end
 				local side = math.floor(bubbleConfig.IconSize * (if phone then 0.75 else 1))
-				local icon = Icon.new(self.Frame:FindFirstChild("Content") :: Frame, iconKey, Theme.Colors.Gold)
+				local icon = Icon.new(self.Frame, iconKey, Theme.Colors.Gold)
 				icon.Size = UDim2.fromOffset(side, side)
 				icon.LayoutOrder = 1
-				icon.ZIndex = 3
 				self.Icon = icon
 			end
+		end,
+		Wrap = function(self: Bubble, width: number?)
+			local label = self.Label
+			if width then
+				-- AutomaticSize doesn't grow a wrapped label inside auto-sized parents: measure the wrapped height here
+				local w = math.max(120, math.floor(width))
+				local h = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(w, 1000)).Y
+				label.TextWrapped = true
+				label.AutomaticSize = Enum.AutomaticSize.None
+				label.Size = UDim2.fromOffset(w, h + 4)
+			elseif label.TextWrapped then
+				label.TextWrapped = false
+				label.AutomaticSize = Enum.AutomaticSize.XY
+				label.Size = UDim2.new()
+			end
+		end,
+		NaturalWidth = function(self: Bubble): number
+			local label = self.Label
+			local text = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(4000, 400)).X
+			return text + (if self.Icon then self.Icon.AbsoluteSize.X + 10 else 0) + 8
 		end,
 	}
 	return bubble
@@ -188,17 +201,6 @@ light.Range = Config.Twinkle.LightRange
 light.Brightness = Config.Twinkle.LightBrightness
 light.Parent = twinkle
 
-local bubbleGui = Instance.new("BillboardGui")
-bubbleGui.Name = "Speech"
-bubbleGui.Size = UDim2.fromOffset(720, 140)
-bubbleGui.StudsOffset = Vector3.new(0, Config.Bubble.Above, 0)
-bubbleGui.SizeOffset = Vector2.new(0, 0.5) -- the bubble's bottom edge sits at the offset point, above Twinkle
-bubbleGui.LightInfluence = 0
-bubbleGui.AlwaysOnTop = Config.Bubble.AlwaysOnTop
-bubbleGui.Adornee = twinkle
-bubbleGui.Parent = twinkle
-local worldBubble: Bubble? = nil
-
 local arrowAnchor = Instance.new("Part")
 arrowAnchor.Name = "ArrowAnchor"
 arrowAnchor.Size = Vector3.new(0.1, 0.1, 0.1)
@@ -252,7 +254,8 @@ local screenArrowHolder: Frame
 local screenTwinkle: TextLabel
 local screenBubbleHolder: Frame
 local screenBubble: Bubble
-local skipButton: Button.Button
+local skipButton: TextButton
+local skipLabel: TextLabel
 
 local function buildScreen()
 	screen = Instance.new("ScreenGui")
@@ -324,31 +327,46 @@ local function buildScreen()
 	corner.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	corner.Parent = screen.Parent
 	screen.Destroying:Connect(function() corner:Destroy() end)
+	-- a small text button (floating text, no box) with a full touch-sized hit area; two taps
+	skipButton = Instance.new("TextButton")
+	skipButton.Name = "Skip"
+	skipButton.Text = ""
+	skipButton.BackgroundTransparency = 1
+	skipButton.AnchorPoint = Vector2.new(1, 0.5)
+	skipButton.Position = UDim2.new(1, -Config.Skip.Margin, 0.5, 0)
+	skipButton.Visible = false
+	skipButton.Parent = corner
+	local skipText
+	skipText, skipLabel = Style.ShadowText(skipButton, Text.Onboarding.Skip, Config.Skip.TextSize, Theme.Colors.Text)
+	skipText.AnchorPoint = Vector2.new(1, 0.5)
+	skipText.Position = UDim2.fromScale(1, 0.5)
+	Style.AttachPress(skipButton)
 	local sure = false
-	skipButton = Button.new(corner, { Text = Text.Onboarding.Skip, Kind = "Neutral", TextSize = 16, OnClick = function()
+	skipButton.Activated:Connect(function()
 		if not sure then
 			sure = true
-			skipButton:SetText(Text.Onboarding.SkipSure)
+			skipLabel.Text = Text.Onboarding.SkipSure
+			skipLabel.TextColor3 = Theme.Colors.Gold
 			task.delay(Config.Skip.ConfirmSeconds, function()
-				if sure then sure = false; skipButton:SetText(Text.Onboarding.Skip) end
+				if sure then
+					sure = false
+					skipLabel.Text = Text.Onboarding.Skip
+					skipLabel.TextColor3 = Theme.Colors.Text
+				end
 			end)
 			return
 		end
 		sure = false;
 		(ReplicatedStorage.Remotes.SkipTutorial :: RemoteEvent):FireServer(true)
-	end })
-	skipButton.Instance.Name = "Skip"
-	skipButton.Instance.AnchorPoint = Vector2.new(1, 0.5)
-	skipButton.Instance.Position = UDim2.new(1, -Config.Skip.Margin, 0.5, 0)
-	skipButton.Instance.Visible = false
+	end)
 end
 
 -- Gamepad: the View/Select button jumps to the Skip button (then A presses it, twice).
 local function bindGamepadSkip()
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed or input.KeyCode ~= Enum.KeyCode.ButtonSelect then return end
-		if skipButton and skipButton.Instance.Visible then
-			GuiService.SelectedObject = if GuiService.SelectedObject == skipButton.Instance then nil else skipButton.Instance
+		if skipButton and skipButton.Visible then
+			GuiService.SelectedObject = if GuiService.SelectedObject == skipButton then nil else skipButton
 		end
 	end)
 end
@@ -361,6 +379,7 @@ type Plan = {
 	Icon: string,
 	WorldTarget: Instance?, -- Twinkle flies there, the arrow + glow go on it
 	WorldSpot: Vector3?, -- where the action happens (the altar's Bind prompt): up close the arrow points here and Twinkle waits beside it
+	AtSpot: boolean?, -- the player is at the action spot (the Bind prompt shows): the line goes above the target
 	GuiTarget: GuiObject?, -- arrow + glow on this HUD button
 	ScreenTwinkle: boolean, -- Twinkle is on the screen next to GuiTarget (step 3)
 }
@@ -389,7 +408,7 @@ local function plan(step: number, root: BasePart?): Plan
 		local near = bindPromptShown
 		local line = if step == Steps.Complete and not near then Lines.NightNow elseif near then bindLine() else Lines.Follow
 		return { Line = line, Icon = if step == Steps.Complete then Config.Icons.NightNow elseif near then Config.Icons.Bind else Config.Icons.Follow,
-			WorldTarget = altar, WorldSpot = part.Position, ScreenTwinkle = false }
+			WorldTarget = altar, WorldSpot = part.Position, AtSpot = near, ScreenTwinkle = false }
 	elseif step == Steps.Home then
 		return { Line = Lines.Home, Icon = Config.Icons.Home, WorldTarget = homePlot(), GuiTarget = visibleTarget("Home"), ScreenTwinkle = false }
 	elseif step == Steps.Upgrade then
@@ -404,7 +423,9 @@ local function plan(step: number, root: BasePart?): Plan
 end
 
 ---------------------------------------------------------------------------------------------------------------
--- Drawing
+-- Drawing. Twinkle's line is always screen text, placed next to Twinkle (or above the altar at the Bind spot) on the first
+-- spot that keeps clear of the target's glow, the arrow and the HUD (travel row, menu, money, timers, hotbar, luck panel,
+-- Skip); inside a window it stays inside the window.
 
 local twinklePos: Vector3? = nil
 local screenTwinklePos: Vector2? = nil
@@ -424,156 +445,409 @@ local function hideScreen()
 	screenTwinklePos = nil
 end
 
-local function drawWorld(p: Plan, root: BasePart, dt: number)
-	local target = p.WorldTarget
-	local goal: Vector3
-	local top = if target then topOf(target) else nil
-	local still = reducedMotion()
-	local bob = if still then 0 else math.sin(os.clock() * Config.Twinkle.BobSpeed) * Config.Twinkle.BobHeight
-	if top and target then
-		local aim = p.WorldSpot or top
-		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
-		local near = flat.Magnitude <= Config.Twinkle.NearDistance
-		local camera = workspace.CurrentCamera
-		if near and p.WorldSpot then
-			-- up close: the arrow points down at the action spot; Twinkle waits at the player's side (camera right), so its
-			-- bubble never covers the prompt or the travel row
-			local right = if camera then camera.CFrame.RightVector else Vector3.xAxis
-			goal = root.Position + Vector3.new(right.X, 0, right.Z).Unit * Config.Twinkle.SpotSide + Vector3.new(0, Config.Twinkle.SpotAbove, 0)
-			arrowAnchor.Position = p.WorldSpot + Vector3.new(0, Config.Arrow.SpotAbove, 0)
-		elseif near then
-			goal = top + Vector3.new(0, Config.Twinkle.HoverAbove, 0) -- hover over the target
-			arrowAnchor.Position = top + Vector3.new(0, Config.Arrow.WorldAbove, 0)
-		else
-			goal = root.Position + flat.Unit * Config.Twinkle.Ahead + Vector3.new(0, Config.Twinkle.Height, 0)
-			arrowAnchor.Position = top + Vector3.new(0, Config.Arrow.WorldAbove, 0)
+local function rectOf(gui: GuiObject): Rect
+	local base = screen.AbsolutePosition
+	return Rect.new(gui.AbsolutePosition - base, gui.AbsolutePosition - base + gui.AbsoluteSize)
+end
+
+local function overlaps(a: Rect, b: Rect): boolean
+	return a.Min.X < b.Max.X and a.Max.X > b.Min.X and a.Min.Y < b.Max.Y and a.Max.Y > b.Min.Y
+end
+
+-- The HUD pieces the line must never cover.
+local function hudRects(): { Rect }
+	local rects: { Rect } = {}
+	local gui = player.PlayerGui
+	local function add(path: { string })
+		local node: Instance? = gui
+		for _, name in path do
+			node = if node then node:FindFirstChild(name) else nil
 		end
-		arrowGui.StudsOffset = Vector3.new(0, 0, 0)
-		local bounce = if still then 0 else math.abs(math.sin(os.clock() * Config.Arrow.BounceSpeed)) * Config.Arrow.Bounce
-		worldArrow.Position = UDim2.new(0.5, 0, 0.5, -bounce)
-		arrowAnchor.Parent = world
-		highlight.Adornee = target
-		local fill = Config.Glow.WorldFill
-		highlight.FillTransparency = if still then fill.Max else fill.Min + (fill.Max - fill.Min) * (0.5 + 0.5 * math.sin(os.clock() * Config.Glow.PulseSpeed))
-	else
-		-- nothing to point at (step 4): Twinkle floats beside the player
-		local look = root.CFrame.LookVector
-		goal = root.Position + Vector3.new(look.X, 0, look.Z).Unit * 6 + Vector3.new(0, Config.Twinkle.Height, 0)
-		arrowAnchor.Parent = nil
-		highlight.Adornee = nil
+		if node and node:IsA("GuiObject") and node.Visible and node.AbsoluteSize.X > 0 then
+			local layer = node:FindFirstAncestorWhichIsA("ScreenGui")
+			if layer == nil or layer.Enabled then
+				table.insert(rects, rectOf(node))
+			end
+		end
 	end
-	goal += Vector3.new(0, bob, 0)
-	local current = twinklePos or (root.Position + Vector3.new(0, Config.Twinkle.Height, 0))
-	twinklePos = current:Lerp(goal, 1 - math.exp(-dt * Config.Twinkle.FollowSpeed))
-	twinkle.Position = twinklePos :: Vector3
-	local low = EffectsQuality.IsLow()
-	trail.Enabled = not low and not still
-	light.Enabled = not low
-	if worldBubble == nil then worldBubble = newBubble(bubbleGui) end
-	(worldBubble :: Bubble):Set(p.Line or "", p.Icon)
-	twinkle.Parent = world
+	add({ "TravelHud", "TravelRow" })
+	add({ "Hud", "Menu" })
+	add({ "Hud", "Currency" })
+	add({ "Hotbar", "Hotbar" })
+	add({ "Luck", "LuckPanel" })
+	local stack = HudLayout.GetTimerStack()
+	if stack.Visible and stack.AbsoluteSize.Y > 0 then
+		table.insert(rects, rectOf(stack))
+	end
+	if skipButton.Visible then
+		table.insert(rects, rectOf(skipButton))
+	end
+	return rects
 end
 
-local function drawScreenTarget(target: GuiObject?)
-	if target == nil then
-		screenGlow.Visible = false
-		screenArrowHolder.Visible = false
-		return
+-- A world target's outline on the screen (its 8 bounding-box corners, clipped to the screen), or nil if it's behind the
+-- camera.
+local function screenBox(target: Instance?): Rect?
+	local camera = workspace.CurrentCamera
+	if target == nil or camera == nil then
+		return nil
 	end
-	local still = reducedMotion()
-	local pad = Config.Glow.ScreenPadding
-	local base = screen.AbsolutePosition
-	local pos, size = target.AbsolutePosition - base, target.AbsoluteSize
-	screenGlow.Position = UDim2.fromOffset(pos.X - pad, pos.Y - pad)
-	screenGlow.Size = UDim2.fromOffset(size.X + pad * 2, size.Y + pad * 2)
-	screenGlowStroke.Transparency = if still then 0.1 else 0.1 + 0.3 * (0.5 + 0.5 * math.sin(os.clock() * Config.Glow.PulseSpeed))
-	screenGlow.Visible = true
-	-- the arrow points at the button from the side with the most room: from below for the top row (Home), else from the
-	-- right when there is room for Twinkle's bubble there (the left menu column, most Upgrade buttons), else from the left
-	local arrowSize = if HudLayout.IsPhone() then Config.Arrow.PhoneScreenSize else Config.Arrow.ScreenSize
-	local bounce = if still then 0 else math.abs(math.sin(os.clock() * Config.Arrow.BounceSpeed)) * Config.Arrow.Bounce
-	local center = pos + size / 2
-	local roomRight = screen.AbsoluteSize.X - (pos.X + size.X)
-	screenArrowHolder.Size = UDim2.fromOffset(arrowSize, arrowSize)
-	if center.Y < screen.AbsoluteSize.Y * 0.2 then
-		screenArrowHolder.Rotation = 180 -- points up, from below
-		screenArrowHolder.Position = UDim2.fromOffset(center.X, pos.Y + size.Y + pad + arrowSize / 2 + bounce)
-	elseif roomRight >= Config.Arrow.SideRoom then
-		screenArrowHolder.Rotation = 90 -- points left, from the right side
-		screenArrowHolder.Position = UDim2.fromOffset(pos.X + size.X + pad + arrowSize / 2 + bounce, center.Y)
+	local cf: CFrame, size: Vector3
+	if target:IsA("Model") then
+		cf, size = target:GetBoundingBox()
+	elseif target:IsA("BasePart") then
+		cf, size = target.CFrame, target.Size
 	else
-		screenArrowHolder.Rotation = -90 -- points right, from the left side
-		screenArrowHolder.Position = UDim2.fromOffset(pos.X - pad - arrowSize / 2 - bounce, center.Y)
+		return nil
 	end
-	screenArrowHolder.Visible = true
+	local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+	local base = screen.AbsolutePosition
+	for x = -1, 1, 2 do
+		for y = -1, 1, 2 do
+			for z = -1, 1, 2 do
+				local point = camera:WorldToViewportPoint(cf:PointToWorldSpace(size * Vector3.new(x, y, z) / 2))
+				if point.Z > 0 then
+					local at = HudLayout.ViewportToGui(Vector2.new(point.X, point.Y)) - base
+					minX, minY = math.min(minX, at.X), math.min(minY, at.Y)
+					maxX, maxY = math.max(maxX, at.X), math.max(maxY, at.Y)
+				end
+			end
+		end
+	end
+	if minX == math.huge then
+		return nil
+	end
+	local view = screen.AbsoluteSize
+	return Rect.new(math.max(minX, 0), math.max(minY, 0), math.min(maxX, view.X), math.min(maxY, view.Y))
 end
 
--- Twinkle on the screen (step 3): sits past the arrow with its bubble; without a target, under the travel row.
-local function drawScreenTwinkle(p: Plan, dt: number)
-	local target = p.GuiTarget
-	local base = screen.AbsolutePosition
+local function worldToScreen(position: Vector3): Vector2?
+	local camera = workspace.CurrentCamera
+	if camera == nil then
+		return nil
+	end
+	local point = camera:WorldToViewportPoint(position)
+	if point.Z <= 0 then
+		return nil
+	end
+	return HudLayout.ViewportToGui(Vector2.new(point.X, point.Y)) - screen.AbsolutePosition
+end
+
+type Spot = { At: Vector2, Anchor: Vector2 }
+
+-- Places the line at the first candidate spot inside `bound` that covers nothing in `avoid`; else the first one, clamped.
+local function placeLine(candidates: { Spot }, bound: Rect, avoid: { Rect }): Rect
+	local size = screenBubble.Frame.AbsoluteSize
+	local margin = 8
+	local function rectAt(spot: Spot): Rect
+		local x = math.clamp(spot.At.X - size.X * spot.Anchor.X, bound.Min.X + margin, math.max(bound.Min.X + margin, bound.Max.X - size.X - margin))
+		local y = math.clamp(spot.At.Y - size.Y * spot.Anchor.Y, bound.Min.Y + margin, math.max(bound.Min.Y + margin, bound.Max.Y - size.Y - margin))
+		return Rect.new(x, y, x + size.X, y + size.Y)
+	end
+	local chosen: Rect? = nil
+	for _, spot in candidates do
+		local r = rectAt(spot)
+		local clear = true
+		for _, a in avoid do
+			if overlaps(r, a) then
+				clear = false
+				break
+			end
+		end
+		if clear then
+			chosen = r
+			break
+		end
+	end
+	local r = chosen or rectAt(candidates[1])
+	screenBubbleHolder.Position = UDim2.fromOffset(r.Min.X, r.Min.Y)
+	screenBubble.Frame.AnchorPoint = Vector2.zero
+	screenBubble.Frame.Position = UDim2.new()
+	screenBubbleHolder.Visible = true
+	return r
+end
+
+local function aroundPoint(p: Vector2, gap: number): { Spot }
+	return {
+		{ At = p - Vector2.new(0, gap), Anchor = Vector2.new(0.5, 1) }, -- above
+		{ At = p + Vector2.new(gap, 0), Anchor = Vector2.new(0, 0.5) }, -- right
+		{ At = p - Vector2.new(gap, 0), Anchor = Vector2.new(1, 0.5) }, -- left
+		{ At = p + Vector2.new(0, gap), Anchor = Vector2.new(0.5, 0) }, -- below
+	}
+end
+
+local function aroundBox(box: Rect, gap: number): { Spot }
+	local c = (box.Min + box.Max) / 2
+	return {
+		{ At = Vector2.new(c.X, box.Min.Y - gap), Anchor = Vector2.new(0.5, 1) }, -- above
+		{ At = Vector2.new(box.Max.X + gap, c.Y), Anchor = Vector2.new(0, 0.5) }, -- right
+		{ At = Vector2.new(box.Min.X - gap, c.Y), Anchor = Vector2.new(1, 0.5) }, -- left
+		{ At = Vector2.new(c.X, box.Max.Y + gap), Anchor = Vector2.new(0.5, 0) }, -- below
+		{ At = Vector2.new(box.Min.X + (box.Max.X - box.Min.X) * 0.2, box.Max.Y + gap), Anchor = Vector2.new(0.5, 0) }, -- below, left
+		{ At = Vector2.new(box.Min.X + (box.Max.X - box.Min.X) * 0.8, box.Max.Y + gap), Anchor = Vector2.new(0.5, 0) }, -- below, right
+	}
+end
+
+-- The area the line may use: the safe area under the travel row.
+local function screenBound(): Rect
 	local safe = HudLayout.GetUsableRect()
-	local goal: Vector2
-	local anchor: Vector2
-	if target then
-		local pos, size = target.AbsolutePosition - base, target.AbsoluteSize
-		local arrow = screenArrowHolder.AbsoluteSize
-		if screenArrowHolder.Rotation == 90 then
-			goal = Vector2.new(pos.X + size.X + Config.Glow.ScreenPadding + arrow.X + 34, pos.Y + size.Y / 2)
-			anchor = Vector2.new(0, 0.5) -- bubble to the right of Twinkle
-		elseif screenArrowHolder.Rotation == -90 then
-			goal = Vector2.new(pos.X - Config.Glow.ScreenPadding - arrow.X - 34, pos.Y + size.Y / 2)
-			anchor = Vector2.new(1, 0.5) -- bubble to the left of Twinkle
-		else
-			goal = Vector2.new(pos.X + size.X / 2, pos.Y + size.Y + Config.Glow.ScreenPadding + arrow.Y + 30)
-			anchor = Vector2.new(0.5, 0) -- bubble under Twinkle
-		end
-	else
-		goal = Vector2.new(safe.Min.X - base.X + safe.Width / 2, HudLayout.TopReserved() - base.Y + 30)
-		anchor = Vector2.new(0.5, 0)
-	end
+	local base = screen.AbsolutePosition
+	return Rect.new(safe.Min.X - base.X, math.max(safe.Min.Y, HudLayout.TravelBottom()) - base.Y, safe.Max.X - base.X, safe.Max.Y - base.Y)
+end
+
+local function moveScreenTwinkle(goal: Vector2, dt: number)
 	local current = screenTwinklePos or goal
 	screenTwinklePos = current:Lerp(goal, 1 - math.exp(-dt * Config.Twinkle.FollowSpeed * 2))
 	local at = screenTwinklePos :: Vector2
 	local bob = if reducedMotion() then 0 else math.sin(os.clock() * Config.Twinkle.BobSpeed) * 4
 	screenTwinkle.Position = UDim2.fromOffset(at.X, at.Y + bob)
 	screenTwinkle.Visible = true
-	screenBubble:Set(p.Line or "", p.Icon)
-	local gap = Config.Bubble.Gap + 22
-	local offset = if anchor.X == 0 then Vector2.new(gap, 0) elseif anchor.X == 1 then Vector2.new(-gap, 0) else Vector2.new(0, gap)
-	-- keep the bubble on the screen
-	local bubbleSize = screenBubble.Frame.AbsoluteSize
-	local x = math.clamp(at.X + offset.X, safe.Min.X - base.X + bubbleSize.X * anchor.X + 8, safe.Max.X - base.X - bubbleSize.X * (1 - anchor.X) - 8)
-	-- never cover the timers or the hotbar: if the bubble would, it goes above Twinkle instead (then, if still needed, up)
-	local avoid: { Rect } = {}
-	local stack = HudLayout.GetTimerStack()
-	if stack.Visible and stack.AbsoluteSize.Y > 0 then
-		table.insert(avoid, Rect.new(stack.AbsolutePosition - base, stack.AbsolutePosition - base + stack.AbsoluteSize))
-	end
-	local hotbar = player.PlayerGui:FindFirstChild("Hotbar")
-	local bar = hotbar and hotbar:FindFirstChildWhichIsA("GuiObject")
-	if hotbar and hotbar:IsA("ScreenGui") and hotbar.Enabled and bar and bar.Visible then
-		table.insert(avoid, Rect.new(bar.AbsolutePosition - base, bar.AbsolutePosition - base + bar.AbsoluteSize))
-	end
-	local function hits(px: number, py: number, a: Vector2): Rect?
-		local left, top = px - bubbleSize.X * a.X, py - bubbleSize.Y * a.Y
-		for _, r in avoid do
-			if left < r.Max.X and left + bubbleSize.X > r.Min.X and top < r.Max.Y and top + bubbleSize.Y > r.Min.Y then return r end
+end
+
+-- Twinkle on the screen beside the line: left of it, else right of it, else above it (whichever covers nothing).
+local function placeScreenTwinkle(line: Rect, dt: number, avoid: { Rect })
+	local cy = (line.Min.Y + line.Max.Y) / 2
+	local spots = { Vector2.new(line.Min.X - 30, cy), Vector2.new(line.Max.X + 30, cy), Vector2.new((line.Min.X + line.Max.X) / 2, line.Min.Y - 30) }
+	local goal = spots[1]
+	for _, spot in spots do
+		local r = Rect.new(spot - Vector2.new(26, 26), spot + Vector2.new(26, 26))
+		local clear = spot.X > 26 and spot.X < screen.AbsoluteSize.X - 26
+		for _, a in avoid do
+			if overlaps(r, a) then
+				clear = false
+				break
+			end
 		end
+		if clear then
+			goal = spot
+			break
+		end
+	end
+	moveScreenTwinkle(goal, dt)
+end
+
+local function moveWorldTwinkle(goal: Vector3, root: BasePart, dt: number)
+	local still = reducedMotion()
+	local bob = if still then 0 else math.sin(os.clock() * Config.Twinkle.BobSpeed) * Config.Twinkle.BobHeight
+	local current = twinklePos or (root.Position + Vector3.new(0, Config.Twinkle.Height, 0))
+	twinklePos = current:Lerp(goal + Vector3.new(0, bob, 0), 1 - math.exp(-dt * Config.Twinkle.FollowSpeed))
+	twinkle.Position = twinklePos :: Vector3
+	local low = EffectsQuality.IsLow()
+	trail.Enabled = not low and not still
+	light.Enabled = not low
+	twinkle.Parent = world
+end
+
+-- Steps with a world target (or none): Twinkle flies in the world; at the altar's Bind spot it hops onto the screen next
+-- to the line, which sits above the altar (clear of its art and glow).
+local function drawWorld(p: Plan, root: BasePart, dt: number, extraAvoid: { Rect })
+	local target = p.WorldTarget
+	local top = if target then topOf(target) else nil
+	local still = reducedMotion()
+	screenBubble:Set(p.Line or "", p.Icon)
+	screenBubble:Wrap(nil)
+	local avoid = hudRects()
+	for _, r in extraAvoid do
+		table.insert(avoid, r)
+	end
+	local box = screenBox(target)
+	if box then
+		table.insert(avoid, box)
+	end
+	local body = screenBox(root.Parent) -- never on the player's own character
+	if body then
+		table.insert(avoid, body)
+	end
+	if p.WorldSpot and p.AtSpot then
+		-- the Bind prompt shows at the spot: keep its card clear (UITheme prompt size around that point)
+		local spot = worldToScreen(p.WorldSpot)
+		if spot then
+			local half = Vector2.new(Theme.MobileUI.PromptWidth / 2 + 10, Theme.MobileUI.PromptHeight + 10)
+			table.insert(avoid, Rect.new(spot - half, spot + half))
+		end
+	end
+	if top and target then
+		local aim = p.WorldSpot or top
+		local flat = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z)
+		local atSpot = p.WorldSpot ~= nil and p.AtSpot == true
+		arrowAnchor.Position = if atSpot then (p.WorldSpot :: Vector3) + Vector3.new(0, Config.Arrow.SpotAbove, 0) else top + Vector3.new(0, Config.Arrow.WorldAbove, 0)
+		local bounce = if still then 0 else math.abs(math.sin(os.clock() * Config.Arrow.BounceSpeed)) * Config.Arrow.Bounce
+		worldArrow.Position = UDim2.new(0.5, 0, 0.5, -bounce)
+		arrowAnchor.Parent = world
+		highlight.Adornee = target
+		local fill = Config.Glow.WorldFill
+		highlight.FillTransparency = if still then fill.Max else fill.Min + (fill.Max - fill.Min) * (0.5 + 0.5 * math.sin(os.clock() * Config.Glow.PulseSpeed))
+		local arrowAt = worldToScreen(arrowAnchor.Position)
+		if arrowAt then
+			local half = Config.Arrow.WorldSize / 2
+			table.insert(avoid, Rect.new(arrowAt - Vector2.new(half, half + Config.Arrow.Bounce), arrowAt + Vector2.new(half, half)))
+		end
+		if atSpot and box then
+			twinkle.Parent = nil
+			twinklePos = nil
+			local line = placeLine(aroundBox(box, Config.Bubble.Gap), screenBound(), avoid)
+			placeScreenTwinkle(line, dt, avoid)
+			return
+		end
+		local near = flat.Magnitude <= Config.Twinkle.NearDistance
+		local goal = if near then top + Vector3.new(0, Config.Twinkle.HoverAbove, 0)
+			else root.Position + flat.Unit * Config.Twinkle.Ahead + Vector3.new(0, Config.Twinkle.Height, 0)
+		moveWorldTwinkle(goal, root, dt)
+	else
+		-- nothing to point at (step 4): Twinkle floats beside the player
+		arrowAnchor.Parent = nil
+		highlight.Adornee = nil
+		local look = root.CFrame.LookVector
+		moveWorldTwinkle(root.Position + Vector3.new(look.X, 0, look.Z).Unit * 6 + Vector3.new(0, Config.Twinkle.Height, 0), root, dt)
+	end
+	screenTwinkle.Visible = false
+	screenTwinklePos = nil
+	local at = worldToScreen(twinkle.Position)
+	local bound = screenBound()
+	local candidates = if at then aroundPoint(at, Config.Bubble.Gap + 24) else {}
+	table.insert(candidates, { At = Vector2.new((bound.Min.X + bound.Max.X) / 2, bound.Min.Y + 12), Anchor = Vector2.new(0.5, 0) })
+	placeLine(candidates, bound, avoid)
+end
+
+-- The arrow + glow on a HUD button. `bound` = where the arrow may go (the window it's in, else the screen).
+local function drawScreenTarget(target: GuiObject?, bound: Rect): Rect?
+	if target == nil then
+		screenGlow.Visible = false
+		screenArrowHolder.Visible = false
 		return nil
 	end
-	local y = at.Y + offset.Y
-	if hits(x, y, anchor) then
-		anchor = Vector2.new(0.5, 1)
-		x = math.clamp(at.X, safe.Min.X - base.X + bubbleSize.X / 2 + 8, safe.Max.X - base.X - bubbleSize.X / 2 - 8)
-		y = at.Y - gap
-		local r = hits(x, y, anchor)
-		if r then y = r.Min.Y - 8 end
+	local still = reducedMotion()
+	local pad = Config.Glow.ScreenPadding
+	local r = rectOf(target)
+	local pos, size = r.Min, r.Max - r.Min
+	screenGlow.Position = UDim2.fromOffset(pos.X - pad, pos.Y - pad)
+	screenGlow.Size = UDim2.fromOffset(size.X + pad * 2, size.Y + pad * 2)
+	screenGlowStroke.Transparency = if still then 0.1 else 0.1 + 0.3 * (0.5 + 0.5 * math.sin(os.clock() * Config.Glow.PulseSpeed))
+	screenGlow.Visible = true
+	-- the arrow points at the button from the side with the most room: from below for the top row (Home), else from the
+	-- right when there is room for Twinkle's line there (the left menu column, most Upgrade buttons), else from the left
+	local arrowSize = if HudLayout.IsPhone() then Config.Arrow.PhoneScreenSize else Config.Arrow.ScreenSize
+	local bounce = if still then 0 else math.abs(math.sin(os.clock() * Config.Arrow.BounceSpeed)) * Config.Arrow.Bounce
+	local center = pos + size / 2
+	local reach = pad + arrowSize + Config.Arrow.Bounce
+	screenArrowHolder.Size = UDim2.fromOffset(arrowSize, arrowSize)
+	local arrowRect: Rect
+	if center.Y < screen.AbsoluteSize.Y * 0.2 then
+		screenArrowHolder.Rotation = 180 -- points up, from below
+		screenArrowHolder.Position = UDim2.fromOffset(center.X, pos.Y + size.Y + pad + arrowSize / 2 + bounce)
+		arrowRect = Rect.new(center.X - arrowSize / 2, pos.Y + size.Y, center.X + arrowSize / 2, pos.Y + size.Y + reach)
+	elseif bound.Max.X - (pos.X + size.X) >= Config.Arrow.SideRoom then
+		screenArrowHolder.Rotation = 90 -- points left, from the right side
+		screenArrowHolder.Position = UDim2.fromOffset(pos.X + size.X + pad + arrowSize / 2 + bounce, center.Y)
+		arrowRect = Rect.new(pos.X + size.X, center.Y - arrowSize / 2, pos.X + size.X + reach, center.Y + arrowSize / 2)
+	else
+		screenArrowHolder.Rotation = -90 -- points right, from the left side
+		screenArrowHolder.Position = UDim2.fromOffset(pos.X - pad - arrowSize / 2 - bounce, center.Y)
+		arrowRect = Rect.new(pos.X - reach, center.Y - arrowSize / 2, pos.X, center.Y + arrowSize / 2)
 	end
-	screenBubbleHolder.Position = UDim2.fromOffset(x, y)
-	screenBubble.Frame.AnchorPoint = anchor
-	screenBubble.Frame.Position = UDim2.new()
-	screenBubbleHolder.Visible = true
+	screenArrowHolder.Visible = true
+	return arrowRect
+end
+
+-- Right after the window opens (Config.Bubble.ScrollSeconds): keep the list scrolled so the whole card around the target
+-- (e.g. the dragon card with Free!) shows. After that the player's own scrolling wins.
+local scrollUntil = 0
+local scrollTarget: GuiObject? = nil
+local function scrollCardIntoView(target: GuiObject)
+	if scrollTarget ~= target then
+		scrollTarget = target
+		scrollUntil = os.clock() + Config.Bubble.ScrollSeconds
+	end
+	if os.clock() > scrollUntil then
+		return
+	end
+	local card = target:FindFirstAncestor("Card")
+	local list = target:FindFirstAncestorWhichIsA("ScrollingFrame")
+	if card == nil or not card:IsA("GuiObject") or list == nil then
+		return
+	end
+	local pad = Config.Bubble.Gap
+	local top, bottom = card.AbsolutePosition.Y, card.AbsolutePosition.Y + card.AbsoluteSize.Y
+	local viewTop, viewBottom = list.AbsolutePosition.Y, list.AbsolutePosition.Y + list.AbsoluteSize.Y
+	local delta = 0
+	if bottom + pad > viewBottom then
+		delta = bottom + pad - viewBottom
+	end
+	if top - delta - pad < viewTop then
+		delta = top - pad - viewTop
+	end
+	if math.abs(delta) >= 1 then
+		list.CanvasPosition = Vector2.new(list.CanvasPosition.X, math.max(0, list.CanvasPosition.Y + delta))
+	end
+end
+
+-- Twinkle on the screen (step 3): past the arrow, with the line beside it; inside the window when the target is in one.
+local function drawScreenTwinkle(p: Plan, dt: number)
+	screenBubble:Set(p.Line or "", p.Icon)
+	local target = p.GuiTarget
+	local window = if target then target:FindFirstAncestor("Window") else nil
+	local bound = if window and window:IsA("GuiObject") then rectOf(window) else screenBound()
+	if window then
+		-- stay well inside the window (clear of its gold border, banner and close button)
+		local inset = Config.Bubble.WindowInset
+		bound = Rect.new(bound.Min + Vector2.new(inset, inset + Config.Bubble.WindowTop), bound.Max - Vector2.new(inset, inset))
+	end
+	local avoid = if window then {} else hudRects()
+	if window and target then
+		scrollCardIntoView(target)
+		local card = target:FindFirstAncestor("Card")
+		if card and card:IsA("GuiObject") then
+			table.insert(avoid, rectOf(card)) -- the line never covers the card it points into
+		end
+	elseif not window then
+		scrollTarget = nil
+	end
+	local arrowRect = drawScreenTarget(target, bound)
+	if target and arrowRect then
+		table.insert(avoid, rectOf(target))
+		table.insert(avoid, arrowRect)
+		-- Twinkle sits just past the arrow; the line goes beside Twinkle
+		local tip: Vector2
+		if screenArrowHolder.Rotation == 90 then
+			tip = Vector2.new(arrowRect.Max.X + 26, (arrowRect.Min.Y + arrowRect.Max.Y) / 2)
+		elseif screenArrowHolder.Rotation == -90 then
+			tip = Vector2.new(arrowRect.Min.X - 26, (arrowRect.Min.Y + arrowRect.Max.Y) / 2)
+		else
+			tip = Vector2.new((arrowRect.Min.X + arrowRect.Max.X) / 2, arrowRect.Max.Y + 26)
+		end
+		tip = Vector2.new(math.clamp(tip.X, bound.Min.X + 24, bound.Max.X - 24), math.clamp(tip.Y, bound.Min.Y + 24, bound.Max.Y - 24))
+		table.insert(avoid, Rect.new(tip - Vector2.new(24, 24), tip + Vector2.new(24, 24)))
+		moveScreenTwinkle(tip, dt)
+		local gap = Config.Bubble.Gap + 22
+		local iconWidth = if screenBubble.Icon then screenBubble.Icon.AbsoluteSize.X + 10 else 0
+		local candidates: { Spot } = {}
+		local card = target:FindFirstAncestor("Card")
+		if window and card and card:IsA("GuiObject") then
+			-- inside a window: the line goes in the free column beside the card (above Twinkle, else below), wrapped to fit it
+			local c = rectOf(card)
+			local left = c.Min.X - bound.Min.X >= bound.Max.X - c.Max.X
+			local colMin = if left then bound.Min.X + 8 else c.Max.X + Config.Bubble.Gap
+			local colMax = if left then c.Min.X - Config.Bubble.Gap else bound.Max.X - 8
+			local width = colMax - colMin
+			screenBubble:Wrap(if screenBubble:NaturalWidth() > width then width - iconWidth else nil)
+			local mid = (colMin + colMax) / 2
+			table.insert(candidates, { At = Vector2.new(mid, tip.Y - 34), Anchor = Vector2.new(0.5, 1) })
+			table.insert(candidates, { At = Vector2.new(mid, tip.Y + 34), Anchor = Vector2.new(0.5, 0) })
+		else
+			screenBubble:Wrap(nil)
+			table.insert(candidates, if screenArrowHolder.Rotation == 90 then { At = tip + Vector2.new(gap, 0), Anchor = Vector2.new(0, 0.5) }
+				elseif screenArrowHolder.Rotation == -90 then { At = tip - Vector2.new(gap, 0), Anchor = Vector2.new(1, 0.5) }
+				else { At = tip + Vector2.new(0, gap), Anchor = Vector2.new(0.5, 0) })
+		end
+		for _, spot in aroundPoint(tip, gap) do
+			table.insert(candidates, spot)
+		end
+		placeLine(candidates, bound, avoid)
+	else
+		screenBubble:Wrap(nil)
+		local line = placeLine({ { At = Vector2.new((bound.Min.X + bound.Max.X) / 2, bound.Min.Y + 12), Anchor = Vector2.new(0.5, 0) } }, bound, avoid)
+		placeScreenTwinkle(line, dt, avoid)
+	end
 end
 
 ---------------------------------------------------------------------------------------------------------------
@@ -676,9 +950,9 @@ function controller:Start()
 		local data = DataController:Get()
 		local step = if data then data.OnboardingStep else 0
 		local active = step > 0 and (step < Steps.Complete or now < nightUntil)
+		-- the hit area: the text's width (at least a touch target) x a touch-sized height
 		local skipSize = if HudLayout.IsPhone() then Config.Skip.PhoneSize else Config.Skip.Size
-		local asking = skipButton.Label.Text == Text.Onboarding.SkipSure
-		skipButton.Instance.Size = UDim2.fromOffset(if asking then skipSize.X * 1.8 else skipSize.X, skipSize.Y)
+		skipButton.Size = UDim2.fromOffset(math.max(skipSize.X, skipLabel.TextBounds.X + 16), skipSize.Y)
 
 		-- keep the altar's daylight Bind prompt right for this player
 		local _, altarPart = altarModel()
@@ -700,7 +974,7 @@ function controller:Start()
 			nightUntil += now - lastBusy
 		end
 		lastBusy = now
-		skipButton.Instance.Visible = active and step < Steps.Complete and not busy
+		skipButton.Visible = active and step < Steps.Complete and not busy
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		root = if root and root:IsA("BasePart") then root else nil
@@ -717,7 +991,6 @@ function controller:Start()
 		end
 		if p.ScreenTwinkle then
 			hideWorld()
-			drawScreenTarget(p.GuiTarget)
 			drawScreenTwinkle(p, dt)
 		else
 			if HudLayout.HasFocus() then
@@ -725,9 +998,14 @@ function controller:Start()
 				hideScreen()
 				return
 			end
-			screenTwinkle.Visible, screenBubbleHolder.Visible = false, false
-			drawScreenTarget(p.GuiTarget)
-			drawWorld(p, root :: BasePart, dt)
+			-- the Home button's arrow + glow (step 2) are kept clear by the line too
+			local extra: { Rect } = {}
+			local arrowRect = drawScreenTarget(p.GuiTarget, screenBound())
+			if p.GuiTarget and arrowRect then
+				table.insert(extra, arrowRect)
+				table.insert(extra, rectOf(p.GuiTarget))
+			end
+			drawWorld(p, root :: BasePart, dt, extra)
 		end
 	end)
 end

@@ -25,6 +25,7 @@ local Boosts = require(ReplicatedStorage.Shared.Config.Boosts)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local Theme = require(ReplicatedStorage.Shared.Config.UITheme)
 local LuckConfig = require(ReplicatedStorage.Shared.Config.Luck)
+local Onboarding = require(ReplicatedStorage.Shared.Config.Onboarding)
 
 local ALTAR_TAG = "StarAltar"
 local SHOW_DISTANCE = LuckConfig.GroupRadius -- show the panel within this many studs of an altar
@@ -118,6 +119,11 @@ local function update()
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local state = Cycle.GetState()
 	if data == nil or root == nil or not root:IsA("BasePart") or not state.IsNight then
+		setActive(false)
+		return
+	end
+	-- the welcome bind (onboarding) is not a roll: no luck panel until it's done
+	if data.OnboardingStep == Onboarding.Steps.Start and not data.OnboardingFirstBindUsed then
 		setActive(false)
 		return
 	end
