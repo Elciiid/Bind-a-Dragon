@@ -338,6 +338,35 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 				end
 			end
 			model.Parent = nil -- do not expose art during anticipation
+			-- the dragon stands on the altar: the altar's top goes just under the dragon's feet
+			if altarClone then
+				local altarBox, altarSize = altarClone:GetBoundingBox()
+				local feet = posedBox.Position.Y - size.Y / 2
+				local top = altarBox.Position.Y + altarSize.Y / 2
+				altarClone:PivotTo(CFrame.new(0, feet - top - viewportConfig.AltarGap, 0) * altarClone:GetPivot())
+			end
+		end
+		-- frame the altar too, so its bottom is never cut off by the stage's edge
+		if altarClone then
+			local altarBox, altarSize = altarClone:GetBoundingBox()
+			for sx = -1, 1, 2 do
+				for sy = -1, 1, 2 do
+					for sz = -1, 1, 2 do
+						table.insert(points, altarBox:PointToWorldSpace(Vector3.new(altarSize.X * sx / 2, altarSize.Y * sy / 2, altarSize.Z * sz / 2)))
+					end
+				end
+			end
+		end
+		if #points > 0 then
+			-- aim at the middle of everything framed (dragon + altar), then fit relative to that point
+			local low, high = points[1], points[1]
+			for _, point in points do
+				low, high = low:Min(point), high:Max(point)
+			end
+			target = (low + high) / 2
+			for index, point in points do
+				points[index] = point - target
+			end
 		end
 		local function frame(t: number)
 			local ratio = view.AbsoluteSize.X / math.max(view.AbsoluteSize.Y, 1)

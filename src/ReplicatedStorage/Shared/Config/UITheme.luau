@@ -107,6 +107,7 @@ return {
 		RebirthCostHeight = 100, RebirthChipHeight = 76, RebirthTrackHeight = 216,
 		SpireWidth = 500, SpirePortrait = 76, SpireBoardWidth = 280,
 		SpireHeight = 300, SpireMinHeight = 180, SpirePickerColumnsAt = 420,
+		PhoneSpireHeightFraction = 0.62, -- phones: the Spire HUD never covers more than this much of the screen height
 		SpireHeaderHeight = 54, SpireBodyHeight = 220, SpireMessageHeight = 48, SpireRecordHeight = 32,
 	},
 	Colors = {

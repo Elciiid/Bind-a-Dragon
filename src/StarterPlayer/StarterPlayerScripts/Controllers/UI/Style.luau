@@ -544,6 +544,44 @@ function Style.Outline(label: TextLabel | TextButton, thickness: number?)
 	outline.Parent = label
 end
 
+-- A soft fade over the bottom edge of a vertical list while there is more below (so a card cut by the edge reads as "scroll
+-- for more", never as broken). The fade is a sibling drawn over the list; it takes no input and follows the list.
+function Style.ScrollFade(list: ScrollingFrame)
+	if list:GetAttribute("HasScrollFade") or list.ScrollingDirection == Enum.ScrollingDirection.X then
+		return
+	end
+	list:SetAttribute("HasScrollFade", true)
+	local fade = Instance.new("Frame")
+	fade.Name = "ScrollFade"
+	fade.Active = false
+	fade.BorderSizePixel = 0
+	fade.BackgroundColor3 = UITheme.Colors.PanelV2Bottom
+	fade.ZIndex = list.ZIndex + 5
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1) })
+	gradient.Parent = fade
+	local function update()
+		local parent = list.Parent
+		if parent == nil or not parent:IsA("GuiObject") then
+			fade.Parent = nil
+			return
+		end
+		fade.Parent = parent
+		local height = UITheme.MobileUI.ScrollFade
+		local origin = list.AbsolutePosition - parent.AbsolutePosition
+		fade.Position = UDim2.fromOffset(origin.X, origin.Y + list.AbsoluteSize.Y - height)
+		fade.Size = UDim2.fromOffset(math.max(0, list.AbsoluteSize.X - list.ScrollBarThickness), height)
+		local more = list.CanvasPosition.Y + list.AbsoluteWindowSize.Y < list.AbsoluteCanvasSize.Y - 2
+		fade.Visible = list.Visible and more
+	end
+	for _, property in { "AbsolutePosition", "AbsoluteSize", "CanvasPosition", "AbsoluteCanvasSize", "Visible", "Parent" } do
+		list:GetPropertyChangedSignal(property):Connect(update)
+	end
+	list.Destroying:Connect(function() fade:Destroy() end)
+	update()
+end
+
 -- Floating text with no box (toasts, Twinkle's line, small text buttons): title font, a thick dark outline and a soft drop
 -- shadow behind it, so it reads over any scene. Returns the holder (auto-sized to the text) and the main label; set the text
 -- on the label (the shadow follows). wrapWidth > 0 wraps the text at that many pixels.

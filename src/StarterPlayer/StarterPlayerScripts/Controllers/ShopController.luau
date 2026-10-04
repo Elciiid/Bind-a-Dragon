@@ -57,7 +57,7 @@ local function makeCard(list: Instance, key: string, order: number)
 	local nameLimit = Instance.new("UITextSizeConstraint")
 	nameLimit.MaxTextSize = 22
 	nameLimit.Parent = name
-	local detail = Style.Label(card, Text.Shop.Short[key] or item.Description, "Bold", 14, theme.Colors.Text)
+	local detail = Style.Label(card, Text.Shop.Short[key] or item.Description, "Bold", 16, theme.Colors.Text)
 	detail.Position = UDim2.fromOffset(110, 40)
 	detail.Size = UDim2.new(1, -120, 0, 36)
 	detail.TextXAlignment = Enum.TextXAlignment.Left

@@ -1,7 +1,8 @@
 --!strict
 -- The Star Merchant, client side. A speech bubble ("Welcome, binder!") pops up over the NPC when you walk up; talking to it (the E prompt,
--- EconomyService) starts a numbered dialog: the merchant's line appears in its world bubble and in a readable, scrollable
--- choice sheet. Pick by clicking / tapping a line, selecting with a controller, or pressing 1-5.
+-- EconomyService) starts a dialog like popular Roblox shops: no window, the merchant's line in the speech bubble over its head and the
+-- choices as big numbered lines on the screen (yellow "1.)" + white outlined text). Pick by clicking / tapping a line, selecting with a
+-- controller, or pressing 1-5 (owner decision: main's design, not a window/sheet).
 --   1.) I want to buy Stardust!            Kyle's live price + a yes / no (EconomyService validates the purchase)
 --   2.) I want to sell this!               sells the dragon you are CARRYING from the hotbar (name + gold, confirm; Epic+/mutated = 2nd confirm)
 --   3.) I want to sell my inventory!       sells every backpack dragon (not in the sanctuary) that is not a favorite (count + gold, confirm)
@@ -26,7 +27,6 @@ local HudLayout = require(script.Parent.HudLayout)
 local MerchantIdle = require(script.Parent.MerchantIdleController)
 local Window = require(script.Parent.UI.Window)
 local Style = require(script.Parent.UI.Style)
-local Button = require(script.Parent.UI.Button)
 local RevealGate = require(script.Parent.UI.RevealGate)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
@@ -41,6 +41,8 @@ local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 local words = Text.Merchant
 local Dialog = Economy.Merchant.Dialog
 local Mobile = UITheme.MobileUI
+local YELLOW = "rgb(255,226,102)"
+local DIM = Color3.fromRGB(170, 170, 185)
 
 local MerchantController = {}
 
@@ -49,9 +51,6 @@ type Choice = { Text: string, OnPick: () -> (), Dim: boolean?, Kind: ("Confirm" 
 local player = Players.LocalPlayer
 local gui: ScreenGui
 local choiceFrame: Frame
-local choiceList: ScrollingFrame
-local dialogLine: TextLabel
-local wallet: TextLabel
 local bubbleLabels: { [BillboardGui]: TextLabel } = {}
 local bubbles: { [Instance]: BillboardGui } = {}
 local activePrompt: ProximityPrompt? = nil
@@ -239,16 +238,13 @@ local function pick(index: number)
 end
 
 local function drawChoices()
-	local safe = HudLayout.GetUsableRect()
-	local width = math.min(Mobile.MerchantWidth, math.max(Mobile.Touch, safe.Width - Mobile.WindowMargin * 2))
-	local height = math.min(Mobile.MerchantChoiceHeight * 5 + Mobile.MerchantLineHeight + Mobile.HeaderHeight * 2 + Mobile.Padding * 2, safe.Height - Mobile.WindowMargin * 2)
-	choiceFrame.AnchorPoint = Vector2.new(1, 0.5)
-	choiceFrame.Position = UDim2.fromOffset(safe.Max.X - Mobile.WindowMargin, safe.Min.Y + safe.Height / 2)
-	choiceFrame.Size = UDim2.fromOffset(width, math.max(Mobile.Touch * 2, height))
-	dialogLine.Text = currentLine
-	local data = DataController:Get()
-	wallet.Text = if data then Text.Format(words.Owned, { gold = Format.Number(data.Gold), stardust = Format.Number(data.Stardust) }) else ""
-	-- Price polling must not destroy the button under a finger or reset scroll position every half second.
+	local phone = HudLayout.IsPhone()
+	local lineHeight = math.max(Mobile.Touch, if phone then Dialog.PhoneLineHeight else Dialog.LineHeight)
+	local x = if phone then Dialog.PhoneScreenX else Dialog.ScreenX
+	choiceFrame.Position = UDim2.fromScale(x, if phone then Dialog.PhoneScreenY else Dialog.ScreenY)
+	choiceFrame.Size = UDim2.fromScale(1 - x - 0.03 - (if phone then 0.2 else 0), 0)
+	local textSize = if phone then Dialog.PhoneTextSize else Dialog.TextSize
+	-- Price polling re-runs this every half second: reuse the lines (never destroy the one under a finger).
 	for index = #choiceButtons, #choices + 1, -1 do
 		choiceButtons[index]:Destroy()
 		table.remove(choiceButtons, index)
@@ -257,37 +253,36 @@ local function drawChoices()
 		local button = choiceButtons[index]
 		if button == nil then
 			button = Instance.new("TextButton")
+			button.AutoButtonColor = false
+			button.BackgroundTransparency = 1
+			button.RichText = true
+			button.TextXAlignment = Enum.TextXAlignment.Left
+			button.TextWrapped = true
+			button.Selectable = true
+			button.MouseEnter:Connect(function()
+				button.TextColor3 = Color3.fromRGB(255, 244, 190)
+				if not EffectsQuality.IsLow() then
+					TweenService:Create(button, TweenInfo.new(0.1), { Position = UDim2.fromOffset(Dialog.HoverShift, 0) }):Play()
+				end
+			end)
+			button.MouseLeave:Connect(function()
+				local current = choices[index]
+				button.TextColor3 = if current and current.Dim then DIM else UITheme.Colors.Text
+				TweenService:Create(button, TweenInfo.new(0.1), { Position = UDim2.fromOffset(0, 0) }):Play()
+			end)
 			button.Activated:Connect(function()
 				Style.Play("Click")
 				pick(index)
 			end)
-			button.MouseEnter:Connect(function()
-				button.TextColor3 = UITheme.Colors.Title
-			end)
-			button.MouseLeave:Connect(function()
-				local current = choices[index]
-				button.TextColor3 = if current and current.Dim then UITheme.Colors.DisabledText else UITheme.Colors.Text
-			end)
-			button.Parent = choiceList
-			Style.Corner(button, UITheme.SmallCorner)
-			Style.Stroke(button, UITheme.Colors.Trim, Mobile.CardBorder).Transparency = 0.45
-			Style.Pad(button, Mobile.Padding, Mobile.Padding / 2)
+			button.Parent = choiceFrame
 			table.insert(choiceButtons, button)
 		end
 		button.Name = `Choice{index}`
-		button.LayoutOrder = index + 1
-		button.AutoButtonColor = false
-		button.RichText = true
-		button.TextXAlignment = Enum.TextXAlignment.Left
-		button.TextWrapped = true
-		button.Size = UDim2.new(1, -Mobile.Scrollbar, 0, Mobile.MerchantChoiceHeight)
-		local n = `<font color="#{UITheme.Colors.Title:ToHex()}">{index}</font>`
-		button.Text = Text.Format(words.ChoiceNumber, { n = n, choice = choice.Text })
-		Style.Text(button, "Bold", Mobile.Title, if choice.Dim then UITheme.Colors.DisabledText else UITheme.Colors.Text)
-		button.BackgroundTransparency = 0
-		local accent = if choice.Kind == "Confirm" then UITheme.Colors.Confirm elseif choice.Kind == "Cancel" then UITheme.Colors.Cancel else UITheme.Colors.CardBottom
-		button.BackgroundColor3 = UITheme.Colors.CardBottom:Lerp(accent, Mobile.CardAccentMix)
-		Style.Outline(button, UITheme.Strokes.TextStroke)
+		button.LayoutOrder = index
+		button.Size = UDim2.new(1, 0, 0, lineHeight)
+		button.Text = `<font color="{YELLOW}">{index}.)</font> {choice.Text}`
+		Style.Text(button, "Heavy", textSize, if choice.Dim then DIM else UITheme.Colors.Text)
+		Style.Outline(button, 2.5)
 	end
 	local selected = GuiService.SelectedObject
 	if isOpen and not inAutoPanel and string.find(UserInputService:GetLastInputType().Name, "Gamepad")
@@ -296,7 +291,6 @@ local function drawChoices()
 	end
 end
 
--- Shows a page: the merchant's line in the bubble, the choices on the screen.
 local function setPage(line: string, newChoices: { Choice }, refresh: (() -> ())?)
 	currentLine = line
 	choices = newChoices
@@ -698,46 +692,15 @@ function MerchantController:Init()
 	choiceFrame.Name = "Choices"
 	choiceFrame.BackgroundTransparency = 1
 	choiceFrame.Visible = false
-	Style.WorldPanel(choiceFrame, UITheme.Colors.Stardust)
+	choiceFrame.AnchorPoint = Vector2.new(0, 0.5)
+	choiceFrame.Position = UDim2.fromScale(Dialog.ScreenX, Dialog.ScreenY)
+	choiceFrame.Size = UDim2.fromScale(1 - Dialog.ScreenX - 0.03, 0)
+	choiceFrame.AutomaticSize = Enum.AutomaticSize.Y
 	choiceFrame.Parent = gui
-	local title = Style.Label(choiceFrame, words.Title, "Title", Mobile.Title, UITheme.Colors.Title)
-	title.Position = UDim2.fromOffset(Mobile.Padding, Mobile.Padding)
-	title.Size = UDim2.new(1, -(Mobile.Padding * 2 + Mobile.Touch * 2 + Mobile.Gap), 0, Mobile.Title + Mobile.Gap)
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	local exit = Button.new(choiceFrame, { Text = words.ChoiceBye, Kind = "Cancel", TextSize = Mobile.Body,
-		OnClick = function() closeDialog("Bye") end,
-	})
-	exit.Instance.Name = "Exit"
-	exit.Instance.AnchorPoint = Vector2.new(1, 0)
-	exit.Instance.Position = UDim2.new(1, -Mobile.Padding, 0, Mobile.Padding / 2)
-	exit.Instance.Size = UDim2.fromOffset(Mobile.Touch * 2, Mobile.Touch)
-	wallet = Style.Label(choiceFrame, "", "Body", Mobile.Small, UITheme.Colors.TextMuted)
-	wallet.Position = UDim2.fromOffset(Mobile.Padding, Mobile.HeaderHeight)
-	wallet.Size = UDim2.new(1, -Mobile.Padding * 2, 0, Mobile.Small * 2)
-	wallet.TextXAlignment = Enum.TextXAlignment.Left
-	choiceList = Instance.new("ScrollingFrame")
-	choiceList.Name = "ChoicesList"
-	choiceList.Position = UDim2.fromOffset(Mobile.Padding, Mobile.HeaderHeight + Mobile.Small * 2 + Mobile.Gap)
-	choiceList.Size = UDim2.new(1, -Mobile.Padding * 2, 1, -(Mobile.HeaderHeight + Mobile.Small * 2 + Mobile.Gap + Mobile.Padding))
-	choiceList.BackgroundTransparency = 1
-	choiceList.BorderSizePixel = 0
-	choiceList.ScrollBarThickness = Mobile.Scrollbar
-	choiceList.ScrollBarImageColor3 = UITheme.Colors.Trim
-	choiceList.ScrollingDirection = Enum.ScrollingDirection.Y
-	choiceList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	choiceList.CanvasSize = UDim2.new()
-	choiceList.Parent = choiceFrame
-	Style.Pad(choiceList, 0, Mobile.Padding / 2)
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, Mobile.Gap)
-	layout.Parent = choiceList
-	dialogLine = Style.Label(choiceList, "", "Body", Mobile.Body, UITheme.Colors.Text)
-	dialogLine.LayoutOrder = 0
-	dialogLine.Size = UDim2.new(1, -Mobile.Scrollbar, 0, 0)
-	dialogLine.AutomaticSize = Enum.AutomaticSize.Y
-	dialogLine.TextXAlignment = Enum.TextXAlignment.Left
-	dialogLine.TextYAlignment = Enum.TextYAlignment.Top
+	layout.Padding = UDim.new(0, 2)
+	layout.Parent = choiceFrame
 	HudLayout.OnLayoutChanged(function() if isOpen then drawChoices() end end)
 	for _, setting in { "ReducedMotion", "LowEffects" } do
 		player:GetAttributeChangedSignal(setting):Connect(function() easeCamera(isOpen) end)

@@ -271,7 +271,7 @@ function LuckController:Init()
 		row.BackgroundTransparency = 1
 		row.Size = UDim2.new(1, 0, 1 / 9, 0)
 		row.Parent = rowsFrame
-		local name = Style.Label(row, "", "Bold", 15, Theme.Colors.Text)
+		local name = Style.Label(row, "", "Bold", 16, Theme.Colors.Text)
 		name.Size = UDim2.new(0.72, 0, 1, 0)
 		name.TextXAlignment = Enum.TextXAlignment.Left
 		name.TextTruncate = Enum.TextTruncate.AtEnd

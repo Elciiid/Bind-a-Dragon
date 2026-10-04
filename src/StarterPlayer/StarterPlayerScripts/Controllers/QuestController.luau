@@ -94,7 +94,7 @@ local function addStreak(data: PlayerDataTypes.PlayerData)
 		card.Size = UDim2.new(1 / days, -5, 1, 0)
 		Style.CardLook(card, if today then theme.Colors.Gold elseif claimed then theme.Colors.Positive else nil)
 		card.Parent = strip
-		local label = Style.Label(card, if claimed then `✓ Day {day}` else `Day {day}`, "Title", 14, if today then theme.Colors.Gold elseif claimed then theme.Colors.Positive else theme.Colors.TextMuted)
+		local label = Style.Label(card, if claimed then `✓ Day {day}` else `Day {day}`, "Title", 16, if today then theme.Colors.Gold elseif claimed then theme.Colors.Positive else theme.Colors.TextMuted)
 		label.Position = UDim2.fromOffset(0, 3)
 		label.Size = UDim2.new(1, 0, 0, 18)
 		label.ZIndex = 3

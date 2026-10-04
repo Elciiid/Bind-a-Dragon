@@ -32,6 +32,7 @@ return {
 		DragonLength = 14,
 		AltarLength = 24,
 		AltarHeight = -3,
+		AltarGap = 0.5, -- studs between the dragon's feet and the altar's top (the altar is moved under the dragon and framed whole)
 		AltarMaxParts = 100, -- do not clone unexpectedly expensive scenery into a short-lived mobile cinematic
 		Direction = Vector3.new(0.46, 0.20, -1).Unit,
 		FieldOfView = 34,

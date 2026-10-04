@@ -406,6 +406,7 @@ Text.Onboarding = {
 Text.Potions = {
 	Use = "Use", Arm = "Arm", Disarm = "Disarm", Armed = "Armed", NextBind = "Next bind",
 	Active = "Active {time}", Duration = "{minutes} min", Unavailable = "None owned", Full = "Timer full",
+	NotOwnedTitle = "Not owned yet", NoneYet = "No potions yet! The Spire and quests give potions.",
 	Tooltip = "{name}: {description}. Timers pause offline · up to {minutes} min per potion · Premium +{bonus}% time",
 }
 Text.Collection = {

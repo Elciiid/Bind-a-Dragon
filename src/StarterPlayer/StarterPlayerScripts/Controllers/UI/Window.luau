@@ -149,6 +149,12 @@ function Window.new(props: Props): Window
 	content.ZIndex = 2
 	content.ClipsDescendants = true
 	content.Parent = frame
+	-- every vertical list in a window fades out softly at its bottom edge while there is more below
+	content.DescendantAdded:Connect(function(item)
+		if item:IsA("ScrollingFrame") then
+			task.defer(Style.ScrollFade, item)
+		end
+	end)
 
 	-- while fading in/out the window sits in this CanvasGroup (it covers the screen, so the layout doesn't change)
 	local fader = Instance.new("CanvasGroup")

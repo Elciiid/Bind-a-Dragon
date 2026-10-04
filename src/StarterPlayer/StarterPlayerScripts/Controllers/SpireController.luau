@@ -337,7 +337,10 @@ local function setMode(newMode: Mode)
 	local fighting = newMode == "Fight"
 	local safe = HudLayout.GetUsableRect()
 	local width = math.min(Mobile.SpireWidth, math.max(1, safe.Width - Mobile.WindowMargin * 2))
-	local height = math.min(Mobile.SpireHeight, math.max(1, safe.Height - Mobile.WindowMargin * 2))
+	-- phones: at most PhoneSpireHeightFraction of the screen (the world and the fight stay visible; the body scrolls)
+	local room = safe.Height - Mobile.WindowMargin * 2
+	if phone then room = math.max(Mobile.SpireMinHeight, math.floor(safe.Height * Mobile.PhoneSpireHeightFraction)) end
+	local height = math.min(Mobile.SpireHeight, math.max(1, room))
 	hudScale.Scale = 1
 	hud.Size = UDim2.fromOffset(width, height)
 	hud.Position = UDim2.fromOffset(safe.Min.X + safe.Width / 2, safe.Max.Y - Mobile.WindowMargin)

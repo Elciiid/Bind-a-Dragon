@@ -5,6 +5,9 @@
 -- in the bottom-right stack (HudLayout.GetTimerStack; phones: above the jump button, at most UITheme.PhoneMaxTimers, then
 -- a "+N"); tapping one opens the Potions tab. The tab (and the Inventory icon) shows a count and pulses while there
 -- are unused potions. The server checks everything (BoostService). Timers pause while offline.
+-- Layout (owner): owned / active / armed potions first as big colorful cards (Use = jade, Arm = gold, Disarm = rose);
+-- the ones you don't own sit below as small dim tiles with a "None owned" line and no button, so the page is never a wall
+-- of grey.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextService = game:GetService("TextService")
@@ -25,10 +28,14 @@ local useBoost = ReplicatedStorage.Remotes.UseBoost :: RemoteEvent
 
 local BoostController = {}
 
-type Row = { Count: TextLabel, Timer: TextLabel, Button: Button.Button, Description: TextLabel, Name: TextLabel }
+type Row = { Cell: Frame, Tile: Frame, Count: TextLabel, Timer: TextLabel, Button: Button.Button, Description: TextLabel, Name: TextLabel }
 
 local window: InventoryWindow.Tab
 local rows: { [string]: Row } = {}
+local ownedGrid: Frame
+local spareGrid: Frame
+local spareTitle: TextLabel
+local emptyLine: TextLabel
 local timerPills: { [string]: { Frame: GuiButton, Label: TextLabel } } = {}
 local moreChip: TextButton -- phones: "+N" when more timers are running than UITheme.PhoneMaxTimers
 local isPhone = false
@@ -59,22 +66,28 @@ local function refresh()
 		return
 	end
 	updateBadge(data)
+	local owned, spare = 0, 0
 	for _, potion in Boosts.Potions do
 		local count = data.Potions[potion.Id] or 0
 		local left = data.ActiveBoosts[potion.Id] or 0
 		local armed = data.ArmedLuckPotion == potion.Id
-
+		local have = count > 0 or left > 0 or armed
 		local row = rows[potion.Id]
+		row.Cell.Visible = have
+		row.Tile.Visible = not have
+		if have then owned += 1 else spare += 1 end
+
 		row.Count.Text = Text.Format(Text.Items.Count, { count = Format.Number(count) })
 		if potion.Kind == "LuckCharge" then
 			row.Timer.Text = if armed then words.Armed elseif count == 0 then words.Unavailable else words.NextBind
 			row.Button:SetText(if armed then words.Disarm else words.Arm)
-			row.Button:SetKind(if armed then "Cancel" else "Confirm")
+			row.Button:SetKind(if armed then "Cancel" else "Primary") -- Arm = gold, Disarm = rose
 			row.Button:SetEnabled(armed or count > 0)
 		else
 			local full = left >= Boosts.MaxStoredMinutes * 60
 			row.Timer.Text = if full then words.Full elseif left > 0 then Text.Format(words.Active, { time = formatTime(left) }) elseif count == 0 then words.Unavailable else Text.Format(words.Duration, { minutes = potion.Minutes or 0 })
 			row.Button:SetText(words.Use)
+			row.Button:SetKind("Confirm") -- Use = jade
 			row.Button:SetEnabled(count > 0 and not full)
 		end
 		row.Timer.TextColor3 = if armed or left > 0 then UITheme.Colors.Positive elseif count == 0 then UITheme.Colors.TextMuted else UITheme.Colors.Info
@@ -91,6 +104,10 @@ local function refresh()
 			pill.Frame.Visible = false
 		end
 	end
+
+	spareTitle.Visible = spare > 0
+	spareGrid.Visible = spare > 0
+	emptyLine.Visible = owned == 0
 
 	-- Phones: only the first few pills, then a "+N" chip.
 	local shown = 0
@@ -113,13 +130,67 @@ end
 -- Names and full effect descriptions wrap; cards grow vertically before any text would be clipped.
 local POTION_CARD = mobile.PotionCard
 
-local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
+-- A potion you don't own: a small dim tile (icon, name, "None owned"), no button; tap = details.
+local function makeTile(potion: Boosts.Potion, order: number): Frame
+	local tile = Instance.new("Frame")
+	tile.Name = potion.Id
+	tile.LayoutOrder = order
+	tile.BackgroundColor3 = Color3.new(1, 1, 1)
+	tile.Parent = spareGrid
+	Style.CardLook(tile, potion.Color)
+	local fade = Instance.new("Frame") -- dims the whole tile
+	fade.Name = "Dim"
+	fade.Size = UDim2.fromScale(1, 1)
+	fade.BackgroundColor3 = UITheme.Colors.PanelV2Top
+	fade.BackgroundTransparency = 0.45
+	fade.ZIndex = 5
+	fade.Active = false
+	Style.Corner(fade, UITheme.SmallCorner + 4)
+	fade.Parent = tile
+	local icon = Icon.new(tile, `Potion_{potion.Id}`, potion.Color, potion.Name)
+	icon.Position = UDim2.fromOffset(mobile.Gap, mobile.Gap)
+	icon.Size = UDim2.fromOffset(mobile.Touch - 4, mobile.Touch - 4)
+	icon.ZIndex = 3
+	local name = Style.Label(tile, potion.Name, "Title", mobile.Body, UITheme.Colors.Text)
+	name.Position = UDim2.fromOffset(mobile.Touch + mobile.Gap, mobile.Gap / 2)
+	name.Size = UDim2.new(1, -(mobile.Touch + mobile.Gap * 1.5), 0, mobile.Touch)
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.TextScaled = true
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MinTextSize = mobile.Small
+	limit.MaxTextSize = mobile.Body
+	limit.Parent = name
+	name.ZIndex = 3
+	Style.Outline(name, 1.5)
+	local none = Style.Label(tile, words.Unavailable, "Bold", mobile.Small, UITheme.Colors.TextMuted)
+	none.AnchorPoint = Vector2.new(0, 1)
+	none.Position = UDim2.new(0, mobile.Gap, 1, -mobile.Gap / 2)
+	none.Size = UDim2.new(1, -mobile.Gap * 2, 0, mobile.Small + 6)
+	none.TextXAlignment = Enum.TextXAlignment.Left
+	none.ZIndex = 3
+	local hit = Instance.new("TextButton")
+	hit.Text = ""
+	hit.BackgroundTransparency = 1
+	hit.Size = UDim2.fromScale(1, 1)
+	hit.ZIndex = 6
+	hit.Parent = tile
+	local function getDetails(): string
+		return Text.Format(words.Tooltip, { name = potion.Name, description = potion.Description, minutes = Boosts.MaxStoredMinutes, bonus = math.floor(Boosts.PremiumDurationBonus * 100) })
+	end
+	Tooltip.Attach(tile, getDetails)
+	hit.Activated:Connect(function()
+		Tooltip.Toggle(tile, getDetails, hit.AbsolutePosition + Vector2.new(0, hit.AbsoluteSize.Y))
+	end)
+	return tile
+end
+
+local function makeRow(potion: Boosts.Potion, order: number)
 	local theme = UITheme
 	local cell = Instance.new("Frame")
 	cell.Name = potion.Id
 	cell.LayoutOrder = order
 	cell.BackgroundTransparency = 1
-	cell.Parent = list
+	cell.Parent = ownedGrid
 	local card = Instance.new("Frame")
 	card.Name = "Card"
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -151,13 +222,13 @@ local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
 	Style.GoldBorder(count, 1.5)
 	Style.Outline(count, 1.5)
 
-	local name = Style.Label(card, potion.Name, "Heavy", mobile.Body, theme.Colors.Text)
+	local name = Style.Label(card, potion.Name, "Title", mobile.Title, theme.Colors.Text)
 	name.Position = UDim2.fromOffset(mobile.Padding + mobile.Touch + mobile.Gap, mobile.Padding)
 	name.Size = UDim2.new(1, -(mobile.Padding * 2 + mobile.Touch + mobile.Gap), 0, mobile.Touch)
 	name.TextXAlignment = Enum.TextXAlignment.Left
 	name.ZIndex = 3
 	Style.Outline(name, 2)
-	local description = Style.Label(card, potion.Description, "Body", mobile.Body, theme.Colors.TextMuted)
+	local description = Style.Label(card, potion.Description, "Bold", mobile.Body, theme.Colors.Text)
 	description.Position = UDim2.fromOffset(mobile.Padding, mobile.Padding + mobile.Touch + mobile.Gap)
 	description.TextXAlignment = Enum.TextXAlignment.Left
 	description.TextYAlignment = Enum.TextYAlignment.Top
@@ -188,7 +259,7 @@ local function makeRow(list: Instance, potion: Boosts.Potion, order: number)
 	details.Activated:Connect(function()
 		Tooltip.Toggle(card, getDetails, details.AbsolutePosition + Vector2.new(0, details.AbsoluteSize.Y))
 	end)
-	rows[potion.Id] = { Count = count, Timer = timer, Button = button, Description = description, Name = name }
+	rows[potion.Id] = { Cell = cell, Tile = makeTile(potion, order), Count = count, Timer = timer, Button = button, Description = description, Name = name }
 end
 
 -- A potion timer: the potion icon itself (drop shadow, no background) with the time under it; tap = Potions tab.
@@ -255,12 +326,43 @@ function BoostController:Init()
 	list.CanvasSize = UDim2.new()
 	list.ScrollingDirection = Enum.ScrollingDirection.Y
 	list.Parent = content
-	local grid = Instance.new("UIGridLayout")
-	grid.CellPadding = UDim2.fromOffset(mobile.Gap, mobile.Gap)
-	grid.SortOrder = Enum.SortOrder.LayoutOrder
-	grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	grid.Parent = list
 	Style.Pad(list, mobile.Padding / 2, mobile.Padding / 2)
+	local sections = Instance.new("UIListLayout")
+	sections.Padding = UDim.new(0, mobile.Gap)
+	sections.SortOrder = Enum.SortOrder.LayoutOrder
+	sections.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	sections.Parent = list
+	local function section(name: string, order: number): (Frame, UIGridLayout)
+		local frame = Instance.new("Frame")
+		frame.Name = name
+		frame.LayoutOrder = order
+		frame.BackgroundTransparency = 1
+		frame.Size = UDim2.new(1, -mobile.Scrollbar, 0, 0)
+		frame.AutomaticSize = Enum.AutomaticSize.Y
+		frame.Parent = list
+		local layout = Instance.new("UIGridLayout")
+		layout.CellPadding = UDim2.fromOffset(mobile.Gap, mobile.Gap)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		layout.Parent = frame
+		return frame, layout
+	end
+	local grid: UIGridLayout
+	ownedGrid, grid = section("Owned", 1)
+	emptyLine = Style.Label(list, words.NoneYet, "Bold", mobile.Body, UITheme.Colors.TextMuted)
+	emptyLine.Name = "NoneYet"
+	emptyLine.LayoutOrder = 2
+	emptyLine.Size = UDim2.new(1, -mobile.Scrollbar, 0, mobile.Touch)
+	emptyLine.Visible = false
+	spareTitle = Style.Label(list, words.NotOwnedTitle, "Title", mobile.Body, UITheme.Colors.TextMuted)
+	spareTitle.Name = "NotOwnedTitle"
+	spareTitle.LayoutOrder = 3
+	spareTitle.Size = UDim2.new(1, -mobile.Scrollbar, 0, mobile.Body * 1.5)
+	spareTitle.TextXAlignment = Enum.TextXAlignment.Left
+	Style.Outline(spareTitle, 1.5)
+	local spareLayout: UIGridLayout
+	spareGrid, spareLayout = section("NotOwned", 4)
+	spareLayout.CellSize = UDim2.fromOffset(mobile.PotionTile.X, mobile.PotionTile.Y)
 
 	-- Potion timers: a horizontal row (growing to the left) under the day/night timer in the bottom-right stack.
 	local hud = Instance.new("Frame")
@@ -304,9 +406,9 @@ function BoostController:Init()
 		local descriptionHeight = 0
 		local headerHeight = mobile.Touch
 		for _, row in rows do
-			local measure = TextService:GetTextSize(row.Description.Text, mobile.Body, UITheme.Fonts.Body, Vector2.new(width - mobile.Padding * 2, math.huge))
+			local measure = TextService:GetTextSize(row.Description.Text, mobile.Body, UITheme.Fonts.Bold, Vector2.new(width - mobile.Padding * 2, math.huge))
 			descriptionHeight = math.max(descriptionHeight, math.ceil(measure.Y))
-			headerHeight = math.max(headerHeight, math.ceil(TextService:GetTextSize(row.Name.Text, mobile.Body, UITheme.Fonts.Heavy, Vector2.new(math.max(1, width - mobile.Padding * 2 - mobile.Touch - mobile.Gap), math.huge)).Y))
+			headerHeight = math.max(headerHeight, math.ceil(TextService:GetTextSize(row.Name.Text, mobile.Title, UITheme.Fonts.Title, Vector2.new(math.max(1, width - mobile.Padding * 2 - mobile.Touch - mobile.Gap), math.huge)).Y))
 		end
 		local height = math.max(POTION_CARD.Y, mobile.Padding * 2 + headerHeight + mobile.Touch + mobile.Gap * 3 + mobile.Small * 1.5 + descriptionHeight)
 		grid.CellSize = UDim2.fromOffset(width, height)
@@ -333,7 +435,7 @@ function BoostController:Init()
 	end)
 
 	for index, potion in Boosts.Potions do
-		makeRow(list, potion, index)
+		makeRow(potion, index)
 		makeTimerPill(hud, potion, index)
 	end
 	-- size the icons and cards made after the first layout call

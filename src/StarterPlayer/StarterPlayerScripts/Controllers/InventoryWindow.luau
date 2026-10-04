@@ -72,16 +72,29 @@ local function paintTabs()
 		local selected = id == current
 		local back = tab.Button.Parent :: Frame?
 		if back then
+			-- the open tab: bright violet with a gold border; the others clearly dimmer (approved style sheet)
 			local gradient = back:FindFirstChildOfClass("UIGradient")
 			if gradient then
 				gradient.Color = if selected
-					then ColorSequence.new(colors.BannerTop, colors.BannerBottom)
+					then ColorSequence.new(Style.Shade(colors.BannerTop, 0.18), colors.BannerBottom)
 					else ColorSequence.new(colors.TabTop, colors.TabBottom)
 			end
+			back.BackgroundTransparency = if selected then 0 else 0.3
 			local stroke = back:FindFirstChildOfClass("UIStroke")
 			if stroke then
 				stroke.Color = if selected then colors.Trim else colors.ButtonStroke
 				stroke.Thickness = if selected then 3 else UITheme.Strokes.Button
+				stroke.Transparency = if selected then 0 else 0.45
+			end
+			local label = tab.Button:FindFirstChild("Label")
+			if label and label:IsA("TextLabel") then
+				label.TextColor3 = if selected then colors.Text else colors.TextMuted
+				label.TextTransparency = if selected then 0 else 0.15
+			end
+			for _, child in tab.Button:GetChildren() do
+				if child:IsA("ImageLabel") then
+					child.ImageTransparency = if selected then 0 else 0.35
+				end
 			end
 		end
 		tab.Content.Visible = selected
@@ -232,7 +245,7 @@ function InventoryWindow.AddTab(id: string): Tab
 	local label = Instance.new("TextLabel")
 	label.Name = "Label"
 	label.BackgroundTransparency = 1
-	label.Font = UITheme.Fonts.Bold
+	label.Font = UITheme.Fonts.Title -- title font (approved style sheet)
 	label.Text = look.Label
 	label.TextColor3 = colors.IconLabel
 	label.TextSize = UITheme.MobileUI.Body
@@ -249,7 +262,7 @@ function InventoryWindow.AddTab(id: string): Tab
 	label.Parent = button
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = colors.IconLabelStroke
-	stroke.Thickness = 0.5
+	stroke.Thickness = 1.5
 	stroke.Parent = label
 	local badge = Style.Label(button, "", "Heavy", 12)
 	badge.Name = "Badge"

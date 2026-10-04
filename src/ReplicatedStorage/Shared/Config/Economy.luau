@@ -26,7 +26,9 @@ return {
 			HoverShift = 8, -- pixels a hovered line slides right
 			BubbleWidth = 320, BubbleHeight = 74,
 			-- camera eases toward the merchant while talking (not with Reduced Motion): behind and beside the player, looking at the merchant
-			CameraBack = 6, CameraSide = 3, CameraUp = 3, CameraLookBlend = 0.6, CameraLookUp = 3,
+			-- CameraLookUp 5 (was 3): the view aims higher, so the merchant and its speech bubble sit lower on the screen, clear of the
+			-- travel row at the top
+			CameraBack = 6, CameraSide = 3, CameraUp = 3, CameraLookBlend = 0.6, CameraLookUp = 5,
 			CameraEaseIn = 3, CameraEaseOut = 4, CameraStrength = 0.85,
 		},
 

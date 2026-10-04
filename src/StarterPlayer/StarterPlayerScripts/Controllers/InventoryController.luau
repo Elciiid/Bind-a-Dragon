@@ -59,11 +59,13 @@ type Card = {
 	Card: Frame,
 	Picture: Frame,
 	PictureStage: string?,
+	RarityIcon: GuiObject,
 	Level: TextLabel,
 	Name: TextLabel,
 	Identity: TextLabel,
 	Income: TextLabel,
 	IncomeRow: Frame,
+	IncomeLayout: UIListLayout,
 	Power: TextLabel,
 	MeasuredWidth: number?,
 	NameHeight: number,
@@ -131,6 +133,80 @@ local function attachHold(button: Button.Button, dragonId: string)
 	button.Instance.MouseLeave:Connect(function()
 		holding += 1
 	end)
+end
+
+-- The tall card (PC / roomy windows): the picture on top, the name, the identity line, income + power, then Upgrade and
+-- Details + roost at the bottom.
+local function applyTall(card: Card, cardHeight: number)
+	local p, touch = mobile.Padding, mobile.Touch
+	card.Picture.Position = UDim2.fromOffset(p, touch)
+	card.Picture.Size = UDim2.new(1, -(p * 2 + touch + mobile.Gap), 0, touch * 2)
+	card.RarityIcon.Position = UDim2.fromOffset(p, p)
+	card.Level.Position = UDim2.fromOffset(p + mobile.Body * 1.5 + mobile.Gap, p)
+	card.Level.Size = UDim2.new(1, -(p * 2 + mobile.Body * 1.5 + touch + mobile.Gap), 0, mobile.Body * 1.5)
+	card.Star.AnchorPoint = Vector2.new(1, 0)
+	card.Star.Position = UDim2.new(1, -p, 0, p)
+	card.Star.Size = UDim2.fromOffset(touch, touch)
+	card.Name.Position = UDim2.fromOffset(p, touch * 3)
+	card.Name.Size = UDim2.new(1, -p * 2, 0, card.NameHeight)
+	card.Name.TextXAlignment = Enum.TextXAlignment.Center
+	card.Name.TextTruncate = Enum.TextTruncate.None
+	card.Identity.Position = UDim2.fromOffset(p, touch * 3 + card.NameHeight + mobile.Gap / 2)
+	card.Identity.Size = UDim2.new(1, -p * 2, 0, card.IdentityHeight)
+	card.Identity.TextXAlignment = Enum.TextXAlignment.Center
+	card.IncomeRow.Position = UDim2.fromOffset(p, cardHeight - p - touch * 2 - mobile.Gap - mobile.Body * 3)
+	card.IncomeRow.Size = UDim2.new(1, -p * 2, 0, mobile.Body * 1.5)
+	card.IncomeLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	card.Power.Visible = true
+	card.Power.Position = UDim2.fromOffset(p, cardHeight - p - touch * 2 - mobile.Gap - mobile.Body * 1.5)
+	card.Upgrade.Instance.AnchorPoint = Vector2.new(0.5, 1)
+	card.Upgrade.Instance.Position = UDim2.new(0.5, 0, 1, -(p + touch + mobile.Gap))
+	card.Upgrade.Instance.Size = UDim2.new(1, -p * 2, 0, touch)
+	card.Details.AnchorPoint = Vector2.new(0, 1)
+	card.Details.Position = UDim2.new(0, p, 1, -p)
+	card.Details.Size = UDim2.new(0.5, -(p + mobile.Gap / 2), 0, touch)
+	card.Switch.AnchorPoint = Vector2.new(1, 1)
+	card.Switch.Position = UDim2.new(1, -p, 1, -p)
+	card.Switch.Size = UDim2.new(0.5, -(p + mobile.Gap / 2), 0, touch)
+end
+
+-- The compact row (short lists, phones): picture | rarity + level + favorite, name, identity, income | Upgrade over
+-- Details + roost. Every button keeps a 44 px touch target; power stays in Details.
+local function applyCompact(card: Card, width: number, height: number)
+	local p, touch, gap = 8, mobile.Touch, 4
+	local pic = 64
+	local right = math.floor(if width >= 380 then 150 else width * 0.38)
+	local x0 = p + pic + p
+	local middle = math.max(40, width - x0 - right - p * 2)
+	card.Picture.Position = UDim2.fromOffset(p, (height - pic) / 2)
+	card.Picture.Size = UDim2.fromOffset(pic, pic)
+	card.RarityIcon.Position = UDim2.fromOffset(x0, p)
+	card.Level.Position = UDim2.fromOffset(x0 + mobile.Body * 1.5 + gap, p)
+	card.Level.Size = UDim2.fromOffset(math.max(20, middle - mobile.Body * 1.5 - gap - 40), mobile.Body * 1.5)
+	card.Star.AnchorPoint = Vector2.new(0, 0)
+	card.Star.Position = UDim2.fromOffset(x0 + middle - 40, p - 4)
+	card.Star.Size = UDim2.fromOffset(40, 40)
+	card.Name.Position = UDim2.fromOffset(x0, p + 30)
+	card.Name.Size = UDim2.fromOffset(middle, mobile.Title + 4)
+	card.Name.TextXAlignment = Enum.TextXAlignment.Left
+	card.Name.TextTruncate = Enum.TextTruncate.AtEnd
+	card.Identity.Position = UDim2.fromOffset(x0, p + 30 + mobile.Title + 4)
+	card.Identity.Size = UDim2.fromOffset(middle, mobile.Small + 4)
+	card.Identity.TextXAlignment = Enum.TextXAlignment.Left
+	card.IncomeRow.Position = UDim2.fromOffset(x0, height - p - mobile.Body * 1.5)
+	card.IncomeRow.Size = UDim2.fromOffset(middle, mobile.Body * 1.5)
+	card.IncomeLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+	card.Power.Visible = false
+	local rx = width - p - right
+	card.Upgrade.Instance.AnchorPoint = Vector2.new(0, 0)
+	card.Upgrade.Instance.Position = UDim2.fromOffset(rx, p)
+	card.Upgrade.Instance.Size = UDim2.fromOffset(right, touch)
+	card.Details.AnchorPoint = Vector2.new(0, 0)
+	card.Details.Position = UDim2.fromOffset(rx, p + touch + gap)
+	card.Details.Size = UDim2.fromOffset(right / 2 - gap / 2, touch)
+	card.Switch.AnchorPoint = Vector2.new(0, 0)
+	card.Switch.Position = UDim2.fromOffset(rx + right / 2 + gap / 2, p + touch + gap)
+	card.Switch.Size = UDim2.fromOffset(right / 2 - gap / 2, touch)
 end
 
 -- Builds a dragon's card once; updateCard fills in the values. Cards are kept between refreshes, so buttons keep
@@ -255,11 +331,13 @@ local function makeCard(dragon: PlayerDataTypes.Dragon): Card
 		Card = card,
 		Picture = picture,
 		PictureStage = nil,
+		RarityIcon = rarityIcon,
 		Level = level,
 		Name = name,
 		Identity = sub,
 		Income = income,
 		IncomeRow = incomeRow,
+		IncomeLayout = rowLayout,
 		Power = power,
 		MeasuredWidth = nil,
 		NameHeight = mobile.Title * 2,
@@ -585,17 +663,30 @@ function InventoryController:Init()
 		local stacked = width < mobile.Touch * 11
 		local actionsTop = if stacked then mobile.Body * 1.5 + mobile.Gap else 0
 		local headerHeight = actionsTop + mobile.Touch
-		-- the header scrolls with the cards when the list would be shorter than one whole card (no card is ever cut off)
-		local scrollHeader = content.AbsoluteSize.Y < headerHeight + mobile.Gap + math.max(mobile.Touch * 2, CARD.Y + mobile.Padding * 2)
-		if scrollHeader then width -= mobile.Padding end
-		header.Parent = if scrollHeader then list else content
-		header.LayoutOrder = 1
+		-- The header (Sort / Equip best) never scrolls. When the list is too short for a whole tall card (phones), every
+		-- dragon becomes one compact row (picture | name, level, income | Upgrade over Details + roost), so a whole card with
+		-- its buttons always fits.
+		local listHeight = content.AbsoluteSize.Y - headerHeight - mobile.Gap
+		local compact = listHeight < CARD.Y + mobile.Padding * 2
+		header.Parent = content
 		header.Position = UDim2.new()
 		local usable = math.max(1, width - mobile.Padding - mobile.Gap)
+		if compact then
+			local compactColumns = math.max(1, math.floor((usable + mobile.Gap) / (mobile.CompactCardWidth - 40 + mobile.Gap)))
+			local compactWidth = math.min(mobile.CompactCardWidth, math.floor((usable - mobile.Gap * (compactColumns - 1)) / compactColumns))
+			grid.FillDirectionMaxCells = compactColumns
+			grid.CellSize = UDim2.fromOffset(compactWidth, mobile.CompactCardHeight)
+			for _, card in cards do
+				applyCompact(card, compactWidth, mobile.CompactCardHeight)
+			end
+		end
 		local columns = math.max(1, math.floor((usable + mobile.Gap) / (CARD.X - mobile.Padding * 2 + mobile.Gap)))
 		local cellWidth = math.min(CARD.X, math.floor((usable - mobile.Gap * (columns - 1)) / columns))
 		local extra = 0
 		for _, card in cards do
+			if compact then
+				break
+			end
 			if card.MeasuredWidth ~= cellWidth then
 				card.MeasuredWidth = cellWidth
 				card.NameHeight = math.max(mobile.Title * 2, math.ceil(TextService:GetTextSize(card.Name.Text, mobile.Title, UITheme.Fonts.Heavy, Vector2.new(math.max(1, cellWidth - mobile.Padding * 2), math.huge)).Y))
@@ -603,15 +694,13 @@ function InventoryController:Init()
 			end
 			extra = math.max(extra, card.NameHeight - mobile.Title * 2 + card.IdentityHeight - mobile.Small * 1.5)
 		end
-		local cardHeight = CARD.Y + extra
-		grid.FillDirectionMaxCells = columns
-		grid.CellSize = UDim2.fromOffset(cellWidth, cardHeight)
-		for _, card in cards do
-			card.Name.Size = UDim2.new(1, -mobile.Padding * 2, 0, card.NameHeight)
-			card.Identity.Position = UDim2.fromOffset(mobile.Padding, mobile.Touch * 3 + card.NameHeight + mobile.Gap / 2)
-			card.Identity.Size = UDim2.new(1, -mobile.Padding * 2, 0, card.IdentityHeight)
-			card.IncomeRow.Position = UDim2.fromOffset(mobile.Padding, cardHeight - mobile.Padding - mobile.Touch * 2 - mobile.Gap - mobile.Body * 3)
-			card.Power.Position = UDim2.fromOffset(mobile.Padding, cardHeight - mobile.Padding - mobile.Touch * 2 - mobile.Gap - mobile.Body * 1.5)
+		if not compact then
+			local cardHeight = CARD.Y + extra
+			grid.FillDirectionMaxCells = columns
+			grid.CellSize = UDim2.fromOffset(cellWidth, cardHeight)
+			for _, card in cards do
+				applyTall(card, cardHeight)
+			end
 		end
 		local equipWidth = mobile.Touch * 3.5
 		local sortWidth = mobile.Touch * 3
@@ -626,7 +715,7 @@ function InventoryController:Init()
 			headerText.Size = UDim2.new(1, -(equipWidth + sortWidth + mobile.Gap * 2), 0, mobile.Body * 1.5)
 			resources.Position = UDim2.fromOffset(0, mobile.Body * 1.5)
 		end
-		local listTop = if scrollHeader then 0 else headerHeight + mobile.Gap
+		local listTop = headerHeight + mobile.Gap
 		list.Position = UDim2.fromOffset(0, listTop)
 		list.Size = UDim2.new(1, 0, 1, -listTop)
 	end

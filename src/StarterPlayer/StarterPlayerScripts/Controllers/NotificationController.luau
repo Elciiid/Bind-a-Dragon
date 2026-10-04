@@ -93,9 +93,18 @@ local function show(entry: Entry)
 	end)
 end
 
+-- Phones with a window open: the window fills the screen, so only errors / rewards / announcements show (at the bottom,
+-- never over the window's title banner); plain info waits until the window closes.
+local function windowOnPhone(): boolean
+	return HudLayout.IsPhone() and HudLayout.HasFocus()
+end
+
 pump = function()
 	if RevealGate.IsActive() or Players.LocalPlayer:GetAttribute("RewardPopupOpen") == true then return end
 	while #visible < UITheme.Toasts.MaxVisible and #waiting > 0 do
+		if windowOnPhone() and (waiting[1] :: Entry).Priority == 0 then
+			return -- waiting is sorted by priority: the rest is plain info too
+		end
 		show(table.remove(waiting, 1) :: Entry)
 	end
 end
@@ -316,12 +325,33 @@ function NotificationController:Init()
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = container
 	Toast.SetContainer(container)
-	HudLayout.OnLayoutChanged(function(isPhone)
-		Toast.SetPhone(isPhone)
+	local atBottom = false
+	local function place()
 		container.Size = UDim2.fromOffset(math.min(UITheme.MobileUI.ToastWidth, HudLayout.GetUsableRect().Width - UITheme.MobileUI.Padding * 2), 0)
 		container.AutomaticSize = Enum.AutomaticSize.Y
-		-- top-center, under the travel row
-		container.Position = UDim2.new(0.5, 0, 0, HudLayout.TopReserved() + UITheme.Toasts.Gap)
+		atBottom = windowOnPhone()
+		if atBottom then
+			-- phones with a window open: bottom-center, clear of the window's title banner
+			container.AnchorPoint = Vector2.new(0.5, 1)
+			container.Position = UDim2.new(0.5, 0, 1, -UITheme.Toasts.Gap)
+		else
+			-- top-center, under the travel row
+			container.AnchorPoint = Vector2.new(0.5, 0)
+			container.Position = UDim2.new(0.5, 0, 0, HudLayout.TopReserved() + UITheme.Toasts.Gap)
+		end
+	end
+	HudLayout.OnLayoutChanged(function(isPhone)
+		Toast.SetPhone(isPhone)
+		place()
+	end)
+	task.spawn(function()
+		while true do
+			task.wait(0.25)
+			if windowOnPhone() ~= atBottom then
+				place()
+				pump() -- a window closed: waiting info can show now
+			end
+		end
 	end)
 	Players.LocalPlayer:GetAttributeChangedSignal("RewardPopupOpen"):Connect(function()
 		container.Visible = Players.LocalPlayer:GetAttribute("RewardPopupOpen") ~= true
