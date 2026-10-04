@@ -397,12 +397,14 @@ Text.Onboarding = {
 	FreeUpgrade = "Free upgrade",
 	Pointer = "▼",
 	FallingStar = "A falling star answers your call!",
-	Pool = "First-bind pool · guaranteed Rare or better",
-	PoolRow = "Special first-bind pool",
-	Quests = "Quests reward your adventures!",
-	Rebirth = "Keep earning gold to unlock your first rebirth!",
-	Spire = "Your dragon is ready: try the Dragon Spire!",
-	Night = "Night has fallen: you can bind a new dragon!",
+	StarterHatched = "Your first dragon, {name}, hatched!",
+	WelcomeTitle = "Your first dragon!",
+	WelcomeTag = "Your starter dragon",
+	-- once-only hints (short and quiet)
+	Quests = "Quests give rewards!",
+	Rebirth = "Save gold for your first rebirth!",
+	Spire = "Try the Dragon Spire!",
+	Night = "Night! Bind a new dragon!",
 }
 -- Presentation wording is centralized here; controllers only interpolate confirmed/shared values.
 Text.Potions = {

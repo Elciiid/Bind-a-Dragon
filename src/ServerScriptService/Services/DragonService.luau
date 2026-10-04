@@ -13,7 +13,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
-local IndexService = require(script.Parent.IndexService)
 local QuestService = require(script.Parent.QuestService)
 local OnboardingService = require(script.Parent.OnboardingService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
@@ -25,7 +24,6 @@ local Leveling = require(ReplicatedStorage.Shared.Config.Leveling)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local Rarities = require(ReplicatedStorage.Shared.Config.Rarities)
 local TraitConfig = require(ReplicatedStorage.Shared.Config.Traits)
-local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local PlayerDataTypes = require(ReplicatedStorage.Shared.Types.PlayerData)
 
@@ -237,26 +235,10 @@ local function onRoll(player: Player, dragonId: unknown, kind: "Trait" | "Grade"
 	end
 end
 
--- Brand-new players (no dragons ever) get the starter dragon from Config/Data, so income starts right away.
-local function grantStarter(player: Player, data: PlayerDataTypes.PlayerData)
-	local speciesId = DataConfig.StarterDragon
-	if speciesId == nil or Dragons[speciesId] == nil or data.NextDragonId ~= 1 or next(data.Dragons) ~= nil then
-		return
-	end
-	local dragonId = tostring(data.NextDragonId)
-	data.NextDragonId += 1
-	data.Dragons[dragonId] = { Id = dragonId, SpeciesId = speciesId, Level = 1, ObtainedAt = os.time() }
-	table.insert(data.RoostDragonIds, dragonId)
-	IndexService:Sync(player, data)
-	notify:FireClient(player, `Your first dragon, {Dragons[speciesId].Name}, has hatched in your roost!`, "moment", {
-		Moment = "NewDragon",
-		SpeciesId = speciesId,
-		Level = 1,
-	})
-end
+-- The starter dragon is no longer granted at join: it hatches from the welcome bind (OnboardingService / BindingService),
+-- or right away when the player skips the tutorial.
 
 function DragonService:Start()
-	DataService:OnDataLoaded(grantStarter)
 	levelUpDragon.OnServerEvent:Connect(onLevelUp)
 	rollTrait.OnServerEvent:Connect(function(player, dragonId)
 		onRoll(player, dragonId, "Trait")

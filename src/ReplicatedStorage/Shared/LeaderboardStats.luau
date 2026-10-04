@@ -26,7 +26,7 @@ end
 function Stats.Backfill(data: any)
 	if (data.RarestOneIn or 0) > 0 then return end
 	for _, dragon in data.Dragons do
-		if not dragon.Champion then Stats.RecordBind(data, dragon.SpeciesId, dragon.MutationId) end
+		if not dragon.Champion and not dragon.Starter then Stats.RecordBind(data, dragon.SpeciesId, dragon.MutationId) end
 	end
 end
 function Stats.Encode(board: string, data: any): number

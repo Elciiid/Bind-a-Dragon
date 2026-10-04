@@ -11,6 +11,8 @@
 -- end of any night they haven't bound (Config/Products AutoBindSecondsLeft), at the altar of the area they're in.
 -- Rosters: each area binds only its Config/Areas Species; element areas are their element's home (all rarities),
 -- Starter Meadow lets tonight's constellation pick the element.
+-- A brand-new player's first bind is the WELCOME BIND (OnboardingService): it always hatches the starter dragon, by day
+-- or night, uses no Echo Sigil / potion / offering, keeps the night's normal bind and is not a roll (no odds, no records).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -80,12 +82,12 @@ local function checkAltarUse(player: Player, altar: Instance, part: BasePart, al
 	end
 
 	local state = Cycle.GetState()
-	local tutorial = allowSigil and OnboardingService:CanFirstBind(data, getAreaId(altar))
-	if not state.IsNight and not tutorial then
+	local welcome = allowSigil and OnboardingService:CanWelcomeBind(data, getAreaId(altar))
+	if not state.IsNight and not welcome then
 		notify:FireClient(player, "The stars only answer at night.", "error")
 		return nil, nil
 	end
-	if not tutorial and data.LastBindNight == state.NightIndex and (not allowSigil or data.EchoSigils <= 0) then
+	if not welcome and data.LastBindNight == state.NightIndex and (not allowSigil or data.EchoSigils <= 0) then
 		notify:FireClient(player, "You've already bound tonight. Come back next night!", "error")
 		return nil, nil
 	end
@@ -112,17 +114,10 @@ local function performBind(
 	state: Cycle.State,
 	areaId: string,
 	luck: number,
-	usePotion: boolean,
-	tutorial: boolean?
+	usePotion: boolean
 )
 	local element = getRollElement(areaId, state.Constellation)
-	local outcome, tutorialSpeciesOneIn, tutorialMutationOneIn
-	if tutorial then
-		luck = OnboardingConfig.BindLuck
-		outcome, tutorialSpeciesOneIn, tutorialMutationOneIn = OnboardingService:RollFirstBind(rng, element)
-	else
-		outcome = BindingOdds.Roll(rng, areaId, element, luck)
-	end
+	local outcome = BindingOdds.Roll(rng, areaId, element, luck)
 	local speciesId = outcome and outcome.SpeciesId
 	local species = speciesId and Dragons[speciesId]
 	local rarity = species and (function()
@@ -137,7 +132,7 @@ local function performBind(
 
 	local mutationId = outcome.MutationId
 	local mutation = Mutations.Get(mutationId)
-	local usedSigil = not tutorial and data.LastBindNight == state.NightIndex
+	local usedSigil = data.LastBindNight == state.NightIndex
 	if usedSigil then data.EchoSigils -= 1 end
 	local newSpecies = data.Index[speciesId] == nil -- not in the Index yet (auto sell can keep new species)
 	local dragonId = tostring(data.NextDragonId)
@@ -149,10 +144,9 @@ local function performBind(
 		ObtainedAt = os.time(),
 		MutationId = if mutationId ~= Mutations.NormalId then mutationId else nil,
 	}
-	if not tutorial or state.IsNight then data.LastBindNight = state.NightIndex end
+	data.LastBindNight = state.NightIndex
 	LeaderboardStats.RecordBind(data, speciesId, mutationId, outcome.BaseOneIn)
-	if tutorial then OnboardingService:DidFirstBind(player, data, state) end
-	if usePotion and not tutorial then
+	if usePotion then
 		BoostService:ConsumeLuckCharge(data) -- the armed luck charge (if any) was used by this bind
 	end
 	local constellationId = state.Constellation.Id
@@ -169,11 +163,10 @@ local function performBind(
 		MutationId = mutationId,
 		BaseOneIn = outcome.BaseOneIn,
 		EffectiveOneIn = outcome.EffectiveOneIn,
-		SpeciesOneIn = tutorialSpeciesOneIn or (if breakdown then breakdown.SpeciesOneIn else outcome.EffectiveOneIn),
-		MutationOneIn = tutorialMutationOneIn or (if breakdown then breakdown.MutationOneIn else 1),
-		TutorialFirstBind = tutorial == true,
+		SpeciesOneIn = if breakdown then breakdown.SpeciesOneIn else outcome.EffectiveOneIn,
+		MutationOneIn = if breakdown then breakdown.MutationOneIn else 1,
 		UsedEchoSigil = usedSigil,
-		Auto = not usePotion and not tutorial,
+		Auto = not usePotion,
 		AutoSoldGold = autoSoldGold, -- set when auto sell sold the new dragon: the reveal shows "Auto-sold for X gold!"
 	})
 	QuestService:Progress(player, "Bind", 1)
@@ -189,9 +182,38 @@ local function performBind(
 	end
 end
 
+-- The welcome bind: the starter dragon hatches (no roll, no odds, no Rarest record, no auto sell, the night stays free).
+local function performWelcomeBind(player: Player, data: PlayerDataTypes.PlayerData, state: Cycle.State)
+	local dragonId = OnboardingService:DidWelcomeBind(player, data, state)
+	local dragon = dragonId and data.Dragons[dragonId]
+	if dragonId == nil or dragon == nil then
+		notify:FireClient(player, "The stars were silent. Try again.", "error")
+		return
+	end
+	bindResult:FireClient(player, {
+		DragonId = dragonId,
+		SpeciesId = dragon.SpeciesId,
+		ConstellationId = state.Constellation.Id,
+		Luck = 1,
+		MutationId = Mutations.NormalId,
+		BaseOneIn = 1,
+		EffectiveOneIn = 1,
+		SpeciesOneIn = 1,
+		MutationOneIn = 1,
+		Welcome = true, -- the client shows the reveal without odds
+		UsedEchoSigil = false,
+		Auto = false,
+	})
+	QuestService:Progress(player, "Bind", 1)
+end
+
 local function tryBind(player: Player, altar: Instance, part: BasePart)
 	local data, state = checkAltarUse(player, altar, part, true)
 	if data == nil or state == nil then
+		return
+	end
+	if OnboardingService:CanWelcomeBind(data, getAreaId(altar)) then
+		performWelcomeBind(player, data, state)
 		return
 	end
 
@@ -203,7 +225,7 @@ local function tryBind(player: Player, altar: Instance, part: BasePart)
 		Luck.GetArmedPotionLuck(data),
 		RebirthMilestones.GetAscendedLuck(data.Rebirths)
 	)
-	performBind(player, data, state, getAreaId(altar), luck.Total, true, OnboardingService:CanFirstBind(data, getAreaId(altar)))
+	performBind(player, data, state, getAreaId(altar), luck.Total, true)
 end
 
 local function tryOffer(player: Player, altar: Instance, part: BasePart)
@@ -337,7 +359,7 @@ function BindingService:Start()
 		if not state.IsNight then
 			for _, player in Players:GetPlayers() do
 				local data = DataService:GetData(player)
-				if data and OnboardingService:CanFirstBind(data, OnboardingConfig.StarterArea) then newcomer = true; break end
+				if data and OnboardingService:CanWelcomeBind(data, OnboardingConfig.StarterArea) then newcomer = true; break end
 			end
 		end
 		for _, prompt in prompts do
@@ -347,7 +369,8 @@ function BindingService:Start()
 		if state.IsNight and state.SecondsLeft <= Products.AutoBindSecondsLeft then
 			for _, player in Players:GetPlayers() do
 				local data = DataService:GetData(player)
-				if data and data.LastBindNight ~= state.NightIndex and MonetizationService:OwnsPass(player, "AutoBind") then
+				if data and data.LastBindNight ~= state.NightIndex and MonetizationService:OwnsPass(player, "AutoBind")
+					and not OnboardingService:CanWelcomeBind(data, OnboardingConfig.StarterArea) then -- the welcome bind comes first
 					guarded(player, function()
 						if data.LastBindNight ~= state.NightIndex then
 							performBind(player, data, state, getPlayerAreaId(player, data), Products.AutoBindLuck, false)

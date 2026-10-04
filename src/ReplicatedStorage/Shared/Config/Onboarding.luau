@@ -1,8 +1,8 @@
 --!strict
 return {
-	StarterArea = "StarterMeadow", -- The special first bind never unlocks another area's roster.
-	MinimumRarity = "Rare", -- Conditional tutorial pool; normal binding odds are unchanged.
-	BindLuck = 1, -- Tutorial binds do not consume offerings or armed potions.
+	-- First-time flow (OnboardingService): the welcome bind at this area's altar hatches the starter dragon
+	-- (Config/Data.StarterDragon), by day or night, with no Echo Sigil / potion / offering, and keeps the night's bind.
+	StarterArea = "StarterMeadow",
 	Steps = { Start = 1, Home = 2, Upgrade = 3, Night = 4, Complete = 5, Skipped = -1 },
 	HomeArrivalRange = 90, -- Studs from the assigned sanctuary pivot (sanctuaries are large).
 	RebirthHintFraction = 0.25, -- Earn this fraction of the next rebirth price before the hint.

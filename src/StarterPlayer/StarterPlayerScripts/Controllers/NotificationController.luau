@@ -179,7 +179,8 @@ function NotificationController:Moment(payload: any, fallback: string?)
 		local mutation = Mutations.Get(payload.MutationId)
 		local tag
 		local odds = Text.Odds
-		local hasOdds = moment == "NewDragon" and type(payload.EffectiveOneIn) == "number"
+		local welcome = moment == "NewDragon" and payload.Welcome == true -- the starter from the welcome bind: not a roll, no odds
+		local hasOdds = moment == "NewDragon" and type(payload.EffectiveOneIn) == "number" and not welcome
 		local line, lineColor, chips, details, hint, excitement
 		if moment == "Evolve" then
 			local under = if payload.Under then Text.Format(words.EvolveUnder, { constellation = payload.Under }) else ""
@@ -200,10 +201,6 @@ function NotificationController:Moment(payload: any, fallback: string?)
 				table.insert(chips, { Text = Text.Reveal.Auto, Color = UITheme.Colors.TextMuted })
 			end
 			local rows = { { odds.RowSpecies, OddsText.OneInExact(payload.SpeciesOneIn or n) } }
-			if payload.TutorialFirstBind then
-				table.insert(chips, { Text = Text.Onboarding.Pool, Color = UITheme.Colors.Gold })
-				table.insert(rows, { Text.Onboarding.PoolRow, Text.Onboarding.Pool })
-			end
 			if mutation.Id ~= Mutations.NormalId then
 				table.insert(rows, { odds.RowMutation, OddsText.OneInExact(payload.MutationOneIn or 1) })
 			end
@@ -223,11 +220,13 @@ function NotificationController:Moment(payload: any, fallback: string?)
 			end
 			details = { Title = odds.DetailsTitle, Rows = rows }
 			hint = odds.Details
+		elseif welcome then
+			tag = Text.Onboarding.WelcomeTag
 		else
 			tag = Text.Format(if payload.Auto then words.AutoTag else words.NewDragonTag, { rarity = species.Rarity, element = species.Element })
 		end
 		RewardPopup.Show({
-			Title = if moment == "Evolve" then words.Evolve elseif excitement then excitement elseif mutation.Id ~= Mutations.NormalId then words.Mutation else words.NewDragon,
+			Title = if moment == "Evolve" then words.Evolve elseif welcome then Text.Onboarding.WelcomeTitle elseif excitement then excitement elseif mutation.Id ~= Mutations.NormalId then words.Mutation else words.NewDragon,
 			Name = if mutation.Id ~= Mutations.NormalId then `{mutation.Name} {species.Name}` else species.Name,
 			Tag = tag,
 			Line = line,

@@ -11,6 +11,7 @@ export type Dragon = {
 	Trait: string?, -- Config/Traits trait Id (rolled with Wyrm Runes)
 	Grade: string?, -- Config/Traits grade Id (rolled with Dragonstones)
 	MutationId: string?, -- Config/Mutations; nil is the backward-compatible Normal state
+	Starter: boolean?, -- the starter from the welcome bind (Onboarding): never a Rarest leaderboard record
 	Champion: boolean?, -- the rebirth champion dragon (Config/RebirthMilestones Champion)
 	Favorite: boolean?, -- the player starred it: it can never be sold (manual, inventory or auto sell) (SetDragonFavorite)
 }

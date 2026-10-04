@@ -18,7 +18,7 @@ local OnboardingController = require(script.Parent.OnboardingController)
 type BindResult = {
 	DragonId: string, SpeciesId: string, ConstellationId: string, Luck: number, MutationId: string,
 	BaseOneIn: number, EffectiveOneIn: number, SpeciesOneIn: number, MutationOneIn: number, Auto: boolean,
-	TutorialFirstBind: boolean?,
+	Welcome: boolean?, -- the welcome bind (OnboardingService): the starter dragon, no odds
 	AutoSoldGold: number?, -- auto sell sold the new dragon for this much gold (shown inside the reveal pop-up)
 }
 
@@ -40,7 +40,7 @@ local function present(result: BindResult)
 		Moment = "NewDragon", DragonId = result.DragonId, SpeciesId = result.SpeciesId, Level = 1,
 		MutationId = mutation.Id, Auto = result.Auto, AutoSoldGold = result.AutoSoldGold, BaseOneIn = result.BaseOneIn,
 		EffectiveOneIn = result.EffectiveOneIn, SpeciesOneIn = result.SpeciesOneIn,
-		MutationOneIn = result.MutationOneIn, Luck = result.Luck, TutorialFirstBind = result.TutorialFirstBind,
+		MutationOneIn = result.MutationOneIn, Luck = result.Luck, Welcome = result.Welcome,
 		BaseGoldPerSecond = species.BaseGoldPerSecond, BasePower = species.BasePower,
 		MutationIncomeMultiplier = mutation.IncomeMultiplier, MutationPowerMultiplier = mutation.PowerMultiplier,
 	}
@@ -49,10 +49,10 @@ local function present(result: BindResult)
 		if delivered then return end
 		delivered = true
 		local odds = Text.Format(Text.Odds.Plain, { oneIn = OddsText.OneInExact(result.EffectiveOneIn) })
-		NotificationController:Moment(payload, species.Name .. " · " .. odds)
+		NotificationController:Moment(payload, if result.Welcome then species.Name else species.Name .. " · " .. odds)
 	end
 	local ok, err = xpcall(function()
-		if result.TutorialFirstBind then OnboardingController.PlayFirstBind() end
+		if result.Welcome then OnboardingController.PlayFirstBind() end
 		if result.Auto or CeremonyController.IsIdle() then
 			RevealGate.Reveal()
 			resultCard()

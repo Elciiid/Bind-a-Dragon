@@ -437,7 +437,7 @@ local function redraw()
 
 	local seen: { [string]: boolean } = {}
 	local tutorialUpgrade: GuiObject? = nil
-	local tutorialRare = false
+	local tutorialStarter = false
 	for index, entry in entries do
 		local id = entry.Dragon.Id
 		seen[id] = true
@@ -447,11 +447,11 @@ local function redraw()
 			cards[id] = card
 		end
 		updateCard(card, entry.Dragon, data, cap, entry.InRoost, index)
-		local species = Dragons[entry.Dragon.SpeciesId]
-		local rare = species ~= nil and species.Rarity == Onboarding.MinimumRarity
-		if entry.Dragon.Level < cap and (tutorialUpgrade == nil or (rare and not tutorialRare)) then
+		-- the tutorial's "Tap Upgrade!" points at the starter from the welcome bind (else the first card)
+		local starter = entry.Dragon.Starter == true
+		if entry.Dragon.Level < cap and (tutorialUpgrade == nil or (starter and not tutorialStarter)) then
 			tutorialUpgrade = card.Upgrade.Instance
-			tutorialRare = rare
+			tutorialStarter = starter
 		end
 	end
 	HudLayout.RegisterTutorialTarget("DragonUpgrade", tutorialUpgrade)

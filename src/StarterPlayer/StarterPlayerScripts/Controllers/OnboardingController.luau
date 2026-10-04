@@ -173,10 +173,8 @@ function controller:Start()
 			if dragon.Level < cap then table.insert(candidates, { Id = id, Dragon = dragon }) end
 		end
 		table.sort(candidates, function(a, b)
-			local aSpecies, bSpecies = Dragons[a.Dragon.SpeciesId], Dragons[b.Dragon.SpeciesId]
-			local aRare = aSpecies and aSpecies.Rarity == Config.MinimumRarity
-			local bRare = bSpecies and bSpecies.Rarity == Config.MinimumRarity
-			if aRare ~= bRare then return aRare == true end
+			local aStarter, bStarter = a.Dragon.Starter == true, b.Dragon.Starter == true
+			if aStarter ~= bStarter then return aStarter end
 			return a.Id < b.Id
 		end)
 		if candidates[1] then (ReplicatedStorage.Remotes.LevelUpDragon :: RemoteEvent):FireServer(candidates[1].Id, 1) end
