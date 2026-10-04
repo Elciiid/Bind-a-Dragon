@@ -88,14 +88,6 @@ return {
 		WindowMargin = 12, WindowTop = 8, WindowBottom = 12,
 		PanelGlowTransparency = 0.82, PatternTransparency = 0.97,
 		CardAccentMix = 0.12, CardBorder = 1.25,
-		TutorialWidth = 350, TutorialHeight = 144, TutorialIcon = 40, TutorialTitle = 18,
-		TutorialMinWidth = 240, TutorialTitleHeight = 24, TutorialInstructionHeight = 36,
-		TutorialProgressHeight = 3, TutorialActionGap = 8,
-		TutorialCompactBelow = 320, TutorialCompactHeight = 128, TutorialCompactPadding = 8,
-		TutorialCompactGap = 4, TutorialCompactTitleHeight = 20,
-		TutorialInstruction = 16, TutorialStep = 14, TutorialOutline = 2,
-		TutorialEdgeArrow = 28, TutorialTargetPadding = 6, TutorialBottomGap = 12,
-		TutorialRefresh = 0.15, TutorialPulseSeconds = 1.4, TutorialFeedbackSeconds = 1.2,
 		TravelHeight = 52, TravelSlot = 70, TravelIcon = 30, TravelText = 14,
 		TravelTop = 6, TravelGap = 16, -- small top margin aligns the phone row with Roblox's microphone/chat controls
 		SideIcon = 30, SideGap = 4, SideTop = 4, SideLeft = 12, -- centered vertical phone column; minimum top clearance and 44px targets
@@ -467,41 +459,6 @@ return {
 	},
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
 	-- terrain/buildings (never AlwaysOnTop). Sizes are pixels (width, height).
-	Onboarding = {
-		PanelSize = Vector2.new(430, 170), -- Compact title, instruction, progress and touch action row.
-		HintWidth = 0.9,
-		Padding = 12,
-		TitleSize = 20,
-		TitleMinSize = 12,
-		TitleHeight = 28,
-		StepBadgeWidth = 60,
-		StepBadgeTextSize = 13,
-		HintTop = 48,
-		ProgressTop = 100,
-		ProgressHeight = 4,
-		ProgressGap = 6,
-		ActionTextSize = 16,
-		ActionMinTextSize = 11,
-		HintTextSize = 17,
-		HintMinTextSize = 12,
-		HintLineHeight = 44,
-		SkipSize = UDim2.fromOffset(142, 44),
-		ActionWidth = 142,
-		ActionHeight = 44,
-		BorderThickness = 1.5,
-		PointerSize = 28,
-		PointerOffset = 18,
-		PointerBounds = UDim2.fromOffset(34, 34),
-		TrailSize = Vector3.new(0.1, 0.1, 0.1), -- Invisible, non-queryable billboard anchor, not a floor decal.
-		TrailPixels = Vector2.new(34, 34),
-		TrailTextSize = 32,
-		TrailOutline = 2,
-		FallingStarSize = Vector3.new(4, 4, 4),
-		StarCameraPosition = Vector3.new(0, 35, 95),
-		StarLabelY = 0.78,
-		StarLabelHeight = 0.12,
-		RevealLayerOffset = 8,
-	},
 	WorldLabels = {
 		MaxDistance = 40, -- studs: roost owner signs, dragon nameplates, portal names, upgrade stands, area signs
 		NameplateMaxDistance = 70, -- studs: dragon nameplates (big dragons fly high in the 150-stud sanctuaries)

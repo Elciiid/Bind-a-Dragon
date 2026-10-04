@@ -56,12 +56,4 @@ function Geometry.TopRow(width: number, reserved: number, count: number, wantedS
 	return { Slot = slot, Width = count * slot + math.max(0, count - 1) * gap, X = x, Fits = fits }
 end
 
--- A right-side tutorial card between the travel row and hotbar. Its instruction area may scroll
--- on exceptionally short viewports; the action row remains physical size and inside the safe area.
-function Geometry.Tutorial(width: number, height: number, wantedWidth: number, minimumWidth: number, wantedHeight: number, textHeight: number, instructionHeight: number, top: number, bottom: number, padding: number)
-	local w = math.max(1, math.min(wantedWidth, math.max(minimumWidth, width / 2 - padding), width - padding * 2))
-	local h = math.max(1, math.min(math.max(wantedHeight, wantedHeight + textHeight - instructionHeight), height - top - bottom - padding))
-	return { Width = w, Height = h, X = width - padding - w, Y = math.clamp(top, padding, math.max(padding, height - bottom - padding - h)) }
-end
-
 return Geometry

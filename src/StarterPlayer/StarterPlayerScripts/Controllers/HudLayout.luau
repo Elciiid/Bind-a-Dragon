@@ -263,7 +263,7 @@ local function layoutTimers()
 	timerStack.Size = UDim2.fromOffset(math.max(UITheme.MobileUI.Touch, width), 0)
 	local captionSpace = if phone then safeProbe.AbsoluteSize.Y - jumpReserve() - HudLayout.TopReserved() - sizes.PhoneTimerIcon - sizes.TimerGap - UITheme.MobileUI.Gap else UITheme.MobileUI.TimerCaptionMaxHeight
 	timerStack:SetAttribute("CaptionMaxHeight", math.max(UITheme.MobileUI.Small, math.min(UITheme.MobileUI.TimerCaptionMaxHeight, captionSpace)))
-	timerStack.Visible = player:GetAttribute("TutorialGuideOpen") ~= true
+	timerStack.Visible = true -- the onboarding guide never hides the timers
 	if phone then
 		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -jumpReserve())
 	else
@@ -360,7 +360,6 @@ local function ensure(): ScreenGui
 	end
 	player:GetAttributeChangedSignal("ForceLayout"):Connect(check)
 	player:GetAttributeChangedSignal("RewardPopupOpen"):Connect(updatePopupHiding)
-	player:GetAttributeChangedSignal("TutorialGuideOpen"):Connect(layoutTimers)
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(relayout)
 	safeProbe:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
 	safeProbe:GetPropertyChangedSignal("AbsolutePosition"):Connect(relayout)

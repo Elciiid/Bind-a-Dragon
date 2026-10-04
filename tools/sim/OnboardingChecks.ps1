@@ -9,7 +9,7 @@ local function node(path) return setmetatable({Path=path}, {__index=function(t,k
 local env = setmetatable({
  game={GetService=function(_,n) return node(n) end}, script={Parent=node("ServerScriptService/Services")},
  Color3={fromRGB=function(...) return {...} end,new=function(...) return {...} end},
- Vector2={new=function(x,y) return {X=x,Y=y} end}, Vector3={new=function(...) return {...} end},
+ Vector2={new=function(x,y) return {X=x,Y=y} end}, Vector3={new=function(...) return {...} end}, NumberRange={new=function(a,b) return {Min=a,Max=b or a} end},
  Enum=setmetatable({}, {__index=function(_,group) return setmetatable({}, {__index=function(_,key) return group.."."..key end}) end}),
  Font={new=function(...) return {...} end}, Rect={new=function(...) return {...} end},
  UDim2={fromOffset=function(x,y) return {X={Scale=0,Offset=x},Y={Scale=0,Offset=y}} end},
@@ -36,11 +36,8 @@ $chunks.Add('sources["ServerScriptService/Services/OnboardingService"]=[====['+(
 $chunks.Add(@'
 local service=loadModule(node("ServerScriptService/Services/OnboardingService"))
 local config=loadModule(node("ReplicatedStorage/Shared/Config/Onboarding"))
-local view=loadModule(node("ReplicatedStorage/Shared/Config/UITheme")).Onboarding
-assert(config.TrailGroundOffset>=2 and config.TrailMaxDistance>config.TrailCount*config.TrailSpacing)
-assert(config.NightHintSeconds>=30 and view.TrailPixels.X>=30 and view.TrailPixels.Y>=30)
-assert(config.TrailLowCount>0 and config.TrailLowCount<config.TrailCount)
-print("PASS: raised-star and reduced-effects trail configuration; current TutorialCard geometry is checked by RunMobileUIChecks.ps1, not the retired hint panel")
+assert(config.NightHintSeconds>=10 and config.WaitHintSeconds>0 and config.Twinkle.NearDistance>0 and config.Skip.PhoneSize.Y>=44)
+print("PASS: Twinkle / hint timing / touch-sized Skip configuration (one-line contracts are in RunMobileUIChecks.ps1)")
 local dataConfig=loadModule(node("ReplicatedStorage/Shared/Config/Data"))
 local starter=dataConfig.StarterDragon
 local player={Name="Tester"}

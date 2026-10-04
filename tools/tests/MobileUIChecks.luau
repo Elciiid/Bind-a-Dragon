@@ -123,24 +123,6 @@ return function(clientSources: { [string]: string }?)
 		end
 		for slot = 1, 10 do assert(visited[slot]) end
 		pages += 1
-		for _, textHeight in { mobile.Body, mobile.Body * 3, mobile.Body * 10 } do
-			local compact = height < mobile.TutorialCompactBelow
-			local padding = if compact then mobile.TutorialCompactPadding else mobile.Padding
-			local gap = if compact then mobile.TutorialCompactGap else mobile.TutorialActionGap
-			local titleHeight = if compact then mobile.TutorialCompactTitleHeight else mobile.TutorialTitleHeight
-			local top = navigationBottom + mobile.Gap + (if compact then 0 else mobile.Gap)
-			local bottom = mobile.HotbarBottom + mobile.Touch
-			local card = Geometry.Tutorial(width, height, mobile.TutorialWidth, mobile.TutorialMinWidth,
-				if compact then mobile.TutorialCompactHeight else mobile.TutorialHeight,
-				textHeight, mobile.TutorialInstructionHeight, top, bottom, padding)
-			assert(card.X >= padding and card.X + card.Width <= width - padding)
-			assert(card.Y >= navigationBottom, "Tutorial never covers the navigation row")
-			assert(card.Y + card.Height <= height - bottom - padding)
-			local footer = card.Height - padding - mobile.Touch
-			assert(footer - (padding + titleHeight + gap) - gap - mobile.TutorialProgressHeight > 0, "Instruction viewport fits above fixed 44px actions")
-			assert((card.Width - padding * 2 - gap) / 2 >= mobile.Touch)
-			tutorials += 1
-		end
 	end
 	local rect = Geometry.Intersection(10, 20, 90, 80, 0, 0, 100, 100)
 	assert(rect and rect.Left == 10 and rect.Bottom == 80)
@@ -161,7 +143,17 @@ return function(clientSources: { [string]: string }?)
 	local p = Ceremony.Profiles.Quick
 	assert(p.Anticipation + p.Gather + p.Silhouette + p.Entrance + p.Hold < duration.Common)
 	assert(Ceremony.SkipButtonSize.Y >= mobile.Touch and Ceremony.ReducedHoldSeconds <= 0.3)
-	for step = 1, 5 do assert(Text.Onboarding.Titles[step] and Text.Onboarding.Steps[step] and Text.Onboarding.Icons[step]) end
-	print(`PASS mobile UI: {envelopes} safe popup envelopes, {grids} card grids, {pages} complete hotbar paginations, {sideColumns} centered side columns, {topRows} centered/gapped top rows, {tutorials} tutorial envelopes, 6 clipping intersections, text/touch/odds/reveal contracts. Runtime rendering/input NOT tested.`)
+	-- onboarding (KISS): one short line per step (at most 8 words), big text, a touch-sized Skip
+	local Onboarding = require(shared.Config.Onboarding)
+	for key, line in Text.Onboarding.Lines do
+		local words = 0
+		for _ in string.gmatch(line, "%S+") do words += 1 end
+		assert(words >= 1 and words <= 8, `Onboarding line {key} has {words} words`)
+		tutorials += 1
+	end
+	for _, key in { "Follow", "Bind", "Home", "OpenBag", "Upgrade", "Night", "NightNow" } do assert(Onboarding.Icons[key], key) end
+	assert(Onboarding.Bubble.PhoneTextSize >= 16 and Onboarding.Bubble.TextSize >= Onboarding.Bubble.PhoneTextSize)
+	assert(Onboarding.Skip.PhoneSize.Y >= mobile.Touch, "Skip is a touch target on phones")
+	print(`PASS mobile UI: {envelopes} safe popup envelopes, {grids} card grids, {pages} complete hotbar paginations, {sideColumns} centered side columns, {topRows} centered/gapped top rows, {tutorials} one-line onboarding steps, 6 clipping intersections, text/touch/odds/reveal contracts. Runtime rendering/input NOT tested.`)
 	print(`PASS: {references} direct text and MobileUI source references resolve in the actual shared configuration.`)
 end

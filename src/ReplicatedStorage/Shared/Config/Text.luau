@@ -376,26 +376,22 @@ Text.Leaderboards = {
 	GoldApprox = "≈{value}",
 	RankNote = "Cached global ranks · tied scores use store order",
 }
+-- First-time flow (OnboardingController): Twinkle the guide star says ONE short line (at most 8 words) per step.
 Text.Onboarding = {
-	Titles = {
-		[1] = "YOUR FIRST DRAGON",
-		[2] = "YOUR DRAGON'S HOME",
-		[3] = "A FREE UPGRADE",
-		[4] = "WATCH THE NIGHT SKY",
-		[5] = "ANOTHER STAR AWAITS",
+	Lines = {
+		Follow = "Follow the star!", -- step 1, far from the altar
+		BindKeyboard = "Hold E at the altar!", -- step 1, at the altar (by input)
+		BindTouch = "Hold Bind at the altar!",
+		BindGamepad = "Hold X at the altar!",
+		Home = "Your dragon hatched! Go home!", -- step 2
+		OpenBag = "Open your Inventory!", -- step 3, Inventory closed
+		Upgrade = "Tap Upgrade! It's free!", -- step 3, Inventory open
+		Night = "Bind again tonight!", -- step 4 (shown a few seconds, then Twinkle naps until night)
+		NightNow = "Night is here! Bind a dragon!", -- step 5
 	},
-	StepCount = "{step} / {total}",
-	TrailStar = "★",
-	Steps = {
-		[1] = "Bind your first dragon!",
-		[2] = "Head Home to meet your dragon!",
-		[3] = "Your dragons earn gold! Your first upgrade is free.",
-		[4] = "Watch the sky: another dragon awaits tonight!",
-		[5] = "Night has fallen: you can bind a new dragon!",
-	},
-	Skip = "Skip tutorial",
-	FreeUpgrade = "Free upgrade",
-	Pointer = "▼",
+	Skip = "Skip",
+	SkipSure = "Skip? Tap again",
+	FreeUpgrade = "Free!",
 	FallingStar = "A falling star answers your call!",
 	StarterHatched = "Your first dragon, {name}, hatched!",
 	WelcomeTitle = "Your first dragon!",
@@ -473,14 +469,4 @@ Text.Reveal.BasePower = "Base Spire power"
 Text.Reveal.VariantIncome = "Mutation gold / sec"
 Text.Reveal.VariantPower = "Mutation Spire power"
 Text.Reveal.Auto = "Auto-bind"
-Text.Onboarding.TargetUnavailable = "Your target is loading. You can keep exploring."
-Text.Onboarding.Touch = "Tap"
-Text.Onboarding.KeyboardBind = "E · Bind"
-Text.Onboarding.ControllerBind = "X · Bind"
-Text.Onboarding.GoHome = "Go Home"
-Text.Onboarding.OpenInventory = "Open Dragons"
-Text.Onboarding.Completed = "Step complete!"
-Text.Onboarding.Wait = "Keep exploring until nightfall"
-Text.Onboarding.GuideArrow = "➤"
-Text.Onboarding.Icons = { [1] = "Stardust", [2] = "Travel_Home", [3] = "Gold", [4] = "Sky_Moon", [5] = "Stardust" }
 return Text
