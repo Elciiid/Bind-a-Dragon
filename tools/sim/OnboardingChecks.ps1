@@ -27,7 +27,7 @@ cache["ReplicatedStorage/Shared/Cycle"]={GetState=function() return cycleState e
 cache["ReplicatedStorage/Shared/DragonStats"]={}
 '@)
 Get-ChildItem "$repo/src/ReplicatedStorage/Shared" -Filter '*.luau' -Recurse | ForEach-Object {
-    $key = 'ReplicatedStorage/Shared/' + [System.IO.Path]::GetRelativePath("$repo/src/ReplicatedStorage/Shared", $_.FullName).Replace('\','/').Replace('.luau','')
+    $key = 'ReplicatedStorage/Shared/' + $_.FullName.Substring((Resolve-Path "$repo/src/ReplicatedStorage/Shared").Path.TrimEnd("\\").Length + 1).Replace('\','/').Replace('.luau','')
     $chunks.Add('sources["'+$key+'"]=[====['+(Get-Content -LiteralPath $_.FullName -Raw)+']====]')
 }
 $chunks.Add('sources["ServerScriptService/Services/OnboardingService"]=[====['+(Get-Content "$repo/src/ServerScriptService/Services/OnboardingService.luau" -Raw)+']====]')
