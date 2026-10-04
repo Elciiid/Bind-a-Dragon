@@ -10,10 +10,14 @@
 -- Put content in win.Content; call win:Toggle() / Open() / Close(); win:OnOpen(fn) runs each time it opens.
 
 local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 
 local Style = require(script.Parent.Style)
 local Banner = require(script.Parent.Banner)
 local HudLayout = require(script.Parent.Parent.HudLayout)
+local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
 
 export type Props = {
 	Name: string,
@@ -34,11 +38,16 @@ export type Window = typeof(setmetatable({} :: {
 	Banner: Banner.Banner,
 	TitleLabel: TextLabel,
 	Content: Frame,
+	CloseButton: TextButton,
 	Scale: UIScale,
 	IsOpen: boolean,
 	OpenCallbacks: { () -> () },
 	CloseCallbacks: { () -> () },
 	Closing: boolean,
+	FadeTween: Tween?,
+	ScaleTween: Tween?,
+	Epoch: number,
+	PreviousSelection: GuiObject?,
 }, Window))
 
 function Window.new(props: Props): Window
@@ -63,8 +72,6 @@ function Window.new(props: Props): Window
 
 	-- Title banner, hanging on the top edge
 	local banner = Banner.new(frame, { Text = props.Title, Icon = props.Icon })
-	local bannerScale = Instance.new("UIScale")
-	bannerScale.Parent = banner.Holder
 	banner.Holder.AnchorPoint = Vector2.new(0.5, 0.5)
 	banner.Holder.Position = UDim2.fromScale(0.5, 0)
 
@@ -75,6 +82,7 @@ function Window.new(props: Props): Window
 	close.Position = UDim2.new(1, -12, 0, 12)
 	close.Text = ""
 	close.AutoButtonColor = false
+	close.Selectable = true
 	close.BackgroundTransparency = 1
 	close.ZIndex = 10
 	close.Parent = frame
@@ -128,7 +136,7 @@ function Window.new(props: Props): Window
 	Style.AttachPress(close, "Close")
 	local turn = TweenInfo.new(theme.Motion.IconHoverTime, Enum.EasingStyle.Back)
 	close.MouseEnter:Connect(function()
-		TweenService:Create(cross, turn, { Rotation = theme.Motion.CloseHoverTurn }):Play()
+		if not EffectsQuality.IsLow() then TweenService:Create(cross, turn, { Rotation = theme.Motion.CloseHoverTurn }):Play() end
 	end)
 	close.MouseLeave:Connect(function()
 		TweenService:Create(cross, turn, { Rotation = 0 }):Play()
@@ -139,6 +147,7 @@ function Window.new(props: Props): Window
 	content.Name = "Content"
 	content.BackgroundTransparency = 1
 	content.ZIndex = 2
+	content.ClipsDescendants = true
 	content.Parent = frame
 
 	-- while fading in/out the window sits in this CanvasGroup (it covers the screen, so the layout doesn't change)
@@ -157,35 +166,48 @@ function Window.new(props: Props): Window
 		Banner = banner,
 		TitleLabel = banner.Label,
 		Content = content,
+		CloseButton = close,
 		Scale = scale,
 		IsOpen = false,
 		OpenCallbacks = {},
 		CloseCallbacks = {},
 		Closing = false,
+		Epoch = 0,
 	}, Window)
 
 	close.Activated:Connect(function()
 		self:Close()
 	end)
+	local backConnection = UserInputService.InputBegan:Connect(function(input, processed)
+		local player = Players.LocalPlayer
+		if self.IsOpen and self.Gui.Enabled and player:GetAttribute("RewardPopupOpen") ~= true and player:GetAttribute("BindRevealActive") ~= true
+			and (input.KeyCode == Enum.KeyCode.ButtonB or (input.KeyCode == Enum.KeyCode.Escape and not processed)) then self:Close() end
+	end)
 
 	HudLayout.RegisterPopup(frame, props.Size)
-	HudLayout.OnLayoutChanged(function(isPhone)
+	local unlayout = HudLayout.OnLayoutChanged(function(isPhone)
 		local sizes = theme.Sizes
 		local bannerHeight = if isPhone then sizes.PhoneBanner else sizes.Banner
+		local closeSize = if isPhone then sizes.PhoneCloseButton else sizes.CloseButton
 		banner:Layout(
 			bannerHeight,
 			if isPhone then theme.TextSizes.PhoneBanner else theme.TextSizes.Banner,
-			if isPhone then sizes.PhoneBannerStar else sizes.BannerStar
+			if isPhone then sizes.PhoneBannerStar else sizes.BannerStar,
+			math.max(theme.MobileUI.Touch, frame.Size.X.Offset - closeSize * 2 - theme.MobileUI.Padding)
 		)
-		local safe = HudLayout.GetUsableRect()
-		bannerScale.Scale = math.min(1, math.max(1, safe.Width - theme.Sizes.Margin * 2) / math.max(1, banner.Holder.Size.X.Offset + theme.Sizes.CornerOrnament))
-		local closeSize = if isPhone then sizes.PhoneCloseButton else sizes.CloseButton
 		close.Size = UDim2.fromOffset(closeSize, closeSize)
 		cross.TextSize = math.floor(closeSize * 0.5)
-		local pad = if isPhone then sizes.WindowPadding - 4 else sizes.WindowPadding
-		local top = math.floor(bannerHeight / 2) + (if isPhone then 6 else 12)
+		local pad = if isPhone then theme.MobileUI.Padding else sizes.WindowPadding
+		local top = math.max(math.floor(bannerHeight / 2) + theme.MobileUI.Gap, closeSize / 2 + theme.MobileUI.Gap)
 		content.Position = UDim2.fromOffset(pad, top)
 		content.Size = UDim2.new(1, -pad * 2, 1, -(top + pad))
+	end)
+	gui.Destroying:Connect(function()
+		unlayout()
+		backConnection:Disconnect()
+		if self.FadeTween then self.FadeTween:Cancel() end
+		if self.ScaleTween then self.ScaleTween:Cancel() end
+		HudLayout.ReleaseFocus(self)
 	end)
 	return self
 end
@@ -210,11 +232,13 @@ end
 -- Fades the window in or out: it moves into the screen-sized CanvasGroup for the fade and back out after it (a
 -- CanvasGroup the size of the window would clip the banner, the close button and the glow).
 local function fade(self: Window, show: boolean)
+	if self.FadeTween then self.FadeTween:Cancel() end
 	local fader = self.Fader
 	self.Frame.Parent = fader
 	fader.GroupTransparency = if show then 1 else 0
 	fader.Visible = true
 	local tween = TweenService:Create(fader, TweenInfo.new(Style.Theme.Motion.WindowFade), { GroupTransparency = if show then 0 else 1 })
+	self.FadeTween = tween
 	tween.Completed:Connect(function(state)
 		if state == Enum.PlaybackState.Completed and self.IsOpen == show then
 			self.Frame.Parent = self.Gui
@@ -229,21 +253,35 @@ function Window.Open(self: Window)
 		return
 	end
 	self.IsOpen = true
+	self.Epoch += 1
 	self.Closing = false
+	if self.ScaleTween then self.ScaleTween:Cancel() end
+	self.PreviousSelection = GuiService.SelectedObject
 	HudLayout.ClaimFocus(self, function()
 		self:Close()
 	end)
 	local motion = Style.Theme.Motion
-	self.Scale.Scale = motion.StartScale
+	self.Scale.Scale = if EffectsQuality.IsLow() then 1 else motion.StartScale
 	self.Frame.Visible = true
 	fade(self, true)
-	TweenService:Create(self.Scale, TweenInfo.new(motion.PopIn, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	self.ScaleTween = TweenService:Create(self.Scale, TweenInfo.new(motion.PopIn, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+	self.ScaleTween:Play()
 	Style.Play("Open")
 	local width = self.Frame.AbsoluteSize.X / math.max(self.Scale.Scale, 0.01)
 	Style.SparkleBurst(self.Frame, Vector2.new(width / 2, 0), motion.OpenSparkles, 60)
 	for _, fn in self.OpenCallbacks do
 		task.spawn(fn)
 	end
+	if UserInputService.GamepadEnabled then task.defer(function()
+		if not self.IsOpen then return end
+		for _, child in self.Content:GetDescendants() do
+			if child:IsA("GuiButton") and child.Selectable and HudLayout.GetVisibleRect(child) then
+				GuiService.SelectedObject = child
+				return
+			end
+		end
+		GuiService.SelectedObject = self.CloseButton -- informational/empty windows still have an accessible action
+	end) end
 end
 
 function Window.Close(self: Window)
@@ -251,18 +289,27 @@ function Window.Close(self: Window)
 		return
 	end
 	self.IsOpen = false
+	self.Epoch += 1
+	local epoch = self.Epoch
 	self.Closing = true
+	if self.ScaleTween then self.ScaleTween:Cancel() end
 	HudLayout.ReleaseFocus(self)
 	local motion = Style.Theme.Motion
 	fade(self, false)
-	local tween = TweenService:Create(self.Scale, TweenInfo.new(motion.PopOut, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = motion.StartScale })
-	tween.Completed:Connect(function()
-		if self.Closing then
+	local tween = TweenService:Create(self.Scale, TweenInfo.new(motion.PopOut, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = if EffectsQuality.IsLow() then 1 else motion.StartScale })
+	self.ScaleTween = tween
+	tween.Completed:Once(function(state)
+		if self.Closing and self.Epoch == epoch and state == Enum.PlaybackState.Completed then
 			self.Frame.Visible = false
 			self.Closing = false
 		end
 	end)
 	tween:Play()
+	if self.PreviousSelection and HudLayout.GetVisibleRect(self.PreviousSelection) then
+		GuiService.SelectedObject = self.PreviousSelection
+	elseif GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(self.Frame) then
+		GuiService.SelectedObject = nil
+	end
 	for _, fn in self.CloseCallbacks do
 		task.spawn(fn)
 	end

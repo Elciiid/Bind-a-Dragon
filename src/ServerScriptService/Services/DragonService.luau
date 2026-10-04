@@ -15,6 +15,7 @@ local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local IndexService = require(script.Parent.IndexService)
 local QuestService = require(script.Parent.QuestService)
+local OnboardingService = require(script.Parent.OnboardingService)
 local Cycle = require(ReplicatedStorage.Shared.Cycle)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
@@ -48,7 +49,7 @@ local DragonService = {}
 -- Buys up to `wanted` levels for a dragon the caller already validated (owner, below the cap); stops when gold runs out.
 -- Evolves it (one toast for the final stage; quiet = a plain toast, no pop-up), counts the Levels quest. Returns how many levels were bought.
 -- Used by the LevelUpDragon remote and by Auto-Upgrade (MilestoneService).
-function DragonService:BuyLevels(player: Player, data: PlayerDataTypes.PlayerData, dragon: PlayerDataTypes.Dragon, wanted: number, quiet: boolean?): number
+function DragonService:BuyLevels(player: Player, data: PlayerDataTypes.PlayerData, dragon: PlayerDataTypes.Dragon, wanted: number, quiet: boolean?, tutorialManual: boolean?): number
 	local cap = DragonStats.GetLevelCap(data)
 	DragonStats.EnsureLevelingAnchor(data)
 	local species = Dragons[dragon.SpeciesId]
@@ -56,7 +57,8 @@ function DragonService:BuyLevels(player: Player, data: PlayerDataTypes.PlayerDat
 	local evolvedTo: Evolution.Stage? = nil -- final stage reached this request (one toast, not one per stage)
 	local evolvedUnder = ""
 	while leveled < wanted and dragon.Level < cap do
-		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths, data.LevelingIncomeAnchor)
+		local free = tutorialManual == true and leveled == 0 and OnboardingService:UseFreeLevel(data)
+		local cost = if free then 0 else DragonStats.GetLevelUpCost(dragon, data.Rebirths, data.LevelingIncomeAnchor)
 		if data.Gold < cost then
 			break
 		end
@@ -122,7 +124,7 @@ local function onLevelUp(player: Player, dragonId: unknown, count: unknown)
 		return
 	end
 
-	local leveled = DragonService:BuyLevels(player, data, dragon, wanted)
+	local leveled = DragonService:BuyLevels(player, data, dragon, wanted, false, true)
 	if leveled == 0 then
 		local cost = DragonStats.GetLevelUpCost(dragon, data.Rebirths, data.LevelingIncomeAnchor)
 		notify:FireClient(player, `Not enough gold. You need {Format.Number(cost)}.`, "error")

@@ -29,6 +29,7 @@ local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
 local Mutations = require(ReplicatedStorage.Shared.Config.Mutations)
 local Text = require(ReplicatedStorage.Shared.Config.Text)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Geometry = require(ReplicatedStorage.Shared.UIGeometry)
 
 local carryDragon = ReplicatedStorage.Remotes.CarryDragon :: RemoteEvent
 local setHotbarSlot = ReplicatedStorage.Remotes.SetHotbarSlot :: RemoteEvent
@@ -68,6 +69,7 @@ local slots: { Slot } = {}
 local isPhone = false
 local phonePage = 1 -- phones show one page of PhoneSlotsPerPage slots at a time
 local arrow: TextButton
+local pageSlots = HotbarConfig.PhoneSlotsPerPage
 
 local function rarityColor(rarityId: string): Color3
 	local rarity = (UITheme.Rarity :: any)[rarityId]
@@ -144,33 +146,41 @@ end
 
 local function layout(phone: boolean)
 	isPhone = phone
-	local camera = workspace.CurrentCamera
-	local width = if camera then camera.ViewportSize.X else 1280
-	local gap = if phone then HotbarConfig.PhoneSlotGap else HotbarConfig.SlotGap
+	local width = HudLayout.GetUsableRect().Width
+	local gap = if phone then UITheme.MobileUI.HotbarGap else HotbarConfig.SlotGap
 	local base = if phone then HotbarConfig.PhoneSlotSize else HotbarConfig.SlotSize
 	-- phones: one page of PhoneSlotsPerPage slots + a page arrow; PC: all slots
-	local perPage = if phone then HotbarConfig.PhoneSlotsPerPage else HotbarConfig.Slots
-	local first = if phone then (phonePage - 1) * perPage + 1 else 1
-	local count = if phone then perPage else HotbarConfig.Slots
-	local cells = count + (if phone then 1 else 0) -- the arrow takes the width of one narrower cell
-	local usable = if phone then width - 2 * HotbarConfig.PhoneSideReserve else width - 2 * 48
-	local minimum = if phone then HotbarConfig.PhoneMinSlotSize else HotbarConfig.MinSlotSize
-	local size = math.clamp(math.floor((usable - (cells - 1) * gap) / cells), minimum, base)
-	local arrowWidth = math.floor(size * 0.62)
-	local total = count * size + (count - 1) * gap + (if phone then gap + arrowWidth else 0)
+	local count, size, total
+	local center, bottom = width / 2, UITheme.MobileUI.HotbarBottom
+	local arrowWidth = UITheme.MobileUI.Touch
+	if phone then
+		local leftReserve = UITheme.MobileUI.CurrencyLeft + UITheme.Sizes.PhoneCurrency.X + UITheme.MobileUI.Gap
+		count, size, total, center = Geometry.Hotbar(width, UITheme.MobileUI.HotbarTouchSideReserve,
+			HotbarConfig.PhoneSlotsPerPage, base, UITheme.MobileUI.Touch, gap, leftReserve)
+		if width - leftReserve - UITheme.MobileUI.HotbarTouchSideReserve < UITheme.MobileUI.Touch * 2 + gap then
+			bottom = UITheme.MobileUI.CurrencyBottom + UITheme.Sizes.PhoneCurrency.Y * 2 + UITheme.Sizes.Gap + UITheme.MobileUI.Gap
+		end
+		pageSlots = count
+		phonePage = math.clamp(phonePage, 1, math.ceil(HotbarConfig.Slots / count))
+	else
+		count = HotbarConfig.Slots
+		size = math.clamp(math.floor((width - UITheme.MobileUI.Padding * 2 - (count - 1) * gap) / count), HotbarConfig.MinSlotSize, base)
+		total = count * size + (count - 1) * gap
+	end
+	local first = if phone then (phonePage - 1) * count + 1 else 1
 	root.Size = UDim2.fromOffset(total, size)
-	root.Position = UDim2.new(0.5, 0, 1, -(if phone then HotbarConfig.PhoneBottomMargin else HotbarConfig.BottomMargin))
+	root.Position = UDim2.new(0, center, 1, -(if phone then bottom else HotbarConfig.BottomMargin))
 	local list = root:FindFirstChildOfClass("UIListLayout") :: UIListLayout
 	list.Padding = UDim.new(0, gap)
 	for index, slot in slots do
 		slot.Button.Visible = index >= first and index < first + count
 		slot.Button.Size = UDim2.fromOffset(size, size)
-		slot.Number.TextSize = math.max(10, math.floor(size * 0.3))
+		slot.Number.TextSize = math.max(UITheme.MobileUI.Small, math.floor(size * 0.3))
 	end
 	arrow.Visible = phone
 	arrow.Size = UDim2.fromOffset(arrowWidth, size)
-	arrow.Text = if phonePage == 1 then ">" else "<"
-	arrow.TextSize = math.floor(size * 0.5)
+	arrow.Text = Text.Format(Text.Hotbar.Page, { page = phonePage, pages = math.ceil(HotbarConfig.Slots / math.max(1, pageSlots)) })
+	arrow.TextSize = UITheme.MobileUI.Small
 end
 
 local function press(index: number)
@@ -310,7 +320,7 @@ function HotbarController:Init()
 	Style.Stroke(arrow, UITheme.Colors.Trim, 2)
 	Style.AttachPress(arrow)
 	arrow.Activated:Connect(function()
-		phonePage = if phonePage == 1 then 2 else 1
+		phonePage = phonePage % math.ceil(HotbarConfig.Slots / math.max(1, pageSlots)) + 1
 		layout(isPhone)
 	end)
 
@@ -346,6 +356,7 @@ function HotbarController:Start()
 		if Players.LocalPlayer:GetAttribute("MerchantDialog") == true then
 			return -- the merchant's numbered choices use 1-5
 		end
+		if Players.LocalPlayer:GetAttribute("BindRevealActive") == true or Players.LocalPlayer:GetAttribute("RewardPopupOpen") == true then return end
 		local index = KEY_SLOTS[input.KeyCode]
 		if index then
 			press(index)

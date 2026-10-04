@@ -80,6 +80,17 @@ return {
 	-- the glow ring around dragon pictures (UI/DragonPicture)
 	Ring = { Thickness = 2.5, GlowTransparency = 0.55, SpinSeconds = 6 },
 
+	-- the aura on the bind reveal (CeremonyController): the reveal stage is a ViewportFrame, where particles don't render, so a
+	-- mutated dragon gets a ring of glowing sparkles in the aura's colors circling it on screen (Primordial: rainbow)
+	Reveal = {
+		Sparkles = 12, -- Low effects: LowSparkles
+		LowSparkles = 5,
+		Radius = 0.3, -- fraction of the stage's short side
+		Size = 30, -- pixels
+		TurnSeconds = 4, -- one full circle
+		Pulse = 0.25, -- size pulse (fraction)
+	},
+
 	Auras = {
 		Hoardscale = {
 			Color = Color3.fromRGB(255, 190, 55),

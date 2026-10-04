@@ -1,7 +1,7 @@
 --!strict
 -- Game-feel feedback (FeedbackController): one sound palette plus a small camera shake and screen flash, driven by
 -- what changed in the player's data (and the Spire climb). Shake and flash are off with Low effects; sounds follow
--- the player's sound volume. All sounds are free Creator Store audio, verified to load.
+-- the player's sound volume. New APM/PSE metadata is verified; runtime permissions/loading remain to be tested.
 
 export type Event = {
 	Sound: string, -- key in Sounds ("" = none)
@@ -15,12 +15,13 @@ return {
 		Buy = "rbxassetid://135165335432475", -- "Success Correct Sound"
 		Arm = "rbxassetid://128502047397803", -- "SE_DEMO_GET_STAR_2"
 		ClimbStart = "rbxassetid://80454497832356", -- "Whoosh_8"
-		FloorClear = "rbxassetid://128502047397803",
-		IndexEntry = "rbxassetid://4612374495",
-		Reward = "rbxassetid://135165335432475",
+		FloorClear = "rbxassetid://1839010065", -- Orchestral Fantasy (APM)
+		IndexEntry = "rbxassetid://9119802009", -- Synth Chime Single Synth Tone 3 (PSE)
+		Reward = "rbxassetid://9120750810", -- Wind Chimes 4 (PSE)
 		Rebirth = "rbxassetid://9040271484", -- "Beauty Over The Rainbow - Sting 1" (APM)
 	} :: { [string]: string },
 	Volume = 0.55,
+	SoundSeconds = { FloorClear = 2, IndexEntry = 1.6, Reward = 2.5 } :: { [string]: number }, -- clip long source tracks into short feedback cues
 	-- A palette sound replaces the toast's own chime when both come at the same moment (seconds).
 	ToastSoundWindow = 0.35,
 

@@ -21,6 +21,7 @@ local MonetizationService = require(script.Parent.MonetizationService)
 local SpireLeaderboardService = require(script.Parent.SpireLeaderboardService)
 local DragonStats = require(ReplicatedStorage.Shared.DragonStats)
 local Format = require(ReplicatedStorage.Shared.Format)
+local LeaderboardStats = require(ReplicatedStorage.Shared.LeaderboardStats)
 local Rewards = require(ReplicatedStorage.Shared.Rewards)
 local Dragons = require(ReplicatedStorage.Shared.Config.Dragons)
 local SpireConfig = require(ReplicatedStorage.Shared.Config.Spire)
@@ -248,6 +249,7 @@ local function climb(player: Player, run: Run, difficulty: string)
 			if bankLimit then
 				gold = math.max(0, math.min(gold, bankLimit - data.Gold))
 			end
+			LeaderboardStats.RecordGold(data, gold) -- Lifetime Gold leaderboard (before the credit)
 			data.Gold += gold
 		end
 		Rewards.Apply(data, reward)

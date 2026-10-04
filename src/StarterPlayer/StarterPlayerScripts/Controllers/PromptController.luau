@@ -18,6 +18,8 @@ local Style = require(script.Parent.UI.Style)
 local PromptPill = require(script.Parent.UI.PromptPill)
 local WorldUI = require(ReplicatedStorage.Shared.Config.WorldUI)
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
+local Text = require(ReplicatedStorage.Shared.Config.Text)
+local EffectsQuality = require(script.Parent.EffectsQuality)
 
 local PromptConfig = WorldUI.Prompts
 
@@ -34,7 +36,7 @@ end
 
 local function keyText(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInputType): string
 	if inputType == Enum.ProximityPromptInputType.Touch then
-		return PromptConfig.TouchLabel
+		return Text.Prompts.Touch
 	elseif inputType == Enum.ProximityPromptInputType.Gamepad then
 		local name = prompt.GamepadKeyCode.Name
 		return (name:gsub("^Button", ""))
@@ -54,8 +56,8 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 	if shown[prompt] then
 		return
 	end
-	local scale = if HudLayout.IsPhone() then PromptConfig.PhoneScale else 1
-	local width, height = PromptConfig.Size.X * scale, PromptConfig.Size.Y * scale
+	local width = math.min(UITheme.MobileUI.PromptWidth, HudLayout.GetUsableRect().Width - UITheme.MobileUI.Padding * 2)
+	local height = UITheme.MobileUI.PromptHeight
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Prompt_" .. prompt.Name
@@ -101,6 +103,7 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 		pill:Burst()
 	end))
 	table.insert(connections, RunService.RenderStepped:Connect(function()
+		gui.Enabled = not HudLayout.HasFocus() and Players.LocalPlayer:GetAttribute("BindRevealActive") ~= true and Players.LocalPlayer:GetAttribute("RewardPopupOpen") ~= true
 		local start = holdStart
 		if start and prompt.HoldDuration > 0 then
 			pill:SetHold(math.clamp((os.clock() - start) / prompt.HoldDuration, 0, 1))
@@ -111,7 +114,7 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 	table.insert(connections, button.InputBegan:Connect(function(input)
 		local t = input.UserInputType
 		if t == Enum.UserInputType.Touch or t == Enum.UserInputType.MouseButton1 then
-			prompt:InputHoldBegin()
+			if gui.Enabled then prompt:InputHoldBegin() end
 		end
 	end))
 	table.insert(connections, button.InputEnded:Connect(function(input)
@@ -123,16 +126,20 @@ local function show(prompt: ProximityPrompt, inputType: Enum.ProximityPromptInpu
 
 	-- pop in with a little bounce
 	local scaleObject = Instance.new("UIScale")
-	scaleObject.Scale = 0.6
+	scaleObject.Scale = if EffectsQuality.IsLow() then 1 else UITheme.Motion.StartScale
 	scaleObject.Parent = button
-	TweenService:Create(scaleObject, TweenInfo.new(UITheme.WorldPanel.PopTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	local popTween = TweenService:Create(scaleObject, TweenInfo.new(UITheme.WorldPanel.PopTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 })
+	popTween:Play()
 
 	gui.Destroying:Connect(function()
+		popTween:Cancel()
+		prompt:InputHoldEnd()
 		for _, connection in connections do
 			connection:Disconnect()
 		end
 	end)
 	shown[prompt] = gui
+	table.insert(connections, prompt.Destroying:Connect(function() shown[prompt] = nil; gui:Destroy() end))
 end
 
 local function hide(prompt: ProximityPrompt)

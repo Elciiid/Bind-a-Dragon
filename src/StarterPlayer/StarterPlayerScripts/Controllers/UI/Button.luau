@@ -9,6 +9,7 @@ local TweenService = game:GetService("TweenService")
 
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)
+local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
 
 export type Kind = "Confirm" | "Cancel" | "Primary" | "Neutral"
 export type Props = {
@@ -48,6 +49,7 @@ function Button.new(parent: Instance, props: Props): Button
 	instance.Text = ""
 	instance.AutoButtonColor = false
 	instance.BackgroundTransparency = 1
+	instance.Selectable = true
 
 	local edge = Instance.new("Frame") -- the darker bottom edge the face sits on
 	edge.Name = "Edge"
@@ -78,7 +80,8 @@ function Button.new(parent: Instance, props: Props): Button
 
 	local row = Instance.new("Frame")
 	row.Name = "Row"
-	row.Size = UDim2.fromScale(1, 1)
+	row.Size = UDim2.new(1, -theme.MobileUI.ButtonPadding * 2, 1, 0)
+	row.Position = UDim2.fromOffset(theme.MobileUI.ButtonPadding, 0)
 	row.BackgroundTransparency = 1
 	row.ZIndex = 2
 	row.Parent = face
@@ -92,18 +95,21 @@ function Button.new(parent: Instance, props: Props): Button
 	if props.Icon then
 		local icon = Icon.new(row, props.Icon)
 		icon.LayoutOrder = 1
-		icon.Size = UDim2.new(1, 0, 0.9, 0) -- a square from the face's height (constraint below), a bit big
+		icon.Size = UDim2.fromOffset(theme.MobileUI.ButtonIcon, theme.MobileUI.ButtonIcon)
 		local ratio = Instance.new("UIAspectRatioConstraint")
-		ratio.DominantAxis = Enum.DominantAxis.Height
 		ratio.Parent = icon
 	end
-	local label = Style.Label(row, props.Text, "Title", props.TextSize or theme.TextSizes.Button, theme.Colors.ButtonText)
+	local label = Style.Label(row, props.Text, "Heavy", props.TextSize or theme.TextSizes.Button, theme.Colors.ButtonText)
 	label.Name = "Label"
 	label.LayoutOrder = 2
-	label.AutomaticSize = Enum.AutomaticSize.X
-	label.Size = UDim2.fromScale(0, 1)
-	label.TextWrapped = false
-	Style.Outline(label, 1.5)
+	label.AutomaticSize = Enum.AutomaticSize.None
+	label.Size = UDim2.new(1, -(if props.Icon then theme.MobileUI.ButtonIcon + layout.Padding.Offset else 0), 1, 0)
+	label.TextWrapped = true
+	label.TextScaled = true
+	local textLimit = Instance.new("UITextSizeConstraint")
+	textLimit.MinTextSize = theme.MobileUI.ButtonMinText
+	textLimit.MaxTextSize = math.max(theme.MobileUI.ButtonMinText, props.TextSize or theme.TextSizes.Button)
+	textLimit.Parent = label
 
 	local self = setmetatable({
 		Instance = instance,
@@ -122,7 +128,8 @@ function Button.new(parent: Instance, props: Props): Button
 	local motion = theme.Motion
 	local hovering, pressing = false, false
 	local function update()
-		local target = if pressing then motion.ButtonSquish.Y elseif hovering and self.Enabled then motion.ButtonBounce else 1
+		local reduced = EffectsQuality.IsLow()
+		local target = if reduced then 1 elseif pressing then motion.ButtonSquish.Y elseif hovering and self.Enabled then motion.ButtonBounce else 1
 		TweenService:Create(scale, TweenInfo.new(if pressing then 0.06 else 0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = target }):Play()
 		face.Position = if pressing then UDim2.fromOffset(0, edgeSize - 1) else UDim2.new()
 	end

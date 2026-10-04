@@ -3,10 +3,11 @@
 --
 -- Menu: the left column of big standalone icons (UI/HudIcon: Inventory, Quests, Shop, Rebirth; looks in
 -- UITheme.Menu). PC: vertically centered on the left. Phone (screen short side <= UITheme.PhoneMaxShortSide): small
--- icons under the currency row, ending above Roblox's thumbstick (bottom-left); the jump button owns bottom-right.
--- Currencies (UI/CurrencyPill): bottom-left on PC; one row top-left under the top bar (and the gear) on phones.
+-- icons in one vertically centered column, kept clear of bottom-left currency; jump owns bottom-right.
+-- Currencies (UI/CurrencyPill): stacked bottom-left on both PC and phones.
 -- Top bar: AddTopbarButton puts a round button (the Settings gear) right after Roblox's own top-bar buttons, lined up
--- with GuiService.TopbarInset. Layout (PC and phone alike; phones just scale down): travel row top-center, the 4 menu
+-- with GuiService.TopbarInset. Travel has a small safe-top margin, centered on the whole display, with gapped buttons;
+-- menu icons are centered vertically on the left (not a phone grid). The 4 menu
 -- icons left (margin from the device safe area: every gui uses ScreenInsets.CoreUISafeInsets), the timer stack bottom-right
 -- (GetTimerStack: day/night timer above the potion timers), bottom-center free for the Dragon Hotbar. Landscape only.
 -- Studio: LocalPlayer attribute "ForceLayout" = "Phone" or "PC".
@@ -22,6 +23,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local UITheme = require(ReplicatedStorage.Shared.Config.UITheme)
 local HotbarConfig = require(ReplicatedStorage.Shared.Config.Hotbar)
+local Geometry = require(ReplicatedStorage.Shared.UIGeometry)
 local Style = require(script.Parent.UI.Style)
 local HudIcon = require(script.Parent.UI.HudIcon)
 local CurrencyPill = require(script.Parent.UI.CurrencyPill)
@@ -37,7 +39,7 @@ local gui: ScreenGui? = nil
 local topbarGui: ScreenGui
 local topbarRow: Frame
 local timerStack: Frame
-local menu: Frame
+local menu: ScrollingFrame
 local currency: Frame
 local phone = false
 local entries: { [string]: MenuEntry } = {}
@@ -49,6 +51,8 @@ local screens: { ScreenGui } = {}
 local revealActive = false
 local revealEnabled: { [ScreenGui]: boolean } = {}
 local safeProbe: Frame
+local focused: { Owner: any, Close: () -> () }? = nil
+local travelBottom: number? = nil -- actual bottom in CoreUISafeInsets coordinates, supplied by TravelController
 
 -- Kept for controllers not yet on the kit.
 HudLayout.Corner = function(instance: GuiObject, radius: number?)
@@ -102,7 +106,7 @@ end
 -- Phones: while a window is open, the menu, currencies and the guis given to HideWithPopups (travel row, day/night
 -- pill) hide, so nothing peeks around the window's banner.
 local function updatePopupHiding()
-	local hide = revealActive or (phone and anyPopupOpen())
+	local hide = revealActive or player:GetAttribute("RewardPopupOpen") == true or (phone and (anyPopupOpen() or focused ~= nil))
 	if menu then
 		menu.Visible = not hide
 	end
@@ -122,22 +126,25 @@ end
 
 -- The bottom of the travel row (screen pixels from the top): windows and toasts start below it.
 function HudLayout.TravelBottom(): number
+	if travelBottom then return travelBottom end
 	local sizes = UITheme.Sizes
 	return if phone
-		then sizes.PhoneTravelTop + sizes.PhoneTravelHomeIcon + sizes.PhoneHudLabel
-		else sizes.TravelTop + sizes.TravelHomeIcon + sizes.HudLabel
+		then UITheme.MobileUI.WindowTop + UITheme.MobileUI.TravelHeight
+		else UITheme.MobileUI.WindowTop + sizes.TravelHomeIcon + sizes.HudLabel
 end
 
 -- Where windows and toasts may start (screen pixels): under the travel row with a gap.
 function HudLayout.TopReserved(): number
-	return HudLayout.TravelBottom() + UITheme.Sizes.Gap
+	return math.max(0, HudLayout.TravelBottom()) + (if phone then UITheme.MobileUI.Gap else UITheme.Sizes.Gap)
 end
 
 local function layoutTopbar()
 	local inset = GuiService.TopbarInset
 	local height = if inset.Height > 0 then inset.Height else 44
-	local size = math.floor(height * 0.8)
-	topbarRow.Position = UDim2.fromOffset(inset.Min.X + UITheme.Sizes.TopbarGap, inset.Min.Y + (height - size) / 2)
+	local size = math.max(UITheme.MobileUI.Touch, math.floor(height * 0.8))
+	-- This host already starts AFTER Roblox's microphone/chat controls and the device cutout.
+	-- Use local offsets: mixing TopbarInset coordinates with a full-display host put the gear inside the mic.
+	topbarRow.Position = UDim2.fromOffset(UITheme.Sizes.TopbarGap, (height - size) / 2)
 	topbarRow.Size = UDim2.fromOffset(0, size)
 	for _, child in topbarRow:GetChildren() do
 		if child:IsA("GuiButton") then
@@ -148,22 +155,40 @@ end
 
 local function layoutMenu()
 	local sizes = UITheme.Sizes
-	local iconSize = if phone then sizes.PhoneHudIcon else sizes.HudIcon
-	local labelSize = if phone then sizes.PhoneHudLabel else sizes.HudLabel
-	local gap = if phone then sizes.PhoneHudGap else sizes.HudGap
-	local list = menu:FindFirstChildOfClass("UIListLayout") :: UIListLayout
-	list.Padding = UDim.new(0, gap)
+	local mobile = UITheme.MobileUI
+	local iconSize = if phone then mobile.SideIcon else sizes.HudIcon
+	local labelSize = if phone then mobile.Small else sizes.HudLabel
+	local gap = if phone then mobile.SideGap else sizes.HudGap
+	local existing = menu:FindFirstChildOfClass("UIGridLayout") or menu:FindFirstChildOfClass("UIListLayout")
+	if existing and existing:IsA("UIGridLayout") then existing:Destroy(); existing = nil end
+	if not existing then
+		existing = Instance.new("UIListLayout")
+		existing.SortOrder = Enum.SortOrder.LayoutOrder
+		existing.Parent = menu
+	end
 	local count = 0
+	for _ in entries do count += 1 end
+	local column = Geometry.SideColumn(safeProbe.AbsoluteSize.Y, count, currency.Size.Y.Offset,
+		iconSize, labelSize, mobile.Touch, gap, mobile.SideTop, mobile.CurrencyBottom, mobile.SideCurrencyGap)
+	if phone then iconSize, gap = column.Icon, column.Gap end
+	local list = existing :: UIListLayout
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.VerticalAlignment = Enum.VerticalAlignment.Top
+	list.Padding = UDim.new(0, gap)
 	for _, entry in entries do
-		count += 1
 		entry.Icon:Resize(iconSize, labelSize)
+		if phone then entry.Icon.Instance.Size = UDim2.fromOffset(math.max(iconSize, labelSize * 5), column.Row) end
 		entry.Icon:SetLabel(if phone then entry.PhoneText else entry.Text)
 	end
 	local width = math.max(iconSize, labelSize * 5)
-	menu.Size = UDim2.fromOffset(width, count * (iconSize + labelSize + 2) + math.max(0, count - 1) * gap)
-	-- the same arrangement on PC and phone: a column, vertically centered on the left
-	menu.AnchorPoint = Vector2.new(0, 0.5)
-	menu.Position = UDim2.new(0, if phone then sizes.PhoneLeftMargin else sizes.LeftMargin, 0.5, -(if phone then sizes.PhoneMenuRaise else sizes.MenuRaise))
+	menu.Size = if phone then UDim2.fromOffset(width + (if column.Content > column.Height then mobile.Scrollbar else 0), column.Height)
+		else UDim2.fromOffset(width, count * (iconSize + labelSize + 2) + math.max(0, count - 1) * gap)
+	menu.ScrollBarThickness = if phone and column.Content > column.Height then mobile.Scrollbar else 0
+	menu.ScrollingEnabled = phone and column.Content > column.Height
+	menu.AnchorPoint = Vector2.new(0, if phone then 0 else 0.5)
+	menu.Position = if phone then UDim2.fromOffset(mobile.SideLeft, column.Y)
+		else UDim2.new(0, sizes.LeftMargin, 0.5, 0)
 	updatePopupHiding()
 end
 
@@ -177,7 +202,8 @@ local function layoutCurrency()
 	list.Padding = UDim.new(0, sizes.Gap)
 	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	currency.AnchorPoint = Vector2.new(0, 1)
-	currency.Position = UDim2.new(0, edge + 10, 1, -(if phone then sizes.PhoneMargin else sizes.Margin))
+	currency.Position = if phone then UDim2.new(0, UITheme.MobileUI.CurrencyLeft, 1, -UITheme.MobileUI.CurrencyBottom)
+		else UDim2.new(0, edge + 10, 1, -sizes.Margin)
 	currency.AutomaticSize = Enum.AutomaticSize.None
 	currency.Size = UDim2.fromOffset(size.X, #pills * size.Y + math.max(0, #pills - 1) * sizes.Gap)
 	for _, pill in pills do
@@ -192,25 +218,20 @@ local function layoutPopups()
 	local sizes = UITheme.Sizes
 	local overhang = if phone then sizes.PhoneBanner / 2 + sizes.PhoneBannerStar * 0.62 else sizes.Banner / 2 + sizes.BannerStar * 0.62
 	local available = safeProbe.AbsoluteSize
-	local margin = if phone then sizes.PhoneMargin else sizes.Margin
-	local top = math.max(0, HudLayout.TopReserved() - GuiService:GetGuiInset().Y) + sizes.PopupTopGap
+	local margin = if phone then UITheme.MobileUI.WindowMargin else sizes.Margin
+	local top = if phone then UITheme.MobileUI.WindowTop else HudLayout.TopReserved() + sizes.PopupTopGap
 	-- PC: windows end above the hotbar, so a dragon can be dragged from the Dragons tab onto a slot (phones hide the bar while a window is open)
 	local bottomReserve = if phone then 0 else HotbarConfig.SlotSize + HotbarConfig.BottomMargin + 6
-	local space = available.Y - top - margin - bottomReserve
 	for _, popup in popups do
 		local pc = popup.PcSize
-		local wanted = if phone then available.X * 0.94 else available.X * pc.X.Scale + pc.X.Offset
-		local width = math.max(1, math.min(available.X - margin * 2, wanted))
-		local height = math.max(1, space - overhang)
 		local limit = popup.Panel:FindFirstChildOfClass("UISizeConstraint")
-		if limit then
-			width = math.min(width, limit.MaxSize.X)
-			height = math.min(height, limit.MaxSize.Y)
-		end
-		popup.Panel.Size = UDim2.fromOffset(width, height)
-		-- center the whole envelope (panel + the ornament above it) in the free area
-		local envelopeTop = top + (space - height - overhang) / 2
-		popup.Panel.Position = UDim2.fromOffset(available.X / 2, envelopeTop + overhang + height / 2)
+		local box = Geometry.Popup(available.X, available.Y,
+			if phone then available.X else available.X * pc.X.Scale + pc.X.Offset,
+			if phone then available.Y else available.Y * pc.Y.Scale + pc.Y.Offset,
+			top, bottomReserve, margin, overhang,
+			if limit then limit.MaxSize.X else math.huge, if limit then limit.MaxSize.Y else math.huge)
+		popup.Panel.Size = UDim2.fromOffset(box.Width, box.Height)
+		popup.Panel.Position = UDim2.fromOffset(box.X, box.Y)
 	end
 end
 
@@ -229,8 +250,7 @@ local function jumpReserve(): number
 	local jump = findJumpButton()
 	local camera = workspace.CurrentCamera
 	if UserInputService.TouchEnabled and jump and camera and jump.Visible and jump.AbsoluteSize.Y > 0 then
-		local _, bottomInset = GuiService:GetGuiInset()
-		return math.max(sizes.PhoneMargin, camera.ViewportSize.Y - jump.AbsolutePosition.Y - bottomInset.Y + sizes.PhoneJumpGap)
+		return math.max(sizes.PhoneMargin, safeProbe.AbsolutePosition.Y + safeProbe.AbsoluteSize.Y - jump.AbsolutePosition.Y + sizes.PhoneJumpGap)
 	end
 	return sizes.PhoneJumpReserve
 end
@@ -239,6 +259,11 @@ end
 -- jump button.
 local function layoutTimers()
 	local sizes = UITheme.Sizes
+	local width = math.min(UITheme.MobileUI.TimerMaxWidth, safeProbe.AbsoluteSize.X * (if phone then UITheme.MobileUI.TimerPhoneFraction else 1) - sizes.RightMargin)
+	timerStack.Size = UDim2.fromOffset(math.max(UITheme.MobileUI.Touch, width), 0)
+	local captionSpace = if phone then safeProbe.AbsoluteSize.Y - jumpReserve() - HudLayout.TopReserved() - sizes.PhoneTimerIcon - sizes.TimerGap - UITheme.MobileUI.Gap else UITheme.MobileUI.TimerCaptionMaxHeight
+	timerStack:SetAttribute("CaptionMaxHeight", math.max(UITheme.MobileUI.Small, math.min(UITheme.MobileUI.TimerCaptionMaxHeight, captionSpace)))
+	timerStack.Visible = player:GetAttribute("TutorialGuideOpen") ~= true
 	if phone then
 		timerStack.Position = UDim2.new(1, -sizes.PhoneRightMargin, 1, -jumpReserve())
 	else
@@ -276,7 +301,7 @@ local function ensure(): ScreenGui
 	safeProbe.Parent = screen
 
 	topbarGui = HudLayout.MakeScreenGui("HudTopbar", "Hud")
-	topbarGui.ScreenInsets = Enum.ScreenInsets.None
+	topbarGui.ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets
 	topbarRow = Instance.new("Frame")
 	topbarRow.Name = "TopbarRow"
 	topbarRow.BackgroundTransparency = 1
@@ -289,10 +314,11 @@ local function ensure(): ScreenGui
 	rowList.Parent = topbarRow
 
 	local timersGui = HudLayout.MakeScreenGui("Timers", "Cards")
+	table.insert(hiddenWithPopups, timersGui)
 	timerStack = Instance.new("Frame")
 	timerStack.Name = "TimerStack"
 	timerStack.AnchorPoint = Vector2.new(1, 1)
-	timerStack.AutomaticSize = Enum.AutomaticSize.XY
+	timerStack.AutomaticSize = Enum.AutomaticSize.Y
 	timerStack.Size = UDim2.fromOffset(0, 0)
 	timerStack.BackgroundTransparency = 1
 	timerStack.Parent = timersGui
@@ -304,9 +330,14 @@ local function ensure(): ScreenGui
 	stackList.SortOrder = Enum.SortOrder.LayoutOrder
 	stackList.Parent = timerStack
 
-	menu = Instance.new("Frame")
+	menu = Instance.new("ScrollingFrame")
 	menu.Name = "Menu"
 	menu.BackgroundTransparency = 1
+	menu.BorderSizePixel = 0
+	menu.CanvasSize = UDim2.new()
+	menu.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	menu.ScrollingDirection = Enum.ScrollingDirection.Y
+	menu.ScrollBarImageColor3 = UITheme.Colors.Trim
 	menu.Parent = screen
 	local column = Instance.new("UIListLayout")
 	column.SortOrder = Enum.SortOrder.LayoutOrder
@@ -328,6 +359,8 @@ local function ensure(): ScreenGui
 		relayout()
 	end
 	player:GetAttributeChangedSignal("ForceLayout"):Connect(check)
+	player:GetAttributeChangedSignal("RewardPopupOpen"):Connect(updatePopupHiding)
+	player:GetAttributeChangedSignal("TutorialGuideOpen"):Connect(layoutTimers)
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(relayout)
 	safeProbe:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
 	safeProbe:GetPropertyChangedSignal("AbsolutePosition"):Connect(relayout)
@@ -373,13 +406,84 @@ function HudLayout.IsPhone(): boolean
 	return phone
 end
 
--- The safe rectangle in SCREEN pixels (for guis with ScreenInsets.None, e.g. the dim and the pointer tooltip). Children of a
--- CoreUISafeInsets gui report positions from the inset corner (AbsolutePosition of the probe is always 0, 0), so the
--- top-left inset (GuiService:GetGuiInset) is added back.
+-- All AbsolutePosition/InputObject.Position values use CoreUISafeInsets coordinates, even under ScreenInsets.None.
+-- Never add GetGuiInset here: doing so offsets tooltips and pointers twice on notched devices.
 function HudLayout.GetUsableRect(): Rect
 	ensure()
-	local topLeft = GuiService:GetGuiInset()
-	return Rect.new(topLeft, topLeft + safeProbe.AbsoluteSize)
+	return Rect.new(safeProbe.AbsolutePosition, safeProbe.AbsolutePosition + safeProbe.AbsoluteSize)
+end
+
+-- Navigation targets may live above the core-safe origin, within the safe top bar. Their
+-- tutorial outlines must use device bounds or a fully visible Home button would be discarded.
+function HudLayout.GetTargetSafeRect(target: GuiObject?): Rect
+	local host = target and target:FindFirstAncestorWhichIsA("ScreenGui")
+	if host and host:IsA("ScreenGui") and host.ScreenInsets == Enum.ScreenInsets.TopbarSafeInsets then
+		local ok, bounds = pcall(function() return GuiService:GetInsetArea(Enum.ScreenInsets.DeviceSafeInsets) end)
+		if ok and bounds.Width > 0 and bounds.Height > 0 then return bounds end
+	end
+	return HudLayout.GetUsableRect()
+end
+
+-- TopbarSafeInsets excludes the native Roblox controls while letting navigation sit at the actual
+-- top, rather than below an additional CoreUISafeInsets/top-padding reserve.
+function HudLayout.GetTravelHost(): (Rect, Enum.ScreenInsets, number)
+	ensure()
+	local ok, bounds = pcall(function() return GuiService:GetInsetArea(Enum.ScreenInsets.TopbarSafeInsets) end)
+	if not ok or bounds.Width <= 0 or bounds.Height <= 0 then
+		return HudLayout.GetUsableRect(), Enum.ScreenInsets.CoreUISafeInsets, 0
+	end
+	local count, total = 0, 0
+	for _, child in topbarRow:GetChildren() do
+		if child:IsA("GuiButton") and child.Visible then count += 1; total += child.Size.X.Offset end
+	end
+	local list = topbarRow:FindFirstChildOfClass("UIListLayout")
+	if list then total += math.max(0, count - 1) * list.Padding.Offset end
+	local reserve = if count > 0 then total + UITheme.Sizes.TopbarGap + UITheme.MobileUI.TravelGap else 0
+	return bounds, Enum.ScreenInsets.TopbarSafeInsets, reserve
+end
+
+function HudLayout.SetTravelBottom(bottom: number)
+	bottom = math.max(0, bottom)
+	if travelBottom ~= bottom then travelBottom = bottom; relayout() end
+end
+
+-- Resolve the actual visible portion, not just Visible=true. Scrolled-out tutorial targets and
+-- buttons in hidden tabs must not receive an outline or initial gamepad selection.
+function HudLayout.GetVisibleRect(target: GuiObject?): Rect?
+	if not target or not target.Parent then return nil end
+	local pos, size = target.AbsolutePosition, target.AbsoluteSize
+	local safe = HudLayout.GetTargetSafeRect(target)
+	local box = Geometry.Intersection(pos.X, pos.Y, pos.X + size.X, pos.Y + size.Y, safe.Min.X, safe.Min.Y, safe.Max.X, safe.Max.Y)
+	local ancestor: Instance? = target
+	while ancestor and box do
+		if ancestor:IsA("GuiObject") then
+			if not ancestor.Visible then return nil end
+			if ancestor ~= target and (ancestor.ClipsDescendants or ancestor:IsA("ScrollingFrame")) then
+				local clipPos, clipSize = ancestor.AbsolutePosition, ancestor.AbsoluteSize
+				if ancestor:IsA("ScrollingFrame") then clipSize = ancestor.AbsoluteWindowSize end
+				box = Geometry.Intersection(box.Left, box.Top, box.Right, box.Bottom, clipPos.X, clipPos.Y, clipPos.X + clipSize.X, clipPos.Y + clipSize.Y)
+			end
+		elseif ancestor:IsA("ScreenGui") and not ancestor.Enabled then return nil end
+		ancestor = ancestor.Parent
+	end
+	return if box then Rect.new(box.Left, box.Top, box.Right, box.Bottom) else nil
+end
+
+-- Camera viewport / GetMouseLocation coordinates start at the full display; GUI positions start at the core-safe origin.
+function HudLayout.ViewportToGui(point: Vector2): Vector2
+	local ok, full = pcall(function() return GuiService:GetInsetArea(Enum.ScreenInsets.None) end)
+	return point + (if ok then full.Min else -GuiService:GetGuiInset())
+end
+
+local tutorialTargets: { [string]: GuiObject } = {}
+function HudLayout.RegisterTutorialTarget(id: string, target: GuiObject?)
+	if tutorialTargets[id] == target then return end
+	tutorialTargets[id] = target
+	if target then target.Destroying:Connect(function() if tutorialTargets[id] == target then tutorialTargets[id] = nil end end) end
+end
+
+function HudLayout.GetTutorialTarget(id: string): GuiObject?
+	return tutorialTargets[id]
 end
 
 function HudLayout.SetRevealActive(active: boolean)
@@ -509,7 +613,6 @@ end
 -- One window at a time: a window or station panel calls ClaimFocus(owner, close) when it opens, which first closes
 -- whatever else holds focus, and ReleaseFocus(owner) when it closes. UI/Window does this for every window; other
 -- panels (e.g. the Spire card) use TrackPanel. HUD pills, toasts and timers never take focus.
-local focused: { Owner: any, Close: () -> () }? = nil
 local focusClearedListeners: { () -> () } = {}
 
 function HudLayout.ClaimFocus(owner: any, close: () -> ())
@@ -518,6 +621,7 @@ function HudLayout.ClaimFocus(owner: any, close: () -> ())
 	if previous and previous.Owner ~= owner then
 		previous.Close()
 	end
+	updatePopupHiding()
 end
 
 function HudLayout.ReleaseFocus(owner: any)
@@ -526,6 +630,7 @@ function HudLayout.ReleaseFocus(owner: any)
 		for _, fn in focusClearedListeners do
 			task.spawn(fn)
 		end
+		updatePopupHiding()
 	end
 end
 

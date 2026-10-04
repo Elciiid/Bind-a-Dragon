@@ -1,179 +1,117 @@
 --!strict
--- Toasts (UI renewal part 2): a short pill with a big icon popping out on the left and one line in the title font,
--- bouncing in and fading out after UITheme.Motion.ToastSeconds. The pill has a gold border and a soft glow in the
--- kind's color. Kinds: "success" (jade, confirm sound), "error" (rose, error sound), "info" (blue), "reward" (gold),
--- "announce" (gold, server-wide). An optional icon key; without one the kind shows a small star.
-
+-- Bounded notifications: wrap/scroll long text, never shrink the whole pill on phones.
 local TweenService = game:GetService("TweenService")
-
+local TextService = game:GetService("TextService")
+local Players = game:GetService("Players")
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)
-
+local EffectsQuality = require(script.Parent.Parent.EffectsQuality)
+local RevealGate = require(script.Parent.RevealGate)
 local Toast = {}
-
 local container: Frame? = nil
-local phone = false
-
-local KIND_COLORS: { [string]: Color3 } = {
-	success = Style.Theme.Colors.Positive,
-	error = Style.Theme.Colors.Negative,
-	info = Style.Theme.Colors.Info,
-	reward = Style.Theme.Colors.Gold,
-	announce = Style.Theme.Colors.Title,
+local KIND_COLORS = {
+	success = Style.Theme.Colors.Positive, error = Style.Theme.Colors.Negative,
+	info = Style.Theme.Colors.Info, reward = Style.Theme.Colors.Gold, announce = Style.Theme.Colors.Title,
 }
+function Toast.SetContainer(frame: Frame) container = frame end
+function Toast.SetPhone(_phone: boolean) end -- Compatibility; fonts retain physical sizes.
 
--- The frame toasts stack in (NotificationController owns and positions it).
-function Toast.SetContainer(frame: Frame)
-	container = frame
-end
-
--- Phones use the smaller pill (NotificationController calls this on layout changes).
-function Toast.SetPhone(isPhone: boolean)
-	phone = isPhone
-end
-
--- Builds a toast pill in `parent` (also used by the style-sheet mockup). Returns the holder and the fading group.
 function Toast.Build(parent: Instance, text: string, kind: string?, icon: string?, color: Color3?): (Frame, CanvasGroup, Frame)
-	local theme = Style.Theme
-	local sizes = theme.Sizes
-	local accent = color or KIND_COLORS[kind or "info"] or theme.Colors.Info
-	local height = if phone then sizes.PhoneToastPill else sizes.ToastPill
-	local iconSize = if phone then sizes.PhoneToastIcon else sizes.ToastIcon
-
-	local holder = Instance.new("Frame") -- keeps the list slot while the pill animates
+	local theme, mobile = Style.Theme, Style.Theme.MobileUI
+	local accent = color or (KIND_COLORS :: any)[kind or "info"] or theme.Colors.Info
+	local holder = Instance.new("Frame")
 	holder.Name = "Toast"
 	holder.BackgroundTransparency = 1
-	holder.Size = UDim2.new(1, 0, 0, height + 10)
+	holder.Size = UDim2.new(1, 0, 0, mobile.ToastHeight + mobile.Gap)
 	holder.Parent = parent
-
-	local group = Instance.new("CanvasGroup") -- fades the whole toast (sized to the holder, so nothing is clipped)
+	local group = Instance.new("CanvasGroup")
 	group.Name = "Fade"
 	group.Size = UDim2.fromScale(1, 1)
 	group.BackgroundTransparency = 1
 	group.GroupTransparency = 1
 	group.Parent = holder
-
 	local pill = Instance.new("Frame")
 	pill.Name = "Pill"
-	pill.AnchorPoint = Vector2.new(0.5, 0.5)
-	pill.Position = UDim2.fromScale(0.5, 0.5)
-	pill.Size = UDim2.fromOffset(0, height)
-	pill.AutomaticSize = Enum.AutomaticSize.X
+	pill.Position = UDim2.fromOffset(mobile.Gap / 2, mobile.Gap / 2)
+	pill.Size = UDim2.new(1, -mobile.Gap, 1, -mobile.Gap)
 	pill.BackgroundColor3 = Color3.new(1, 1, 1)
-	Style.Gradient(pill, theme.Colors.PanelV2Top, theme.Colors.PanelV2Bottom)
-	Style.Round(pill)
-	Style.GoldBorder(pill, 2.5)
+	Style.Gradient(pill, theme.Colors.GlassTop, theme.Colors.GlassBottom)
+	Style.Corner(pill, mobile.Padding)
+	Style.Stroke(pill, accent, mobile.CardBorder)
 	pill.Parent = group
-	local tint = Style.Glow(pill, accent, 8, 0.6, 0) -- the kind's color glowing through
-	tint.Name = "Tint"
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, math.floor(iconSize * 0.95) + 4) -- room for the icon
-	pad.PaddingRight = UDim.new(0, math.floor(height * 0.45))
-	pad.Parent = pill
-
-	local image: GuiObject
-	if icon then
-		image = Icon.new(pill, icon, accent, icon)
-	else
-		local star = Instance.new("TextLabel")
-		star.BackgroundTransparency = 1
-		star.Text = "★"
-		star.Font = Enum.Font.GothamBlack
-		star.TextScaled = true
-		star.TextColor3 = accent
-		Style.Outline(star, 2)
-		star.Parent = pill
-		image = star
-	end
-	image.AnchorPoint = Vector2.new(0.5, 0.5)
-	image.Position = UDim2.new(0, -math.floor(iconSize * 0.5) - 4, 0.5, 0) -- in the left padding, popping out
-	image.Size = UDim2.fromOffset(iconSize, iconSize)
-	image.ZIndex = 3
-
-	local label = Style.Label(pill, text, "Title", if phone then 15 else 20, theme.Colors.Text)
+	local image = Icon.new(pill, icon or "Stardust", accent, "★")
+	image.AnchorPoint = Vector2.new(0, 0.5)
+	image.Position = UDim2.new(0, mobile.Padding, 0.5, 0)
+	image.Size = UDim2.fromOffset(mobile.ToastIcon, mobile.ToastIcon)
+	local body = Instance.new("ScrollingFrame")
+	body.Name = "Body"
+	body.BackgroundTransparency = 1
+	body.BorderSizePixel = 0
+	body.CanvasSize = UDim2.new()
+	body.ScrollingDirection = Enum.ScrollingDirection.Y
+	body.ScrollBarImageColor3 = accent
+	body.Position = UDim2.fromOffset(mobile.Padding * 2 + mobile.ToastIcon, mobile.Padding)
+	body.Size = UDim2.new(1, -(mobile.Padding * 3 + mobile.ToastIcon), 1, -mobile.Padding * 2)
+	body.Parent = pill
+	local label = Style.Label(body, text, "Bold", mobile.Body, theme.Colors.Text)
 	label.Name = "Text"
-	label.AutomaticSize = Enum.AutomaticSize.X
-	label.Size = UDim2.fromScale(0, 1)
-	label.TextWrapped = false
-	label.ZIndex = 2
-	Style.Outline(label, 1.5)
-	-- A long line shrinks its text until the pill fits the toast area (it never clips at the edges).
+	label.TextWrapped = true
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Top
 	local function fit()
-		local room = holder.AbsoluteSize.X - 12
-		if room > 0 and pill.AbsoluteSize.X > room and label.TextSize > 10 then
-			label.TextSize -= 1
-		end
+		local width = math.max(1, holder.AbsoluteSize.X - mobile.Gap - mobile.Padding * 3 - mobile.ToastIcon - mobile.Scrollbar)
+		local measured = TextService:GetTextSize(label.Text, mobile.Body, label.Font, Vector2.new(width, 100000))
+		local height = math.max(mobile.ToastHeight, math.min(mobile.ToastMaxHeight, measured.Y + mobile.Padding * 2))
+		holder.Size = UDim2.new(1, 0, 0, height + mobile.Gap)
+		label.Size = UDim2.new(1, -mobile.Scrollbar, 0, measured.Y + 2)
+		body.CanvasSize = UDim2.fromOffset(0, measured.Y + 2)
+		body.ScrollBarThickness = if measured.Y > height - mobile.Padding * 2 then mobile.Scrollbar else 0
 	end
-	pill:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 	holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	label:GetPropertyChangedSignal("Text"):Connect(fit)
+	fit()
 	return holder, group, pill
 end
 
-export type Handle = {
-	SetText: (Handle, string) -> (),
-	Extend: (Handle) -> (), -- restart its time on screen (and a little pop), e.g. when the same message comes again
-}
-
+export type Handle = { SetText: (Handle, string) -> (), Extend: (Handle) -> () }
 local order = 0
-
--- Shows one toast in the container; onGone runs after it has faded out. NotificationController queues these (at most
--- a few at once, repeats merged into "x2"); other code should call NotificationController:Show instead.
 function Toast.Spawn(text: string, kind: string?, icon: string?, color: Color3?, onGone: (() -> ())?): Handle
-	local theme = Style.Theme
+	local theme, mobile = Style.Theme, Style.Theme.MobileUI
 	local parent = container
 	local handle = {} :: Handle
-	if parent == nil then
+	if not parent then
 		function handle.SetText(_self: Handle, _text: string) end
 		function handle.Extend(_self: Handle) end
-		if onGone then
-			task.defer(onGone)
-		end
+		if onGone then task.defer(onGone) end
 		return handle
 	end
 	local holder, group, pill = Toast.Build(parent, text, kind, icon, color)
 	order += 1
-	holder.LayoutOrder = order -- oldest on top, new ones below
-
-	if kind == "success" or kind == "reward" then
-		Style.Play("Confirm")
-	elseif kind == "error" then
-		Style.Play("Error")
-	end
-
+	holder.LayoutOrder = order
+	if kind == "success" or kind == "reward" then Style.Play("Confirm") elseif kind == "error" then Style.Play("Error") end
 	local pop = Instance.new("UIScale")
-	pop.Scale = 0.5
+	pop.Scale = if EffectsQuality.IsLow() then 1 else theme.Motion.StartScale
 	pop.Parent = pill
-	TweenService:Create(pop, TweenInfo.new(theme.Motion.ToastBounce, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	TweenService:Create(group, TweenInfo.new(0.15), { GroupTransparency = 0 }):Play()
-
-	local deadline = os.clock() + theme.Motion.ToastSeconds
-	local label = pill:FindFirstChild("Text") :: TextLabel
-	function handle.SetText(_self: Handle, newText: string)
-		label.Text = newText
-	end
-	function handle.Extend(_self: Handle)
-		deadline = os.clock() + theme.Motion.ToastSeconds
-		pop.Scale = 1.15
-		TweenService:Create(pop, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	end
+	TweenService:Create(pop, TweenInfo.new(theme.Motion.ToastBounce, Enum.EasingStyle.Quad), { Scale = 1 }):Play()
+	TweenService:Create(group, TweenInfo.new(theme.Motion.WindowFade), { GroupTransparency = 0 }):Play()
+	local remaining = mobile.ToastDuration
+	local label = pill:FindFirstChild("Text", true) :: TextLabel
+	function handle.SetText(_self: Handle, newText: string) label.Text = newText end
+	function handle.Extend(_self: Handle) remaining = mobile.ToastDuration end
 	task.spawn(function()
-		while os.clock() < deadline do
-			task.wait(deadline - os.clock())
+		while holder.Parent and remaining > 0 do
+			local elapsed = task.wait(mobile.ToastPollSeconds)
+			if not RevealGate.IsActive() and Players.LocalPlayer:GetAttribute("RewardPopupOpen") ~= true then remaining -= elapsed end
 		end
-		TweenService:Create(group, TweenInfo.new(0.3), { GroupTransparency = 1 }):Play()
-		TweenService:Create(pop, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.85 }):Play()
-		task.wait(0.3)
-		holder:Destroy()
-		if onGone then
-			onGone()
+		if holder.Parent then
+			local tween = TweenService:Create(group, TweenInfo.new(theme.Motion.WindowFade), { GroupTransparency = 1 })
+			tween:Play()
+			tween.Completed:Wait()
+			holder:Destroy()
 		end
+		if onGone then onGone() end
 	end)
 	return handle
 end
-
--- A toast without the queue (kept for older callers).
-function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?)
-	Toast.Spawn(text, kind, icon, color)
-end
-
+function Toast.Show(text: string, kind: string?, icon: string?, color: Color3?) Toast.Spawn(text, kind, icon, color) end
 return Toast

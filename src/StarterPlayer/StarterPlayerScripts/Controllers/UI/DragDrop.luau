@@ -35,7 +35,7 @@ local function ensureGui(): ScreenGui
 	gui.Name = "DragGhost"
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 1000
-	gui.IgnoreGuiInset = true
+	gui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	ghostGui = gui
@@ -82,10 +82,9 @@ local function isVisible(frame: GuiObject): boolean
 	return true
 end
 
--- Pointer positions in SCREEN pixels: input objects exclude the top-bar inset, the ghost gui (IgnoreGuiInset) and the hit tests include it.
+-- Input positions and all GuiObject.AbsolutePosition values share the core-safe coordinate origin.
 local function pointerPosition(input: InputObject): Vector2
-	local inset = GuiService:GetGuiInset()
-	return Vector2.new(input.Position.X + inset.X, input.Position.Y + inset.Y)
+	return Vector2.new(input.Position.X, input.Position.Y)
 end
 
 local function targetAt(point: Vector2): Target?
@@ -94,12 +93,7 @@ local function targetAt(point: Vector2): Target?
 		local frame = target.Frame
 		if isVisible(frame) then
 			local position, size = frame.AbsolutePosition, frame.AbsoluteSize
-			-- guis with the safe-area inset report positions from the inset corner: add it to get screen pixels
-			local screen = frame:FindFirstAncestorOfClass("ScreenGui")
 			local top = position
-			if screen and screen.ScreenInsets ~= Enum.ScreenInsets.None and not screen.IgnoreGuiInset then
-				top = position + GuiService:GetGuiInset()
-			end
 			if point.X >= top.X and point.X <= top.X + size.X and point.Y >= top.Y and point.Y <= top.Y + size.Y then
 				return target
 			end
@@ -124,7 +118,7 @@ function DragDrop.Attach(button: GuiObject, getPayload: () -> Payload?, buildGho
 			return
 		end
 		local payload = getPayload()
-		if payload == nil or dragging then
+		if payload == nil or dragging or Players.LocalPlayer:GetAttribute("BindRevealActive") == true then
 			return
 		end
 		local startPoint = pointerPosition(input)
@@ -134,9 +128,14 @@ function DragDrop.Attach(button: GuiObject, getPayload: () -> Payload?, buildGho
 		local moveConnection: RBXScriptConnection? = nil
 		local endConnection: RBXScriptConnection? = nil
 		local heartbeat: RBXScriptConnection? = nil
+		local destroyConnection: RBXScriptConnection? = nil
+		local finished = false
 		local lastPoint = startPoint
 
 		local function finish(drop: boolean)
+			if finished then return end
+			finished = true
+			if destroyConnection then destroyConnection:Disconnect() end
 			if moveConnection then
 				moveConnection:Disconnect()
 			end
@@ -164,6 +163,7 @@ function DragDrop.Attach(button: GuiObject, getPayload: () -> Payload?, buildGho
 		end
 
 		local function begin()
+			if finished or not isVisible(button) then finish(false); return end
 			started = true
 			setDragging(true)
 			local frame = Instance.new("Frame")
@@ -173,20 +173,22 @@ function DragDrop.Attach(button: GuiObject, getPayload: () -> Payload?, buildGho
 			frame.Size = UDim2.fromOffset(64, 64)
 			frame.Position = UDim2.fromOffset(lastPoint.X, lastPoint.Y)
 			frame.Parent = ensureGui()
-			buildGhost(frame, payload)
 			ghost = frame
+			local ok, err = pcall(buildGhost, frame, payload)
+			if not ok then finish(false); warn(`[DragDrop] Preview failed: {err}`) end
 		end
+		destroyConnection = button.Destroying:Connect(function() finish(false) end)
 
 		-- touch: begin after the hold if the finger stayed put
-		if isTouch then
-			heartbeat = RunService.Heartbeat:Connect(function()
-				if not started and os.clock() - armedAt >= HOLD_SECONDS and (lastPoint - startPoint).Magnitude <= TOUCH_SLOP then
+		heartbeat = RunService.Heartbeat:Connect(function()
+			if not isVisible(button) or Players.LocalPlayer:GetAttribute("BindRevealActive") == true then finish(false); return end
+			if isTouch and not started and os.clock() - armedAt >= HOLD_SECONDS and (lastPoint - startPoint).Magnitude <= TOUCH_SLOP then
 					begin()
 				end
 			end)
-		end
 
 		moveConnection = UserInputService.InputChanged:Connect(function(changed: InputObject)
+			if not isVisible(button) or Players.LocalPlayer:GetAttribute("BindRevealActive") == true then finish(false); return end
 			if changed.UserInputType ~= Enum.UserInputType.MouseMovement and changed.UserInputType ~= Enum.UserInputType.Touch then
 				return
 			end

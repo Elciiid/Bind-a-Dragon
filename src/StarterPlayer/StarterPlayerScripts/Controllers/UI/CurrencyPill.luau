@@ -1,7 +1,7 @@
 --!strict
 -- A currency pill in the HUD icon style: an indigo -> violet bar with a gold border and a soft gloss, the currency icon big
 -- and standalone over its left end (with a drop shadow), and the value in the title font in the currency's color
--- with a dark outline. Size is set by the caller (HudLayout: bottom-left on PC, one small row top-left on phones).
+-- with a dark outline. Size is set by the caller (HudLayout: bottom-left stack on both PC and phones).
 
 local Style = require(script.Parent.Style)
 local Icon = require(script.Parent.Icon)

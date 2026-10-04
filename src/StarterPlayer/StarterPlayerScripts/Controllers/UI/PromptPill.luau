@@ -33,6 +33,7 @@ function PromptPill.new(parent: Instance, props: Props): PromptPill
 	button.Name = "Pill"
 	button.Text = ""
 	button.AutoButtonColor = false
+	button.Selectable = true
 	button.AnchorPoint = Vector2.new(0.5, 0.5)
 	button.Position = UDim2.fromScale(0.5, 0.5)
 	button.Size = UDim2.new(1, -12, 1, -6)
@@ -81,19 +82,26 @@ function PromptPill.new(parent: Instance, props: Props): PromptPill
 		icon.ZIndex = 3
 		left += height - 8
 	end
-	local object = Style.Label(button, props.Object, "Bold", 13, theme.Colors.TextMuted)
+	local object = Style.Label(button, props.Object, "Bold", theme.MobileUI.Small, theme.Colors.TextMuted)
 	object.Position = UDim2.fromOffset(left, 5)
 	object.Size = UDim2.new(1, -(left + 10), 0.34, 0)
 	object.TextXAlignment = Enum.TextXAlignment.Left
 	object.TextScaled = true
 	object.ZIndex = 3
-	local action = Style.Label(button, props.Action, "Title", 20, theme.Colors.Text)
+	local action = Style.Label(button, props.Action, "Bold", theme.MobileUI.PromptAction, theme.Colors.Text)
 	action.Position = UDim2.new(0, left, 0.34, 3)
 	action.Size = UDim2.new(1, -(left + 10), 0.58, -6)
 	action.TextXAlignment = Enum.TextXAlignment.Left
 	action.TextScaled = true
+	action.TextWrapped = true
 	action.ZIndex = 3
 	Style.Outline(action, 1.5)
+	for _, label in { object, action } do
+		local limit = Instance.new("UITextSizeConstraint")
+		limit.MinTextSize = theme.MobileUI.Small
+		limit.MaxTextSize = if label == object then theme.MobileUI.Small else theme.MobileUI.PromptAction
+		limit.Parent = label
+	end
 
 	return setmetatable({
 		Button = button,

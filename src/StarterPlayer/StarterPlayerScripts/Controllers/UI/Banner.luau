@@ -36,6 +36,7 @@ export type Banner = typeof(setmetatable({} :: {
 	Height: number,
 	TextSize: number,
 	StarSize: number,
+	MaxWidth: number?,
 }, Banner))
 
 function Banner.new(parent: Instance, props: Props): Banner
@@ -128,7 +129,7 @@ function Banner.new(parent: Instance, props: Props): Banner
 	local starTween: Tween? = nil
 	local function updateMotion()
 		if starTween then starTween:Cancel(); starTween = nil end
-		if Players.LocalPlayer:GetAttribute("ReducedMotion") == true then
+		if Players.LocalPlayer:GetAttribute("ReducedMotion") == true or Players.LocalPlayer:GetAttribute("LowEffects") == true then
 			star.Rotation = 0
 			return
 		end
@@ -138,8 +139,10 @@ function Banner.new(parent: Instance, props: Props): Banner
 	end
 	updateMotion()
 	local motionChanged = Players.LocalPlayer:GetAttributeChangedSignal("ReducedMotion"):Connect(updateMotion)
+	local effectsChanged = Players.LocalPlayer:GetAttributeChangedSignal("LowEffects"):Connect(updateMotion)
 	star.Destroying:Connect(function()
 		motionChanged:Disconnect()
+		effectsChanged:Disconnect()
 		if starTween then starTween:Cancel() end
 	end)
 
@@ -159,14 +162,14 @@ function Banner.new(parent: Instance, props: Props): Banner
 end
 
 -- Sizes the banner for a height (the width follows the title).
-function Banner.Layout(self: Banner, height: number, textSize: number, starSize: number)
+function Banner.Layout(self: Banner, height: number, textSize: number, starSize: number, maxWidth: number?)
+	self.MaxWidth = maxWidth
 	self.Height = height
 	self.TextSize = textSize
 	self.StarSize = starSize
 	local padding = Style.Theme.Sizes.BannerPadding * height / Style.Theme.Sizes.Banner
 	local textWidth = TextService:GetTextSize(self.Label.Text, textSize, self.Label.Font, Vector2.new(2000, 200)).X
 	self.Label.TextSize = textSize
-	self.Label.Size = UDim2.fromOffset(textWidth + 4, height)
 	local iconWidth = 0
 	if self.Icon then
 		local iconSize = math.floor(height * 1.3)
@@ -174,6 +177,14 @@ function Banner.Layout(self: Banner, height: number, textSize: number, starSize:
 		iconWidth = iconSize + 8
 	end
 	local width = math.floor(textWidth + iconWidth + padding * 2)
+	if maxWidth then width = math.min(width, math.max(1, maxWidth)) end
+	self.Label.Size = UDim2.fromOffset(math.max(1, width - iconWidth - padding * 2), height)
+	self.Label.TextWrapped = true
+	self.Label.TextScaled = true
+	local limit = self.Label:FindFirstChildOfClass("UITextSizeConstraint") or Instance.new("UITextSizeConstraint")
+	limit.MinTextSize = Style.Theme.MobileUI.Small
+	limit.MaxTextSize = textSize
+	limit.Parent = self.Label
 	self.Holder.Size = UDim2.fromOffset(width, height)
 	local gem = math.floor(height * 0.42)
 	for index, end_ in self.Tails do -- the gold end gems
@@ -193,7 +204,7 @@ end
 
 function Banner.SetText(self: Banner, text: string)
 	self.Label.Text = text
-	self:Layout(self.Height, self.TextSize, self.StarSize)
+	self:Layout(self.Height, self.TextSize, self.StarSize, self.MaxWidth)
 end
 
 return Banner

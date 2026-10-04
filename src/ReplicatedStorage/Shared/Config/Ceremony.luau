@@ -1,61 +1,74 @@
 --!strict
--- The binding ceremony (CeremonyController), played on the binder's client after the server's result:
--- camera eases toward the altar, tonight's stars streak down into it, a burst in the rarity color, then the dragon
--- rises over the altar with its name. Any key/click/tap skips it.
--- No ceremony (just the toast) for Auto-bind pass binds or when the player has been idle (IdleSeconds without input).
--- "Quick binds" (Settings; LocalPlayer attribute "QuickBinds") plays only the burst + reveal, except for FullAlways.
+-- Client presentation of an already-confirmed bind. A private ViewportFrame stages the altar and dragon;
+-- it never replaces assets, moves world models, or takes ownership of the player's camera.
+-- Quick Binds shortens EVERY rarity. Auto-bind/idle results bypass the ceremony. Starborn is retired;
+-- Primordial and exceptionally rare species/mutation pairs use the prestige profile below.
 
 return {
-	IdleSeconds = 60,
-	ResponseTimeout = 12, -- release the pre-reveal cover if the server declines or fails to answer
-	AnticipationSeconds = 0.3, -- brief beat before the dragon appears
-	ReducedHoldSeconds = 0.45, -- static, accessible reveal instead of camera/particle motion
-	SkipButtonSize = Vector2.new(150, 44), -- touch-sized Skip control in the safe screen area
-	SkipBottomMargin = 16,
-	WaitingStarSize = 48,
-	WaitingStars = 5, -- simple UI stars while the opaque cover hides grants/data-sync spoilers
-	WaitingRadius = 110,
+	IdleSeconds = 60, -- no cinematic when a player has stopped interacting
+	ResponseTimeout = 12, -- release a pending spoiler cover if the server never answers
+	AltarRange = 80, -- only stage an altar the player is currently near
+	SkipButtonSize = Vector2.new(150, 44), -- accessible touch control, never scaled down
+	SkipBottomMargin = 12,
+	WaitingStarSize = 36,
+	WaitingStars = 5,
+	WaitingRadius = 90,
 	WaitingStarSeconds = 0.55,
-	AltarRange = 80, -- studs: the player must be this close to an altar for the ceremony
-	FullAlways = { Legendary = true, Mythic = true }, -- rarities that always play the full (big) ceremony
-	PrimordialIsBig = true, -- Primordial binds get the big ceremony too
-
-	Camera = {
-		Distance = 40, -- studs from the altar's main crystal, on the player's side
-		Height = 9,
-		EaseSeconds = 0.6,
-		ReturnSeconds = 0.4,
+	ReducedHoldSeconds = 0.25, -- static transition; no camera motion, spinning or flashes
+	PrestigeOneIn = 5000, -- dramatic presentation also follows exact confirmed pair odds, not just tier
+	Profiles = {
+		Common = { Anticipation = 0.18, Gather = 0.40, Silhouette = 0.15, Entrance = 0.35, Hold = 0.40, Stars = 4 },
+		Rare = { Anticipation = 0.22, Gather = 0.50, Silhouette = 0.20, Entrance = 0.40, Hold = 0.60, Stars = 5 },
+		Epic = { Anticipation = 0.28, Gather = 0.65, Silhouette = 0.25, Entrance = 0.45, Hold = 0.80, Stars = 6 },
+		Legendary = { Anticipation = 0.32, Gather = 0.75, Silhouette = 0.30, Entrance = 0.50, Hold = 1.10, Stars = 7 },
+		Mythic = { Anticipation = 0.35, Gather = 0.85, Silhouette = 0.35, Entrance = 0.55, Hold = 1.40, Stars = 8 },
+		Prestige = { Anticipation = 0.35, Gather = 0.90, Silhouette = 0.40, Entrance = 0.55, Hold = 1.50, Stars = 9 },
+		Quick = { Anticipation = 0.08, Gather = 0.12, Silhouette = 0.06, Entrance = 0.18, Hold = 0.25, Stars = 3 },
 	},
-	Stars = {
-		Count = 7,
-		FlySeconds = 0.9,
-		Stagger = 0.08, -- seconds between each star's start
-		Size = 3, -- studs
+	Viewport = {
+		-- Prefer stage-appropriate art, then existing later-stage art, then the shared placeholder. Display only:
+		-- a bind still grants a level-one dragon, regardless of which art is currently available in the place.
+		StageFallbacks = { "Hatchling", "Drake", "Dragon", "Elder" },
+		DragonLength = 14,
+		AltarLength = 24,
+		AltarHeight = -3,
+		AltarMaxParts = 100, -- do not clone unexpectedly expensive scenery into a short-lived mobile cinematic
+		Direction = Vector3.new(0.46, 0.20, -1).Unit,
+		FieldOfView = 34,
+		FitMargin = 1.30, -- allow folded/stretching wings to remain inside the frame
+		DollyFraction = 0.10, -- restrained viewport-only push-in (never used with Reduced Motion)
+		EntranceHeight = 2,
+		PoseSeconds = 1.15,
+		PoseAction = "Stretch", -- existing code-driven bone pose; unavailable rigs use a static fallback
+		Ambient = Color3.fromRGB(190, 190, 215),
+		Light = Color3.fromRGB(255, 246, 225),
+		LightDirection = Vector3.new(-0.7, -1, -0.7),
+	},
+	Presentation = {
+		WidthFraction = 0.86, -- reserve room for safe-area text and the skip button
+		HeightFraction = 0.76,
+		StageY = 0.46,
+		PortalY = 0.68,
+		PortalWidthFraction = 0.36,
+		PortalHeightFraction = 0.18,
+		StarSize = 26,
+		StarRadiusFraction = 0.38,
+		StarStaggerFraction = 0.35,
+		PortalTransparency = 0.64, -- local halo only; no full-screen flash or Lighting bloom
+		BurstTransparency = 0.40,
+		BurstSizeMultiplier = 1.5,
+		BurstSeconds = 0.30,
+		LabelTop = 12,
+		LabelHeight = 40,
+		LabelBottom = 64,
+		LowStars = 3,
+		ExitSeconds = 0.16,
 	},
 	Burst = {
-		Particles = 45,
-		BigParticles = 110,
-		RingSize = 28, -- studs
-		BigRingSize = 60,
-		RingSeconds = 0.7,
-		FlashTransparency = 0.6, -- screen flash in the rarity color (lower = stronger)
-		BigFlashTransparency = 0.35,
-		LightRange = 40,
-		LightBrightness = 6,
 		RingImage = "rbxthumb://type=Asset&id=111862488111004&w=420&h=420", -- free Creator Store decal "Circle light"
 		SparkleImage = "rbxasset://textures/particles/sparkles_main.dds",
 	},
-	SkyFlash = { Seconds = 0.8, Brightness = 0.2 }, -- big ceremonies only
-	Reveal = {
-		RiseHeight = 7, -- studs above the altar's main crystal
-		RiseSeconds = 0.6,
-		SpinSpeed = 45, -- degrees per second
-		HoldSeconds = 1.2,
-		BigHoldSeconds = 2.3,
-		QuickHoldSeconds = 0.6,
-		Scale = 2.2, -- model scale over its normal (Hatchling) size
-	},
-	-- Free Creator Store sounds (verified to load). Per rarity; Big plays on top for big ceremonies.
+	-- Existing sound assets; per-ceremony instances are explicitly destroyed on skip/error/completion.
 	Sounds = {
 		Pull = "rbxassetid://80454497832356", -- "Whoosh_8"
 		Common = "rbxassetid://128502047397803", -- "SE_DEMO_GET_STAR_2"
@@ -63,8 +76,7 @@ return {
 		Epic = "rbxassetid://4612374495", -- "bling_diamond_pickup_3"
 		Legendary = "rbxassetid://9040271484", -- "Beauty Over The Rainbow - Sting 1" (APM)
 		Mythic = "rbxassetid://9040271484",
-		Big = "rbxassetid://128502047397803",
 		Volume = 0.7,
+		CleanupSeconds = 10, -- bounded even when an asset fails to load or never emits Ended
 	},
-	SkipHint = "Tap or press any key to skip",
 }
