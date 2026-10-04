@@ -99,7 +99,8 @@ function Button.new(parent: Instance, props: Props): Button
 		local ratio = Instance.new("UIAspectRatioConstraint")
 		ratio.Parent = icon
 	end
-	local label = Style.Label(row, props.Text, "Heavy", props.TextSize or theme.TextSizes.Button, theme.Colors.ButtonText)
+	local label = Style.Label(row, props.Text, "Title", props.TextSize or theme.TextSizes.Button, theme.Colors.ButtonText)
+	Style.Outline(label, 1.5) -- chunky title-font label (approved style sheet)
 	label.Name = "Label"
 	label.LayoutOrder = 2
 	label.AutomaticSize = Enum.AutomaticSize.None
@@ -180,6 +181,10 @@ local function paint(self: Button)
 	self.Edge.BackgroundColor3 = Style.Shade(base, -0.45)
 	self.Label.TextColor3 = if self.Enabled then Style.Theme.Colors.ButtonText else Style.Theme.Colors.DisabledText
 	self.Label.TextTransparency = if self.Enabled then 0 else Style.Theme.Buttons.DisabledTextTransparency
+	-- disabled: softer (half see-through), so a row of unusable buttons never reads as a wall of grey
+	local soft = if self.Enabled then 0 else Style.Theme.Buttons.DisabledFaceTransparency
+	self.Face.BackgroundTransparency = soft
+	self.Edge.BackgroundTransparency = soft
 end
 
 function Button.SetKind(self: Button, kind: Kind)

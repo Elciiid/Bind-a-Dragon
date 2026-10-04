@@ -379,7 +379,7 @@ function Style.Pattern(parent: GuiObject, radius: number?, zIndex: number?): Ima
 	pattern.Size = UDim2.fromScale(1, 1)
 	pattern.Image = art.PanelPattern
 	pattern.ImageColor3 = UITheme.Colors.PatternTint
-	pattern.ImageTransparency = Style.Theme.MobileUI.PatternTransparency
+	pattern.ImageTransparency = art.PatternTransparency
 	pattern.ScaleType = Enum.ScaleType.Tile
 	pattern.TileSize = UDim2.fromOffset(art.PatternTile, art.PatternTile)
 	pattern.ZIndex = zIndex or -2
@@ -396,7 +396,7 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	local sizes = UITheme.Sizes
 	local colors = UITheme.Colors
 	frame.BackgroundTransparency = 1
-	Style.Glow(frame, colors.PanelGlow, UITheme.Art.GlowSpread, UITheme.MobileUI.PanelGlowTransparency, -3)
+	Style.Glow(frame, colors.PanelGlow, UITheme.Art.GlowSpread, 0.25, -3) -- the approved soft violet glow
 
 	local back = Instance.new("Frame")
 	back.Name = "Back"
@@ -404,7 +404,7 @@ function Style.PanelLook(frame: GuiObject, sparkles: number?)
 	back.BackgroundColor3 = Color3.new(1, 1, 1)
 	back.BorderSizePixel = 0
 	back.ZIndex = -2
-	Style.Gradient(back, colors.GlassTop, colors.GlassBottom)
+	Style.Gradient(back, colors.PanelV2Top, colors.PanelV2Bottom) -- indigo -> violet (approved style sheet)
 	Style.Corner(back, UITheme.Corner)
 	Style.GoldBorder(back, sizes.Border)
 	back.Parent = frame
@@ -601,13 +601,14 @@ function Style.CardLook(frame: GuiObject, accent: Color3?)
 	local colors = UITheme.Colors
 	frame.BackgroundColor3 = Color3.new(1, 1, 1)
 	frame.BackgroundTransparency = 0.04
-	local top = if accent then colors.CardTop:Lerp(accent, UITheme.MobileUI.CardAccentMix) else colors.CardTop
-	local bottom = colors.CardBottom
+	-- tinted + glowing in the accent color (approved style sheet), never a flat dark card
+	local top = if accent then colors.CardTop:Lerp(accent, 0.3) else colors.CardTop
+	local bottom = if accent then colors.CardBottom:Lerp(accent, 0.12) else colors.CardBottom
 	Style.Gradient(frame, top, bottom)
 	Style.Corner(frame, UITheme.SmallCorner + 4)
-	local stroke = Style.Stroke(frame, if accent then Style.Shade(accent, 0.25) else colors.Trim, UITheme.MobileUI.CardBorder)
+	local stroke = Style.Stroke(frame, if accent then Style.Shade(accent, 0.25) else colors.Trim, if accent then 2.5 else 1.5)
 	if accent then
-		stroke.Transparency = 0.2 -- reserve the strongest glow for reveal/ready states, not every card
+		Style.Glow(frame, accent, 10, 0.72, 0) -- over the card's background, under its content (ZIndex 1+)
 	else
 		stroke.Transparency = 0.45
 	end

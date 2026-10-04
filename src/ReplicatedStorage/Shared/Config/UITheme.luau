@@ -81,13 +81,16 @@ return {
 	},
 	-- Mobile-first presentation tokens: keep physical text/targets readable; scroll/reflow instead of scaling panels.
 	MobileUI = {
-		Body = 16, Small = 14, Title = 20, Touch = 44, Gap = 10, Padding = 12,
+		Body = 16, Small = 16, Title = 20, Touch = 44, Gap = 10, Padding = 12, -- owner: no text under 16 px
 		DragonCard = Vector2.new(240, 360), PotionCard = Vector2.new(220, 196), CollectionCard = Vector2.new(176, 198), RowHeight = 84,
 		TabHeight = 44, TabMinWidth = 120, HeaderHeight = 48, Scrollbar = 8,
-		ButtonMinText = 14, ButtonPadding = 12, ButtonIcon = 28,
+		ButtonMinText = 16, ButtonPadding = 12, ButtonIcon = 28,
 		WindowMargin = 12, WindowTop = 8, WindowBottom = 12,
-		PanelGlowTransparency = 0.82, PatternTransparency = 0.97,
-		CardAccentMix = 0.12, CardBorder = 1.25,
+		CardBorder = 1.25,
+		CompactCardHeight = 108, -- Dragons tab on short screens (phones): one row per dragon, a whole card + its buttons always fit
+		CompactCardWidth = 420,
+		PotionTile = Vector2.new(150, 92), -- potions you don't own: small dim tiles, no button
+		ScrollFade = 28, -- pixels: a soft fade at a list's bottom edge while there is more below
 		TravelHeight = 52, TravelSlot = 70, TravelIcon = 30, TravelText = 14,
 		TravelTop = 6, TravelGap = 16, -- small top margin aligns the phone row with Roblox's microphone/chat controls
 		SideIcon = 30, SideGap = 4, SideTop = 4, SideLeft = 12, -- centered vertical phone column; minimum top clearance and 44px targets
@@ -346,7 +349,8 @@ return {
 		ShadeTop = 0.16,
 		ShadeBottom = -0.2,
 		CornerExtra = 2, -- added to SmallCorner (tiles add 3)
-		DisabledTextTransparency = 0.15,
+		DisabledTextTransparency = 0.35,
+		DisabledFaceTransparency = 0.45, -- disabled buttons are softer, not big grey bars
 	},
 
 	Motion = {
