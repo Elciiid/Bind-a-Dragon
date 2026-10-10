@@ -3,6 +3,13 @@
 This file gives Claude Code the context for this project. Read it before making changes.
 Keep it updated: when a system is finished or a design decision changes, edit the relevant section.
 
+**Merge of Kyle's mobile UI branch (2026-10-10, work branch `merge/kyle-mobile-ui`, NOT merged to main yet):** Kyle's
+`codex/mobile-ui-tutorial-reveal` (8ecb029) is merged into main's work, plus the new first-time flow, the text-only
+Twinkle onboarding, the violet/gold style restored on Kyle's reflowed windows and the Hall of Stars leaderboards. All of
+it is code-checked only (compile + portable checks); **the owner does all testing** (no Studio Play runs, emulator or
+screenshots by Claude). Details and owner decisions: the section "Merge of Kyle's mobile UI branch" below. It
+supersedes the merge/branch rules in the next paragraph and in `docs/Hakai_Handoff.md`.
+
 **Mobile UI / tutorial / reveal (2026-10-04, `codex/mobile-ui-tutorial-reveal`):** presentation code is implemented;
 Studio validation is owner-operated and still pending. This branch starts from main `3c93596` and includes the
 owner-approved, previously unmerged leaderboard/audio/onboarding changes. Physical 16px
@@ -58,10 +65,10 @@ _Update this section as work progresses._
 | Project setup (Rojo, Git, folder structure) | Done (Rojo 7.6.1, `default.project.json`, Init/Start bootstraps) |
 | Player data / DataStore | Done: `DataService` (ProfileStore), template + migrations, types in `Shared/Types/PlayerData`. Studio uses a separate `PlayerData_Studio` store |
 | Client data sync | Done: snapshot + auto-diffed changes (`DataService` → `DataController`); `PRIVATE_KEYS` stay server-only. Gold/Stardust HUD in `CurrencyController` |
-| Mobile-first UI, tutorial and bind reveal (2026-10-04 feature branch) | Code implemented on `codex/mobile-ui-tutorial-reveal`: shared safe geometry/physical controls; reflowing Inventory, stations and Spire; reusable targeted tutorial; queued viewport reveal with exact frozen odds and safe skip/fallback. Luau compile, Rojo 7.6.1 build and portable contracts pass. Owner requested code-only work; all new Studio visual/input tests and before/after captures remain pending. See `docs/Mobile_UI_Polish.md`. |
-| World leaderboards (2026-10-03 feature branch) | Implemented: tagged SurfaceGui boards for Rebirths, credited lifetime gold, and rarest base pair odds; budgeted monotonic OrderedDataStore writes, cached top ten/viewer ranks, Studio-suffixed stores and Rebirths leaderstats. Static checks pass; user-operated Hakai Test verification pending. Spire earnings are omitted because SpireService is protected; historical earnings cannot be recovered. See `docs/Leaderboards_Implementation.md`. |
+| Mobile-first UI, tutorial and bind reveal (2026-10-04 feature branch) | **Merged on `merge/kyle-mobile-ui` (2026-10-10) with main's violet/gold look restored, see "Merge of Kyle's mobile UI branch".** Code implemented on `codex/mobile-ui-tutorial-reveal`: shared safe geometry/physical controls; reflowing Inventory, stations and Spire; reusable targeted tutorial; queued viewport reveal with exact frozen odds and safe skip/fallback. Luau compile, Rojo 7.6.1 build and portable contracts pass. Owner requested code-only work; all new Studio visual/input tests and before/after captures remain pending. See `docs/Mobile_UI_Polish.md`. |
+| World leaderboards (2026-10-03 feature branch) | **Hall of Stars built in the place (2026-10-10, `StarterMeadow.HallOfStars`, owner test pending).** Implemented: tagged SurfaceGui boards for Rebirths, credited lifetime gold, and rarest base pair odds; budgeted monotonic OrderedDataStore writes, cached top ten/viewer ranks, Studio-suffixed stores and Rebirths leaderstats. Static checks pass; user-operated Hakai Test verification pending. Spire earnings are omitted because SpireService is protected; historical earnings cannot be recovered. See `docs/Leaderboards_Implementation.md`. |
 | Area audio / dragon sounds (2026-10-03 feature branch) | Implemented: five area day/night palettes, crossfades, rarity fanfares, remote-driven Spire music, unique timed feedback and capped nearby 3D dragon cues. Config checks pass; 15 new public APM/PSE listings verified for provenance only. Actual load permissions, listening, loop seams and Studio flows remain user-test pending; `AudioController.GetLoadReport()` exposes runtime diagnostics. All IDs and checklist: `docs/Audio_Manifest.md`. |
-| First-time onboarding (2026-10-03 feature branch) | Implemented: server-owned skippable progress, once-only daytime Rare-or-better conditional bind with accurately labeled odds, falling-star prelude, Inventory pointer and separate free-upgrade action, next-night and contextual hints. Four appended fields use Reconcile without a version bump. Owner confirmed Home advancement, one upgrade and step-5 completion; ground decals failed visibility. Follow-up replaces them with raised, outlined star billboards and restyles the hint with the existing panel kit, title/progress and 30-second final guidance; revised rendering needs owner retest. Five pools/500,000 rolls and portable layout checks cover source behavior, not Studio visuals. Protected HUD/Inventory pointer fallbacks remain; evidence/checklist in `docs/Onboarding_Implementation.md`, proposal in `docs/Onboarding_Proposal.md`. |
+| First-time onboarding (2026-10-03 feature branch) | **Replaced 2026-10-10 by the welcome bind + Twinkle (see "Merge of Kyle's mobile UI branch"); the Rare-or-better first bind below is gone.** Implemented: server-owned skippable progress, once-only daytime Rare-or-better conditional bind with accurately labeled odds, falling-star prelude, Inventory pointer and separate free-upgrade action, next-night and contextual hints. Four appended fields use Reconcile without a version bump. Owner confirmed Home advancement, one upgrade and step-5 completion; ground decals failed visibility. Follow-up replaces them with raised, outlined star billboards and restyles the hint with the existing panel kit, title/progress and 30-second final guidance; revised rendering needs owner retest. Five pools/500,000 rolls and portable layout checks cover source behavior, not Studio visuals. Protected HUD/Inventory pointer fallbacks remain; evidence/checklist in `docs/Onboarding_Implementation.md`, proposal in `docs/Onboarding_Proposal.md`. |
 | Day/night + constellation cycle | Done: `Shared/Cycle` (global clock, same night on every server; `GetNightBlend` for visuals), `DayNightService`, `DayNightController` (clock + the day/night card at the top: sun/moon icon, phase + time left, tonight's luck line, progress bar, pop on phase change; wording in `Config/Text.SkyHud`, sizes `UITheme.Sizes.SkyCard`/`PhoneSkyCard`; design by Kyle) |
 | Atmosphere (meadow wow pass, phase 1) | Done (NightGlow parts with a SurfaceAppearance glow through its emissive: `GlowStrength` attribute): per-area Day/Night looks in `Config/Atmosphere` (`AtmosphereController`: ambient, haze, bloom, color correction, sun rays, far blur, 3D clouds (`Terrain.Clouds`, per-area cover/density/color); blends at dusk/dawn and on area change; night tint by element), tonight's constellation drawn in the sky + shooting stars (`SkyController`, drawings in `Config/Constellations` Stars/Lines; drawn 2,000 studs out following the camera like a skybox, as depth-tested pixel-sized BillboardGuis, so the Spire, buildings and mountains hide it and the haze doesn't fade it), lanterns (tag `Lantern`, Atomic) lit at dusk with flicker, max 8 lights (`WorldLifeController`), drifting particles per area (petals/fireflies, embers, snow...), music + ambience crossfade and 3D world sounds (`AudioController`, `Config/Audio`). `EffectsQuality` = Low effects (setting or low graphics quality). Lighting uses `Lighting.LightingStyle = Realistic` (set in Studio; replaces the old Future technology) |
 | Altar glow + binding ceremony (wow pass, phase 2) | Done: `AltarGlowController` (every `StarAltar`: beam from the main crystal, glow sprites on `Glow/GlowAnchor` parts (Rank 1 = main crystal; only `MaxLights` cast light), rising sparkles, pulsing Highlight up close; element color, brighter when favored; `Config/AltarGlow`). `CeremonyController` (`Config/Ceremony`): after the server's BindResult, camera eases in, tonight's sky stars streak into the altar, rarity/mutation burst + flash, the dragon rises with its name; Legendary/Mythic/Primordial = big; skippable; no ceremony for Auto-bind or idle players; Quick binds remain supported |
@@ -169,6 +176,8 @@ the Star Merchant; a stone chimney with glowing embers and a little smoke on the
   station prompts have a 12-stud range), each on a stone platform (top y 2.4) in `Market`, with the
   `Placeholder_StarObelisk` (star-blue crystal on a stepped base, signpost arms) in the center.
 - `Entrance`: `Placeholder_EntranceGate` (two stone towers with navy star banners, lanterns) at the valley mouth (z 150).
+- `HallOfStars` (2026-10-10): the three leaderboards in an arc closing the south side of the spawn plaza, every board 33
+  studs from the spawn and facing it (see "Merge of Kyle's mobile UI branch").
 - `Bridges`: `Placeholder_GrandBridge` on the main road over the river (z 48-80, lands on the plaza step), and
   `Placeholder_SideBridge_W` / `_E` at (-100 / 100, 60) on the W3/E3 roads, square to the river; gold stars, lanterns.
 - `Portals`: **layout A-N:** on the portal terrace behind the sanctuaries, wrapping the Spire's south foot (`V.Terrace.Poly` in
@@ -651,6 +660,56 @@ Lighting; tags stripped; terrain can't be copied).
   run `D.RunSimplify()` right after it.
 - **Set by hand (owner, done 2026-10-04):** Workspace `StreamingMinRadius` 256, `StreamingTargetRadius` 1024 (scripts can't read or
   write them; no code depends on them); `Lighting.LightingStyle` Soft.
+
+## Merge of Kyle's mobile UI branch (2026-10-10, `merge/kyle-mobile-ui`)
+
+Work branch only: **do not merge to main until the owner says so.** Studio edits (the Hall of Stars) live in the place:
+the owner saves the place. Testing: the owner does all of it; Claude only writes code, builds in Edit mode (placement
+checked with numbers) and runs static checks (luau-compile, `tools/tests/*`, `tools/sim/OnboardingChecks.ps1`,
+`git diff --check`; Kyle's runners work in Windows PowerShell 5.1). Studio test profile: ServerStorage `TestProfileKey`.
+
+- **Merged:** Kyle's leaderboards, area audio + dragon sounds, onboarding, mobile-first reflow (safe areas, 44 px touch,
+  16 px text, reflowing Inventory/stations/Spire), the viewport bind reveal, with main's mutation auras, auto-sold stamp,
+  phone Spire `< Medium >` row, merchant/hotbar/companions and Simplify. Conflicts (all kept both sides): BindingService
+  (tutorial flag + AutoSoldGold), BindingController (reveal queue + AutoSoldGold), CeremonyController (Kyle's viewport
+  reveal; mutation aura drawn as 2D sparkles because particles don't render in a ViewportFrame, `Config/Auras.Reveal`),
+  NotificationController / RewardPopup (stamp + stats), RollStationController, SpireController (Kyle's reflow, main's
+  phone difficulty row). SpireService records first-clear gold for the Lifetime Gold board.
+- **First-time flow (welcome bind):** the first bind at the Valley altar, day or night, hatches the Common starter
+  (`Config/Data.StarterDragon`; not granted at join any more): no sigil/potion/offering, keeps the night's normal bind, no
+  odds ("Your first dragon!"), never a Rarest record (`dragon.Starter`), never auto-sold. Skip grants it at once. Saves
+  that already have a dragon / rebirth / bind count as Skipped. Auto-bind waits for it. The Bind Luck panel stays hidden
+  until it is done. Then: go Home, open the bag, one free Upgrade ("Free!"), "Tonight" hint (`OnboardingService`,
+  `Config/Onboarding`, `Text.Onboarding`).
+- **Onboarding look (Twinkle):** a guide star with ONE text-only line per step (<= 8 words, title font, thick outline +
+  soft shadow), an arrow + glow on the real target, a small text Skip (44 px, tap twice). Lines are placed by scoring
+  against the HUD (travel row, menu, currency, hotbar, timers, toasts, phone jump/thumbstick, top-bar buttons): it never
+  hides the timer. "Hold E" sits above the altar, not on the art. The old card/trails/decals are gone.
+- **Toasts are text only** (no box): title font, thick outline + shadow, white info / gold success-reward / rose error
+  (`UITheme.FloatText`); on phones info toasts wait while a window is open and others show at the bottom.
+- **Style restored (step 4):** Kyle's navy glass replaced by the approved violet/gold kit on his reflow: indigo -> violet
+  panels with sparkles + glow, cards tinted/glowing in their accent, chunky 3D buttons (disabled = half see-through), no
+  text under 16 px, a soft fade at the bottom of a list with more below (`Style.ScrollFade`). Inventory: open tab bright
+  violet + gold border, others dim; Sort / Equip best never scroll; short lists (phones) use a compact dragon row so a
+  whole card with its buttons fits. Potions: owned first as big cards (Use jade, Arm gold, Disarm rose), not owned = small
+  dim tiles "None owned", no button.
+- **Owner decisions:** the Star Merchant keeps MAIN's numbered lines on screen (no window; Kyle's non-visual fixes kept;
+  camera aims higher so the bubble clears the travel row). Reveal: Kyle's viewport reveal kept; the altar sits under the
+  dragon and is framed whole. Spire: Kyle's layout, phone height <= 62% of the screen. Infinite board in its own window.
+- **Hall of Stars (step 5, built in Edit mode):** `Workspace.StarterMeadow.HallOfStars`, 3 Models (Atomic) of 5 parts:
+  `Plinth` (Slate, collides), `Board` (16 x 20.1 studs, collides, tag `Leaderboard`, attribute `Board`), `Frame` (gold
+  Foil), `CrestRim` + `Crest` (round crest on top; no collision, no shadow). Arc around the spawn (0, 160) at radius 33,
+  south side, every board facing the spawn: `Board_Rebirths` center (0, 14.4, 193), `Board_Gold` (21.2, 14.2, 185.3),
+  `Board_Rarest` (-21.2, 14.4, 185.3), tops ~33 studs. Why there: inside the gate the Rune Shrine fills the west side,
+  the forge path crosses the east side and the middle is the walk to the altar, so an arc of 3 big boards could not fit
+  without blocking a path; the south of the spawn plaza is flat, open and a dead end. Measured: no overlap with any part,
+  31 studs from the spawn center, >= 28.5 from the lanterns, >= 30 from the gate towers, 51+ from the nearest station
+  prompt (Rune Shrine), 175 from the altar (the future Essence circles are north), sightlines from the spawn and the
+  Market travel point unblocked (0/5 rays), 6.6 studs between frames. Players spawn facing north, so the boards are seen
+  when they turn around or arrive by Market travel. `LeaderboardController` adds a big title with the icon (crown / coin /
+  star-dragon, `UITheme.Leaderboards.Icons`) and puts the icon on the part named `Crest`; text sizes raised for 40-stud
+  reading (`UITheme.Leaderboards`). Move or delete the folder by hand if wanted.
+- **Audio:** no sound changed; risks to listen for are in `docs/Audio_Manifest.md` ("Owner listening notes").
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 

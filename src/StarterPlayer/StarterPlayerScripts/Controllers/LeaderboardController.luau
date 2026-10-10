@@ -1,5 +1,7 @@
 --!strict
 -- Boards are authored in Studio: tag a BasePart Leaderboard; set Board to Rebirths, Gold or Rarest.
+-- The Hall of Stars (Workspace.StarterMeadow.HallOfStars) holds the three boards; a part named "Crest" next to a board
+-- part gets the board's icon (Theme.Icons) on its face that points the same way as the board's front.
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -30,6 +32,9 @@ local function render(part: BasePart)
 	state.Gui.Enabled = Text.Titles[board] ~= nil
 	if not state.Gui.Enabled then return end
 	state.Title.Text = Text.Titles[board]
+	local icon = Style.Theme.Icons[Theme.Icons[board] or ""] or ""
+	state.Icon.Image = icon
+	if state.CrestImage then state.CrestImage.Image = icon end
 	local data = latest and latest[board]
 	for i, row in state.Rows do
 		local entry = data and data.Top[i]
@@ -55,7 +60,33 @@ local function render(part: BasePart)
 end
 local function remove(instance: Instance)
 	local state = boards[instance :: BasePart]
-	if state then state.Connection:Disconnect(); state.Gui:Destroy(); boards[instance :: BasePart] = nil end
+	if state then
+		state.Connection:Disconnect(); state.Gui:Destroy()
+		if state.Crest then state.Crest:Destroy() end
+		boards[instance :: BasePart] = nil
+	end
+end
+-- The face of a part that points most along a world direction (the crest's round face toward the viewers).
+local function faceToward(part: BasePart, direction: Vector3): Enum.NormalId
+	local best, bestDot = Enum.NormalId.Front, -math.huge
+	for _, face in Enum.NormalId:GetEnumItems() do
+		local dot = part.CFrame:VectorToWorldSpace(Vector3.FromNormalId(face)):Dot(direction)
+		if dot > bestDot then best, bestDot = face, dot end
+	end
+	return best
+end
+local function makeCrest(board: BasePart): (SurfaceGui?, ImageLabel?)
+	local crest = board.Parent and board.Parent:FindFirstChild("Crest")
+	if not (crest and crest:IsA("BasePart")) then return nil, nil end
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "LeaderboardCrest"; gui.Adornee = crest; gui.Face = faceToward(crest, board.CFrame.LookVector)
+	gui.CanvasSize = Vector2.new(Theme.CrestCanvas, Theme.CrestCanvas); gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+	gui.AlwaysOnTop = false; gui.LightInfluence = 0; gui.MaxDistance = Theme.MaxDistance
+	gui.Parent = player:WaitForChild("PlayerGui")
+	local image = Instance.new("ImageLabel"); image.BackgroundTransparency = 1; image.ScaleType = Enum.ScaleType.Fit
+	image.AnchorPoint = Vector2.new(0.5, 0.5); image.Position = UDim2.fromScale(0.5, 0.5); image.Size = UDim2.fromScale(0.78, 0.78)
+	image.Parent = gui
+	return gui, image
 end
 local function add(instance: Instance)
 	if not instance:IsA("BasePart") or boards[instance] then return end
@@ -66,8 +97,16 @@ local function add(instance: Instance)
 	gui.Parent = player:WaitForChild("PlayerGui")
 	local panel = Instance.new("Frame"); panel.Size = UDim2.new(1, -Theme.Margin * 2, 1, -Theme.Margin * 2)
 	panel.Position = UDim2.fromOffset(Theme.Margin, Theme.Margin); Style.WorldPanel(panel, nil, true); panel.Parent = gui
+	-- Big title with the board's icon on its left (crown / coin / star-dragon); long titles shrink to fit one line.
+	local icon = Instance.new("ImageLabel"); icon.Name = "Icon"; icon.BackgroundTransparency = 1; icon.ScaleType = Enum.ScaleType.Fit
+	icon.AnchorPoint = Vector2.new(0, 0.5); icon.Position = UDim2.new(0, Theme.Margin, 0, Theme.HeaderHeight / 2)
+	icon.Size = UDim2.fromOffset(Theme.IconSize, Theme.IconSize); icon.Parent = panel
+	local side = Theme.IconSize + Theme.Margin * 1.5
 	local title = Style.Label(panel, "", "Title", Theme.TitleSize, Style.Theme.Colors.Gold)
-	title.Size = UDim2.new(1, 0, 0, Theme.HeaderHeight)
+	title.Position = UDim2.fromOffset(side, 0); title.Size = UDim2.new(1, -side * 2, 0, Theme.HeaderHeight)
+	title.TextWrapped = false; title.TextScaled = true
+	local limit = Instance.new("UITextSizeConstraint"); limit.MaxTextSize = Theme.TitleSize; limit.Parent = title
+	Style.Outline(title, 2.5)
 	local rows = {}
 	for i = 1, Config.TopCount do
 		local frame = Instance.new("Frame"); frame.BackgroundTransparency = 1
@@ -89,7 +128,8 @@ local function add(instance: Instance)
 	own.Position = UDim2.fromOffset(0, Theme.HeaderHeight + Config.TopCount * Theme.RowHeight); own.Size = UDim2.new(1, 0, 0, Theme.RowHeight / 2)
 	local status = Style.Label(panel, "", "Body", Theme.DetailSize)
 	status.Position = own.Position + UDim2.fromOffset(0, Theme.RowHeight / 2); status.Size = own.Size
-	boards[instance] = {Gui = gui, Title = title, Rows = rows, Own = own, Status = status,
+	local crest, crestImage = makeCrest(instance)
+	boards[instance] = {Gui = gui, Title = title, Icon = icon, Crest = crest, CrestImage = crestImage, Rows = rows, Own = own, Status = status,
 		Connection = instance:GetAttributeChangedSignal("Board"):Connect(function() render(instance) end)}
 	render(instance)
 end

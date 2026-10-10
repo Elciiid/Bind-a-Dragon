@@ -51,3 +51,28 @@ Verify the correct place and feature-branch Rojo connection, with a recoverable 
 7. Trigger floor clear, Index discovery and reward separately; confirm unique, short sounds and no 27/48-second feedback playback.
 
 CLI config checks and syntax compilation cannot validate audio permissions, actual loading, loop seams or subjective suitability. These remain explicitly unverified until the steps above are measured.
+
+## Owner listening notes (2026-10-10, `merge/kyle-mobile-ui`)
+
+Code review only: no sound was played, loaded or swapped. Each line is something to listen for in the owner's test.
+
+**Might fail to load** (old or third-party uploads, never verified for this experience; check `GetLoadReport()`):
+- `12222200` UI Close (`UITheme.Sounds.Close`): a very old upload; many pre-2022 audio uploads went private.
+- `150367086` Torch_Burn (forge loop), `92474343494275` Healing Winds & Soft Chimes (altar at night),
+  `4612374495` LevelUp: retained, never verified here.
+- `139384716554132` Whoosh_18 (portal warp, `WorldUI`) and the APM/PSE tracks are public listings; they usually load,
+  but the listing alone is not proof.
+
+**Might be too loud** (sounds that stack):
+- The welcome bind and every bind: the reveal's own sting (`Ceremony.Sounds`, volume 0.7) plays together with the
+  rarity fanfare (`Audio.Bind`, 0.3-0.6). Legendary/Mythic stack two musical stings ("Beauty Over The Rainbow" 0.7 +
+  "Orchestral Fantasy" 0.5-0.55), likely the loudest moment in the game.
+- Feedback cues (0.55) right after a UI Confirm click (0.45), e.g. buying at a stand.
+
+**Might be too quiet or lost:**
+- Dragon roar / wings / chirp (0.18-0.2), quietest of all; the roar and the lava rumble are low pitched and may vanish on
+  phone speakers.
+- The Rare bind chime is "Wind Chimes 4", the same track as the Meadow day ambience, so by day it may not stand out.
+
+**Mood to check:** Volcano/Storm day music is an electro mix and Eclipse is a dark choir. Check they still feel right
+for kids. The Hall of Stars has no sound.

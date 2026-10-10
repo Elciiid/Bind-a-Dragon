@@ -473,8 +473,12 @@ return {
 
 	Leaderboards = {
 		CanvasSize = Vector2.new(700, 880), MaxDistance = 100,
-		Margin = 24, HeaderHeight = 86, RowHeight = 65, AvatarSize = 48,
-		TitleSize = 30, RowSize = 22, DetailSize = 16, FooterSize = 19,
+		-- Hall of Stars boards are 16 x 20 studs (1 px = 0.023 stud): row text 30 px = 0.7 stud, readable from ~40 studs.
+		Margin = 24, HeaderHeight = 96, RowHeight = 65, AvatarSize = 48,
+		TitleSize = 52, RowSize = 30, DetailSize = 20, FooterSize = 24,
+		IconSize = 76, -- the title's icon (keys into Icons; the same icon fills the round crest above the board)
+		Icons = { Rebirths = "Crown", Gold = "Gold", Rarest = "Menu_Dragons" },
+		CrestCanvas = 256, -- the crest (a part named "Crest" next to the board part) shows the icon on its front face
 		Medals = {Color3.fromRGB(255, 210, 90), Color3.fromRGB(200, 215, 235), Color3.fromRGB(200, 140, 90)},
 	},
 	-- Text floating in the world (BillboardGuis). Every label is hidden past its MaxDistance and hidden behind
