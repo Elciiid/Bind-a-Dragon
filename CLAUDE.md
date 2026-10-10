@@ -3,7 +3,7 @@
 This file gives Claude Code the context for this project. Read it before making changes.
 Keep it updated: when a system is finished or a design decision changes, edit the relevant section.
 
-**Merge of Kyle's mobile UI branch (2026-10-10, work branch `merge/kyle-mobile-ui`, NOT merged to main yet):** Kyle's
+**Merge of Kyle's mobile UI branch (2026-10-10, work branch `merge/kyle-mobile-ui`, merged to main 2026-10-11 by owner request):** Kyle's
 `codex/mobile-ui-tutorial-reveal` (8ecb029) is merged into main's work, plus the new first-time flow, the text-only
 Twinkle onboarding, the violet/gold style restored on Kyle's reflowed windows and the Hall of Stars leaderboards. All of
 it is code-checked only (compile + portable checks); **the owner does all testing** (no Studio Play runs, emulator or
@@ -664,7 +664,7 @@ Lighting; tags stripped; terrain can't be copied).
 
 ## Merge of Kyle's mobile UI branch (2026-10-10, `merge/kyle-mobile-ui`)
 
-Work branch only: **do not merge to main until the owner says so.** Studio edits (the Hall of Stars) live in the place:
+Merged to main on 2026-10-11 (fast-forward, owner request). Studio edits (the Hall of Stars) live in the place:
 the owner saves the place. Testing: the owner does all of it; Claude only writes code, builds in Edit mode (placement
 checked with numbers) and runs static checks (luau-compile, `tools/tests/*`, `tools/sim/OnboardingChecks.ps1`,
 `git diff --check`; Kyle's runners work in Windows PowerShell 5.1). Studio test profile: ServerStorage `TestProfileKey`.
