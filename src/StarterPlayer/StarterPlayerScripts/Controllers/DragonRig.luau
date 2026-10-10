@@ -160,16 +160,19 @@ function DragonRig.Apply(rig: Rig, p: Pose, detail: string)
 		+ 30 * stretch + 15 * roar + sin(t * 2 * pi) * 10 * stretch + sin(p.Clock * 45) * 6 * shake
 	local open = (c.WingOpen or 0) * spread - (c.WingFoldBack or 0) * fold
 		+ stroke * s.WingSweep * air - max(0, -p.Pitch) * s.DiveSweep * air
-	local elbow = (c.ElbowOpen or 0) * spread - max(0, -stroke) * s.ElbowFold * air
+	local elbow = (c.ElbowOpen or 0) * spread - max(0, -stroke) * s.ElbowFold * air - (c.ElbowFoldRest or 0) * fold
+	local hand = -(c.HandFoldRest or 0) * fold
 	local bank = turn * s.BankWing
 	local right, left = c.WingRight, c.WingLeft
 	if right then
 		pose(rig, right[1], CFrame.fromAxisAngle(Z_AXIS, rad(lift + bank)) * CFrame.fromAxisAngle(Y_AXIS, rad(open)))
 		pose(rig, right[2], CFrame.fromAxisAngle(Y_AXIS, rad(elbow)))
+		pose(rig, right[3], CFrame.fromAxisAngle(Y_AXIS, rad(hand)))
 	end
 	if left then
 		pose(rig, left[1], CFrame.fromAxisAngle(Z_AXIS, rad(-(lift - bank))) * CFrame.fromAxisAngle(Y_AXIS, rad(-open)))
 		pose(rig, left[2], CFrame.fromAxisAngle(Y_AXIS, rad(-elbow)))
+		pose(rig, left[3], CFrame.fromAxisAngle(Y_AXIS, rad(-hand)))
 	end
 
 	-- tail: sway on the ground, trailing wave and turn in the air, curl while lying, flicks

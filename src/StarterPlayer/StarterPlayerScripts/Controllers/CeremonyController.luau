@@ -326,7 +326,7 @@ function CeremonyController.Play(request: Request, onDone: () -> ()): boolean
 			modelBase = CFrame.new(-box.Position) * model:GetPivot()
 			model:PivotTo(modelBase)
 			target = Vector3.zero
-			local config = RigConfig.Rigs[request.SpeciesId .. "/" .. stageId]
+			local config = RigConfig.Get(request.SpeciesId, stageId, model)
 			if config then rig = DragonRig.Build(model, config) end
 			if rig then DragonRig.Apply(rig, pose, if low then "Simple" else "Full") end
 			local posedBox, size = model:GetBoundingBox()

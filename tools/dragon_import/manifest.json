@@ -7,14 +7,15 @@
    "element": "Fire",
    "rarity": "Common",
    "source": "Cinderwing_Hatchling.glb",
-   "status": "converted",
+   "status": "placed",
    "fbx": "assets/Dragons/fbx/ready/Cinderwing_Hatchling.fbx",
    "problems": [
     "NOTE: the source has no wing_L bones; that part is skinned to the body and moves with it",
     "NOTE: the source has no wing_R bones; that part is skinned to the body and moves with it"
    ],
    "bytes": 27367740,
-   "mtime": 1790874348
+   "mtime": 1790874348,
+   "placed": "ReplicatedStorage.Assets.Dragons.Cinderwing.Hatchling (2026-10-11)"
   },
   {
    "species": "Cinderwing",
@@ -22,11 +23,12 @@
    "element": "Fire",
    "rarity": "Common",
    "source": "Cinderwing_Drake.glb",
-   "status": "converted",
+   "status": "placed",
    "fbx": "assets/Dragons/fbx/ready/Cinderwing_Drake.fbx",
    "problems": [],
    "bytes": 26341608,
-   "mtime": 1790874325
+   "mtime": 1790874325,
+   "placed": "ReplicatedStorage.Assets.Dragons.Cinderwing.Drake (2026-10-11)"
   },
   {
    "species": "Cinderwing",
@@ -34,11 +36,12 @@
    "element": "Fire",
    "rarity": "Common",
    "source": "Cinderwing_Dragon.glb",
-   "status": "converted",
+   "status": "placed",
    "fbx": "assets/Dragons/fbx/ready/Cinderwing_Dragon.fbx",
    "problems": [],
    "bytes": 27877140,
-   "mtime": 1790874315
+   "mtime": 1790874315,
+   "placed": "ReplicatedStorage.Assets.Dragons.Cinderwing.Dragon (2026-10-11)"
   },
   {
    "species": "Cinderwing",
@@ -46,11 +49,12 @@
    "element": "Fire",
    "rarity": "Common",
    "source": "Cinderwing_Elder.glb",
-   "status": "converted",
+   "status": "placed",
    "fbx": "assets/Dragons/fbx/ready/Cinderwing_Elder.fbx",
    "problems": [],
    "bytes": 29990876,
-   "mtime": 1790874339
+   "mtime": 1790874339,
+   "placed": "ReplicatedStorage.Assets.Dragons.Cinderwing.Elder (2026-10-11)"
   },
   {
    "species": "Emberclaw",

@@ -32,7 +32,7 @@ local FOLDED: DragonRig.Pose = {
 
 -- Poses the clone's bones to the folded perched pose; returns the posed bones' world positions (nil with no bones).
 local function poseFolded(clone: Model, speciesId: string, stageId: string): { Vector3 }?
-	local config = RigConfig.Rigs[`{speciesId}/{stageId}`]
+	local config = RigConfig.Get(speciesId, stageId, clone)
 	if config == nil then
 		return nil
 	end

@@ -352,7 +352,7 @@ local function register(model: Model, plot: Model)
 	local perchSize = model:GetAttribute("PerchSize")
 	local _, size = model:GetBoundingBox()
 	local species, stage = model:GetAttribute("SpeciesId"), model:GetAttribute("Stage")
-	local rigConfig = if type(species) == "string" and type(stage) == "string" then RigConfig.Rigs[`{species}/{stage}`] else nil
+	local rigConfig = RigConfig.Get(species, stage, model)
 	local roamer: Roamer = {
 		Model = model,
 		Plot = plot,

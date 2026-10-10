@@ -338,6 +338,7 @@ To test night in Studio, set a number attribute `CycleTimeOffset` (seconds) on W
   Studio (Workspace, models in ReplicatedStorage, etc.) is not deleted by Rojo syncs. New folders under those
   sync automatically; editing `default.project.json` itself needs a `rojo serve` restart + reconnect.
   Workspace/builds are owned in Studio; code lives in the repo.
+- **Dragon art import (2026-10-11, replaces the two bullets below for new art):** see the section "Dragon art import".
 - **Art pipeline (dragon models):** Meshy GLBs go in `assets/Dragons/` (not in Git: `*.glb` / `*.fbx` are ignored),
   then `D:/jonas/Blender/blender.exe -b --python tools/glb_to_fbx.py -- <in.glb> <out.fbx> --stage Elder` makes a
   Roblox-ready FBX in `assets/Dragons/fbx/`: helper meshes removed, tiny UniRig tip bones merged into their parents,
@@ -710,6 +711,49 @@ checked with numbers) and runs static checks (luau-compile, `tools/tests/*`, `to
   star-dragon, `UITheme.Leaderboards.Icons`) and puts the icon on the part named `Crest`; text sizes raised for 40-stud
   reading (`UITheme.Leaderboards`). Move or delete the folder by hand if wanted.
 - **Audio:** no sound changed; risks to listen for are in `docs/Audio_Manifest.md` ("Owner listening notes").
+
+## Dragon art import (2026-10-11, `merge/kyle-mobile-ui`)
+
+All 20 species x 4 stages move from the tinted `Placeholder` to real art, every model on the **standard skeleton**
+(`tools/dragon_rig/template.py`: 35 bones Root, Spine1-3, Neck1-3, Head, Jaw, Tail1-6, Wing_L/R_Upper/Fore/Hand/Tip,
+Leg_FL/FR/BL/BR_Upper/Lower/Foot), so ONE bone map animates them all. No testing by Claude (owner rule): the owner
+imports the FBX files and tests; Claude converts, places with Edit-mode scripts and checks with numbers.
+
+- **Ringhorn = the former Thunderhorn** (Storm Epic, owner decision; stats/odds unchanged). Data **v7** migration renames
+  saved ids (dragons, Index, MutationIndex, RarestSpecies) from `Config/Data.RenamedSpecies`; LeaderboardService shows
+  old Rarest records under the new id. Keep `RenamedSpecies` entries forever.
+- **Sources:** only `assets/Dragons/*.glb` count (extensionless copies are ignored, never opened); originals are never
+  changed. `Unicorn_*` is not a species (skipped). `tools/dragon_import/manifest.json` lists every species/stage, its
+  source and status (`missing`, `pending`, `converted`, `fallback`, `failed`, `placed`); missing on 2026-10-11:
+  Sparkscale Dragon, Ringhorn Elder, Eclipsar Elder (picked up automatically when their .glb appears).
+- **Convert:** `python tools/dragon_import/import_dragons.py run --species <Id> | --element <Element> --out <dir>` (every
+  run re-scans). Per model: `tools/dragon_rig/rerig.py` (straight tail, `--flip auto` from the skeleton's facing, exact
+  `--length` = `Config/Evolution` Length 10/15/21/28, unique names `--name <Species>_<Stage>`, all 35 bones exported),
+  fallback `tools/glb_to_fbx.py` only when the re-rig fails (FLAGGED: Meshy bones, needs its own map), then
+  `check_fbx.py` (bones/parents vs the template, triangles, texture, max 4 weights, size, feet at 0, head at -Y) and
+  `preview.py` stills in `assets/Dragons/previews/`. Results: `tools/dragon_import/results.json` / `results.md`.
+  Budgets (top of `import_dragons.py`): Hatchling 5k tris / 512 px, Drake 7k / 512, Dragon 9k / 1024, Elder 10k / 1024
+  (never above 20k); base color only, embedded.
+- **Import (owner):** `assets/Dragons/fbx/ready/[<Element>/]IMPORT_STEPS.md`: Studio **Home > Import** (the Import Queue),
+  signed in as the place owner, Rig Type Custom. The importer drops bones with no skin (a hatchling whose small wings have
+  no source bones arrives with 27 bones; the map skips missing roles).
+- **Place (Claude, Edit mode):** imported `Workspace.<Species>_<Stage>` -> `ReplicatedStorage.Assets.Dragons.<Species>.<Stage>`:
+  MeshPart `Body` = PrimaryPart (Anchored, CanCollide/CanTouch off, RenderFidelity Automatic, attribute `Triangles`),
+  part upright at the origin with `PivotOffset` (0, -height/2, 0), so the pivot is the bottom center facing the head
+  (-Z); the importer's `AnimationController` stays (like the old Elders); `InitialPoses` and scripts are removed
+  (`RBX_ReimportId` is CoreScript-protected and stays). Model attributes `Rig = "Standard"` and `Source`. Anything
+  replaced goes to `ServerStorage.Backups.DragonsImport_2026-10-11` first; `Placeholder` stays.
+- **One bone map:** `Config/DragonRigs.Standard`, looked up only through `DragonRigs.Get(species, stage, model)` (roost,
+  companion, reveal, DragonPicture for hotbar/Inventory/Spire): a model with `Rig = "Standard"` (or a `Spine1` bone)
+  gets Standard, else its old `Rigs["Species/Stage"]` entry. The rest pose has spread wings, so Standard folds them on the
+  ground with `WingFoldBack`, `ElbowFoldRest`, `HandFoldRest` (new optional fields; a third WingRight/WingLeft entry is
+  the hand bone) and `WingFold`. These first-guess numbers need the owner's look. The five old Elder maps (Solflare,
+  Aurorynth, Borealis, Duskling, Infernus) stay until their species is re-imported; remove each only after its new art
+  is placed (back up the old model first).
+- **Pilot placed 2026-10-11:** Cinderwing Hatchling/Drake/Dragon/Elder (5,000 / 6,998 / 9,000 / 9,999 triangles).
+- **New dragon later:** add the species to `Config/Dragons` (and its area roster), drop `<Id>_<Stage>.glb` files in
+  `assets/Dragons/`, run `import_dragons.py run --species <Id> --out assets/Dragons/fbx/ready/<Element>`, read
+  `results.md`, owner imports, Claude places them as above. No code change is needed.
 
 ## Pending design doc updates (apply when the user asks to revise the doc)
 

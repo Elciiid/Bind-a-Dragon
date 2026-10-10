@@ -159,7 +159,7 @@ local function refresh(player: Player)
 	local keepPosition = if existing then existing.Position else nil
 	local keepYaw = if existing then existing.Yaw else 0
 	destroyCompanion(player)
-	local rigConfig = RigConfig.Rigs[`{species}/{stage}`]
+	local rigConfig = RigConfig.Get(species, stage, model)
 	local rng = Random.new(player.UserId)
 	companions[player] = {
 		Model = model,
