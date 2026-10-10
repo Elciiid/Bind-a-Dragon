@@ -221,8 +221,6 @@ def idle():
 
     def drive(t):
         breath = wave(t, T_ / 2)  # two breaths per loop
-        look = wave(t, T_)
-        look = math.copysign(abs(look) ** 0.55, look)  # linger when looking to a side
         nod = wave(t, T_ / 2, 1.2)
         # an occasional wing shuffle: the wings lift, flutter and settle once per loop (zero at the loop ends)
         u = (t - 2.35) / 0.8
@@ -230,7 +228,9 @@ def idle():
         flutter = shuffle * math.sin(2 * math.pi * 6 * (t - 2.35))
         pose = add(GROUND,
                    chain(SPINE, x=-2.2 * breath), P(Root=(0, 1.8 * wave(t, T_, 0.8), 0)),
-                   chain(NECK, x=-3.0 * breath + 3 * nod, z=14 * look), P(Head=(4 * nod, 0, 16 * look)),
+                   # no side-to-side head sway here: in the game the code turns the head toward a new spot now and then
+                   # (Config/DragonRigs Look action); a constant sway on top read as "always looking side to side" (owner)
+                   chain(NECK, x=-3.0 * breath + 3 * nod), P(Head=(4 * nod, 0, 0)),
                    P(Jaw=(2.0 * max(0.0, breath), 0, 0)),
                    wings(Upper=(4 * breath + 12 * shuffle, -6 * shuffle, 0), Fore=(-2 * breath, 0, 0),
                          Hand=(5 * flutter, 0, 0), Tip=(7 * flutter, 0, 0)),
