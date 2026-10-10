@@ -14,8 +14,9 @@ this part is by hand. It takes about 5 minutes.
 
 ## Steps
 
-1. Click **File → Import 3D**. Use the File menu entry, not the Avatar-tab importer: the Avatar importer forces avatar
-   rigs. This is the same entry as for the Star Merchant.
+1. Click **Home tab → Import** (the box icon between Script and Material; older Studio versions call it File → Import 3D).
+   Don't use the Avatar-tab importer (it forces avatar rigs), and don't use the Asset Manager's Import button (it only
+   uploads files and doesn't place the models in Workspace).
 2. In the file picker go to `E:\Roblox\Bind a Dragon\assets\Dragons\fbx\ready\`. Select **all four** `Cinderwing_*.fbx`
    (Ctrl+click) and press **Open**. The 3D Importer lists the four files on the left.
 3. For **each** of the four files, click the **top item of that file** (the file name, not a bone or the mesh). The right
