@@ -15,6 +15,10 @@ return {
 	-- PLACEHOLDER: the team will pick the final starter.
 	StarterDragon = "Cinderwing" :: string?,
 
+	-- Renamed species: old SpeciesId -> new SpeciesId. DataService's v6 -> v7 migration rewrites saved ids, and old
+	-- leaderboard records are shown under the new id. Keep entries forever (old saves can load at any time).
+	RenamedSpecies = { Thunderhorn = "Ringhorn" } :: { [string]: string },
+
 	-- How many developer product receipt IDs to remember per player (prevents double-granting).
 	-- Oldest IDs are dropped first; Roblox stops retrying a receipt long before this fills up.
 	MaxStoredPurchaseIds = 50,

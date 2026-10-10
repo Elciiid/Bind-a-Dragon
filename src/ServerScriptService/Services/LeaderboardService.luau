@@ -6,6 +6,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
 local DataService = require(script.Parent.DataService)
 local Config = require(ReplicatedStorage.Shared.Config.Leaderboards)
+local DataConfig = require(ReplicatedStorage.Shared.Config.Data)
 local Stats = require(ReplicatedStorage.Shared.LeaderboardStats)
 local Text = require(ReplicatedStorage.Shared.Config.Text).Leaderboards
 local remote = ReplicatedStorage.Remotes.GetLeaderboards :: RemoteFunction
@@ -81,6 +82,9 @@ local function rareDetails(userId: number): any
 	local entry = details[userId]
 	if entry and os.clock() - entry.Time < Config.MetadataCacheSeconds then return entry.Data end
 	local ok, result = budgeted(Enum.DataStoreRequestType.GetAsync, function() return metadata:GetAsync(tostring(userId)) end)
+	if ok and type(result) == "table" and type(result.Species) == "string" and DataConfig.RenamedSpecies[result.Species] then
+		result.Species = DataConfig.RenamedSpecies[result.Species] -- a record saved before a species rename
+	end
 	if ok then details[userId] = {Time = os.clock(), Data = result}; return result end
 	return if entry then entry.Data else nil
 end

@@ -50,7 +50,7 @@ local Areas: { [string]: Area } = {
 		RebirthsRequired = 5,
 		BindLuck = 2,
 		Element = "Storm",
-		Species = { "Gustwing", "Sparkscale", "Thunderhorn", "Tempestus", "Stormcrown" },
+		Species = { "Gustwing", "Sparkscale", "Ringhorn", "Tempestus", "Stormcrown" },
 	},
 	EclipseIsles = {
 		Name = "Eclipse Isles", -- Shadow-themed (builder note: match the Shadow dragons)

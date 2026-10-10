@@ -31,7 +31,8 @@ local Dragons: { [string]: Species } = {
 	-- Storm
 	Gustwing = { Name = "Gustwing", Element = "Storm", Rarity = "Common", BindWeight = 580, BaseGoldPerSecond = 700, BasePower = 14, Role = "Combat common" },
 	Sparkscale = { Name = "Sparkscale", Element = "Storm", Rarity = "Rare", BindWeight = 270, BaseGoldPerSecond = 1_500, BasePower = 32, Role = "Combat rare" },
-	Thunderhorn = { Name = "Thunderhorn", Element = "Storm", Rarity = "Epic", BindWeight = 108, BaseGoldPerSecond = 3_500, BasePower = 78, Role = "Combat epic" },
+	-- Ringhorn was called Thunderhorn until 2026-10-11 (owner decision); data v7 renames saved ids (Config/Data.RenamedSpecies).
+	Ringhorn = { Name = "Ringhorn", Element = "Storm", Rarity = "Epic", BindWeight = 108, BaseGoldPerSecond = 3_500, BasePower = 78, Role = "Combat epic" },
 	Tempestus = { Name = "Tempestus", Element = "Storm", Rarity = "Legendary", BindWeight = 36, BaseGoldPerSecond = 8_500, BasePower = 190, Role = "Combat legendary" },
 	Stormcrown = { Name = "Stormcrown", Element = "Storm", Rarity = "Mythic", BindWeight = 6, BaseGoldPerSecond = 20_000, BasePower = 340, Role = "Apex combat" },
 

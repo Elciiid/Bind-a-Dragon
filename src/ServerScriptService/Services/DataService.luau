@@ -26,7 +26,7 @@ type PlayerData = PlayerDataTypes.PlayerData
 
 -- Bump this and add a step to MIGRATIONS whenever existing saved data needs to be reshaped
 -- (renamed/moved/removed fields). Plain new fields don't need a migration: Reconcile() fills them in.
-local CURRENT_DATA_VERSION = 6
+local CURRENT_DATA_VERSION = 7
 
 local function defaultSettings(): PlayerDataTypes.Settings
 	local defaults = DataConfig.DefaultSettings
@@ -116,6 +116,42 @@ local MIGRATIONS: { [number]: (data: any) -> () } = {
 		data.SpireRecord = nil
 		if type(data.SpireDifficulty) ~= "string" then
 			data.SpireDifficulty = "Easy"
+		end
+	end,
+	-- 6 -> 7: renamed species (Config/Data.RenamedSpecies, e.g. Thunderhorn -> Ringhorn) everywhere a SpeciesId is saved:
+	-- each dragon, the Index (keyed by species), the MutationIndex ("Species:Mutation") and the Rarest record.
+	[6] = function(data)
+		local renamed = DataConfig.RenamedSpecies
+		if type(data.Dragons) == "table" then
+			for _, dragon in data.Dragons do
+				if type(dragon) == "table" and renamed[dragon.SpeciesId] then
+					dragon.SpeciesId = renamed[dragon.SpeciesId]
+				end
+			end
+		end
+		if type(data.Index) == "table" then
+			for old, new in renamed do
+				if data.Index[old] ~= nil then
+					data.Index[new] = math.min(data.Index[old], data.Index[new] or math.huge)
+					data.Index[old] = nil
+				end
+			end
+		end
+		if type(data.MutationIndex) == "table" then
+			local moves = {}
+			for key, time in data.MutationIndex do
+				local species, mutation = string.match(key, "^([^:]+):(.+)$")
+				if species and renamed[species] then
+					table.insert(moves, { key, `{renamed[species]}:{mutation}`, time })
+				end
+			end
+			for _, move in moves do
+				data.MutationIndex[move[1]] = nil
+				data.MutationIndex[move[2]] = math.min(move[3], data.MutationIndex[move[2]] or math.huge)
+			end
+		end
+		if type(data.RarestSpecies) == "string" and renamed[data.RarestSpecies] then
+			data.RarestSpecies = renamed[data.RarestSpecies]
 		end
 	end,
 }
