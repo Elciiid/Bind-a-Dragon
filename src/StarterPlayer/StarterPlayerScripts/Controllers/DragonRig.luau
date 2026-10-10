@@ -1,6 +1,9 @@
 --!strict
 -- Poses a real dragon model's bones from code (no animation assets). Bone roles per model and every number come from
 -- Config/DragonRigs. Used by RoostAnimationController; not a service (no Init/Start).
+-- Standard-skeleton rigs (Config.Clips) play the baked clips of Shared/DragonClips instead (applyClips below): Idle /
+-- Sleep on the ground, flap bursts (FlyLoop) and Glide in the air, the ground pose blending into flight as Air rises,
+-- idle actions as clips; code adds looking around, turning, the walking gait and yawns on top.
 --   Flight: flap bursts with glides (length varies per dragon), a fast deep beat while hovering, wings sweeping
 --     forward on the down-stroke and folding at the elbow on the up-stroke, swept back in dives, inner wing lower in
 --     turns; chest heaves with the beat, legs tucked (reaching forward while hovering in to land), tail trailing the
@@ -16,6 +19,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local RigConfig = require(ReplicatedStorage.Shared.Config.DragonRigs)
+local DragonClips = require(ReplicatedStorage.Shared.DragonClips)
 
 export type Pose = {
 	Air: number, -- 0 = on the ground/perch, 1 = flying
@@ -132,7 +136,154 @@ function DragonRig.Heave(p: Pose): number
 	return max(0, stroke) * RigConfig.FlapLift * p.Air
 end
 
+------------------------------------------------------------------------------------------------------------------------
+-- Clip playback (standard skeleton)
+
+type Clip = { Seconds: number, Loop: boolean, Bones: { [string]: { x: any?, y: any?, z: any? } } }
+type Mix = { [string]: { number } } -- bone -> accumulated { x, y, z } degrees
+local CLIPS = (DragonClips :: any).Clips :: { [string]: Clip }
+local FPS = (DragonClips :: any).Fps :: number
+local ACTION_CLIPS = { Stretch = "Stretch", Roar = "Roar", Preen = "Preen", Shake = "Shake", TailFlick = "TailFlick" }
+-- bones a "Simple" (far) dragon still animates: wings, tail, neck and head
+local function simpleBone(name: string): boolean
+	return string.find(name, "^Wing_") ~= nil or string.find(name, "^Tail") ~= nil or string.find(name, "^Neck") ~= nil
+		or name == "Head"
+end
+
+local function channel(value: any, i0: number, i1: number, f: number): number
+	if value == nil then
+		return 0
+	elseif type(value) == "number" then
+		return value
+	end
+	local a = value[math.min(i0, #value)]
+	local b = value[math.min(i1, #value)]
+	return a + (b - a) * f
+end
+
+-- Adds `weight` x the clip's pose at time t (seconds; looped or held at the ends) into mix.
+local function addClip(mix: Mix, clipName: string, t: number, weight: number)
+	local clip = CLIPS[clipName]
+	if clip == nil or weight <= 0.001 then
+		return
+	end
+	local frames = clip.Seconds * FPS
+	local at = t * FPS
+	at = if clip.Loop then at % frames else math.clamp(at, 0, frames)
+	local i0 = math.floor(at)
+	local f = at - i0
+	local i1 = if clip.Loop and i0 + 1 > frames then 1 else i0 + 2
+	i0 += 1 -- Luau lists start at 1
+	for bone, axes in clip.Bones do
+		local acc = mix[bone]
+		if acc == nil then
+			acc = { 0, 0, 0 }
+			mix[bone] = acc
+		end
+		acc[1] += channel(axes.x, i0, i1, f) * weight
+		acc[2] += channel(axes.y, i0, i1, f) * weight
+		acc[3] += channel(axes.z, i0, i1, f) * weight
+	end
+end
+
+-- A model-frame rotation (through the bone) as a Bone.Transform, like pose() but returned instead of applied.
+local function modelTurn(rig: Rig, bone: Bone, rotation: CFrame): CFrame
+	local rest = rig.Rest[bone]
+	return rest:Inverse() * rotation * rest
+end
+
+local function applyClips(rig: Rig, p: Pose, detail: string)
+	local s = RigConfig
+	local c = rig.Config
+	local full = detail == "Full"
+	local air, ground = p.Air, 1 - p.Air
+	local mix: Mix = {}
+
+	-- idle action (on the ground): its clip fades in over the ground pose
+	local actionClip = if p.Action then ACTION_CLIPS[p.Action] else nil
+	local actionWeight = 0
+	if actionClip and ground > 0 then
+		actionWeight = envelope(p.ActionT, s.ClipFade, 1 - s.ClipFade) * ground
+		addClip(mix, actionClip, p.ActionT * CLIPS[actionClip].Seconds, actionWeight)
+	end
+	-- ground: standing (Idle) or lying (Sleep)
+	local base = ground - actionWeight
+	addClip(mix, "Idle", p.Clock, base * (1 - p.Rest))
+	addClip(mix, "Sleep", p.Clock, base * p.Rest)
+	-- air: flap bursts with glides between (the same rhythm as the old wing code); hovering = a faster steady beat
+	if air > 0.001 then
+		local flaps = s.FlapsPerBurst.Min + p.Seed % (s.FlapsPerBurst.Max - s.FlapsPerBurst.Min + 1)
+		local burst = flaps * s.FlapSeconds
+		local u = p.Flap % (burst + s.GlideSeconds)
+		local fade = s.ClipCrossfade
+		local glide = if u < burst then 0 else smooth(math.min(u - burst, burst + s.GlideSeconds - u) / fade)
+		glide *= 1 - p.Hover
+		local beat = if p.Hover > 0.5 then p.Clock * s.HoverRate else p.Flap
+		addClip(mix, "FlyLoop", beat / s.FlapSeconds * CLIPS.FlyLoop.Seconds, air * (1 - glide))
+		addClip(mix, "Glide", p.Clock, air * glide)
+	end
+
+	-- what code adds on top, as model-frame turns per bone
+	local extra: { [Bone]: CFrame } = {}
+	local function addTurn(name: string?, rotation: CFrame)
+		local bone = if name then rig.Bones[name] else nil
+		if bone then
+			extra[bone] = modelTurn(rig, bone, rotation) * (extra[bone] or CFrame.identity)
+		end
+	end
+	local turn = p.Turn * air
+	local calm = (1 - 0.7 * air) * (1 - actionWeight) * (1 - p.Rest)
+	local neck = c.Neck or {}
+	local links = #neck + (if c.Head then 1 else 0)
+	if links > 0 then
+		local yaw = p.LookYaw * calm + turn * s.NeckTurn
+		local pitch = p.LookPitch * calm
+		for _, name in neck do
+			addTurn(name, yawPitch(yaw / links, pitch / links))
+		end
+		addTurn(c.Head, yawPitch(yaw / links, pitch / links))
+	end
+	for _, name in c.Tail or {} do
+		addTurn(name, yawPitch(-turn * s.TailTurn, 0))
+	end
+	if full then
+		local yawn = if p.Action == "Yawn" then envelope(p.ActionT, 0.3, 0.7) else 0
+		if yawn > 0 then
+			addTurn(c.Jaw, CFrame.fromAxisAngle(X_AXIS, rad(-yawn * (c.JawOpen or 20))))
+		end
+		local standing = ground * (1 - p.Rest) * p.Walk
+		if standing > 0.001 then
+			for _, leg in LEGS do
+				local names = (c :: any)[leg.Role] :: { string }?
+				if names then
+					local phase = 2 * pi * (p.Gait + leg.Phase)
+					addTurn(names[1], CFrame.fromAxisAngle(X_AXIS, rad(sin(phase) * s.LegSwing * standing)))
+					addTurn(names[2], CFrame.fromAxisAngle(X_AXIS, rad(-max(0, cos(phase)) * s.KneeLift * standing)))
+				end
+			end
+		end
+	end
+
+	-- write every bone: clip pose (Blender bone-local Euler XYZ; Roblox bone axes have X and Z reversed) then code turns
+	for name, bone in rig.Bones do
+		if not full and not simpleBone(name) then
+			continue
+		end
+		local acc = mix[name]
+		local transform = CFrame.identity
+		if acc then
+			transform = CFrame.Angles(0, 0, rad(-acc[3])) * CFrame.Angles(0, rad(acc[2]), 0) * CFrame.Angles(rad(-acc[1]), 0, 0)
+		end
+		local turnCF = extra[bone]
+		bone.Transform = if turnCF then turnCF * transform else transform
+	end
+end
+
 function DragonRig.Apply(rig: Rig, p: Pose, detail: string)
+	if rig.Config.Clips then
+		applyClips(rig, p, detail)
+		return
+	end
 	local s = RigConfig
 	local c = rig.Config
 	local air, ground = p.Air, 1 - p.Air
@@ -160,19 +311,16 @@ function DragonRig.Apply(rig: Rig, p: Pose, detail: string)
 		+ 30 * stretch + 15 * roar + sin(t * 2 * pi) * 10 * stretch + sin(p.Clock * 45) * 6 * shake
 	local open = (c.WingOpen or 0) * spread - (c.WingFoldBack or 0) * fold
 		+ stroke * s.WingSweep * air - max(0, -p.Pitch) * s.DiveSweep * air
-	local elbow = (c.ElbowOpen or 0) * spread - max(0, -stroke) * s.ElbowFold * air - (c.ElbowFoldRest or 0) * fold
-	local hand = -(c.HandFoldRest or 0) * fold
+	local elbow = (c.ElbowOpen or 0) * spread - max(0, -stroke) * s.ElbowFold * air
 	local bank = turn * s.BankWing
 	local right, left = c.WingRight, c.WingLeft
 	if right then
 		pose(rig, right[1], CFrame.fromAxisAngle(Z_AXIS, rad(lift + bank)) * CFrame.fromAxisAngle(Y_AXIS, rad(open)))
 		pose(rig, right[2], CFrame.fromAxisAngle(Y_AXIS, rad(elbow)))
-		pose(rig, right[3], CFrame.fromAxisAngle(Y_AXIS, rad(hand)))
 	end
 	if left then
 		pose(rig, left[1], CFrame.fromAxisAngle(Z_AXIS, rad(-(lift - bank))) * CFrame.fromAxisAngle(Y_AXIS, rad(-open)))
 		pose(rig, left[2], CFrame.fromAxisAngle(Y_AXIS, rad(-elbow)))
-		pose(rig, left[3], CFrame.fromAxisAngle(Y_AXIS, rad(-hand)))
 	end
 
 	-- tail: sway on the ground, trailing wave and turn in the air, curl while lying, flicks

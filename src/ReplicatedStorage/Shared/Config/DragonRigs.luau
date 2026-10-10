@@ -1,7 +1,9 @@
 --!strict
 -- Bone animation for real dragon art (client-side, RoostAnimationController + Controllers/DragonRig). Every model
 -- re-rigged onto the standard dragon skeleton (tools/dragon_rig/template.py, imported with tools/dragon_import; the
--- art Model carries the attribute Rig = "Standard") uses the ONE Standard map below, whatever its species or stage.
+-- art Model carries the attribute Rig = "Standard") uses the ONE Standard map below, whatever its species or stage, and
+-- plays the hand-made animation clips (Shared/DragonClips, baked by tools/dragon_rig/animate.py; Clips = true) instead
+-- of the angle-by-angle wing code the old maps use.
 -- Older Meshy/UniRig imports (Bone_000 ...) keep their own entry in Rigs ("<SpeciesId>/<StageId>") until their species is
 -- re-imported; models with neither (the placeholder) only move as a whole. Always look a map up with Get().
 -- List chains root -> tip.
@@ -18,8 +20,7 @@
 --   WingFoldBack = how far the wings sweep back on the ground (for models whose rest pose has spread wings; they
 --     open again for stretches, roars and flight), WingLevel = tip-up added in flight to bring the wings level (negative for models whose rest pose has raised
 --     wings), RestWingFold = extra tip-down while lying (default the global RestWingFold; 0 for raised wings),
---   ElbowFoldRest / HandFoldRest = how far the elbow / the wing's hand bone (a third WingRight/WingLeft entry) fold back
---     on the ground (for spread-wing rest poses like the standard skeleton's; they open again for flight).
+--   Clips = true: the rig plays Shared/DragonClips (the standard skeleton); the wing/spine tuning above is not used.
 
 export type Rig = {
 	Spine: { string }?,
@@ -41,8 +42,7 @@ export type Rig = {
 	WingLevel: number?,
 	RestWingFold: number?,
 	WingFoldBack: number?,
-	ElbowFoldRest: number?,
-	HandFoldRest: number?,
+	Clips: boolean?,
 }
 
 local Rigs: { [string]: Rig } = {
@@ -142,32 +142,23 @@ local Rigs: { [string]: Rig } = {
 	},
 }
 
--- The standard skeleton (tools/dragon_rig/template.py): the same 35 bone names on every re-rigged dragon. Its rest pose has
--- the wings spread out level ("canonical spread", the tips swept back), so on the ground they sweep back along the body
--- (WingFoldBack), fold at the elbow and hand and droop a little (WingFold); in flight they are already spread.
--- Right = the dragon's right = +X in the model (Wing_R / Leg_FR / Leg_BR). A role whose bones a model lacks is skipped
--- (e.g. a hatchling whose small wings have no bones). Tuning numbers are first guesses, to be adjusted after the owner's test.
+-- The standard skeleton (tools/dragon_rig/template.py): the same 35 bone names on every re-rigged dragon. Its wings are
+-- animated by the clips (tucked like a resting dragon on the ground, unfolding into flight); the roles below are used for
+-- what code adds on top (looking around, turning, walking legs, yawns). Right = the dragon's right = +X in the model.
 local Standard: Rig = {
 	Spine = { "Spine1", "Spine2", "Spine3" },
 	Neck = { "Neck1", "Neck2", "Neck3" },
 	Head = "Head",
 	Jaw = "Jaw",
 	Tail = { "Tail1", "Tail2", "Tail3", "Tail4", "Tail5", "Tail6" },
-	WingRight = { "Wing_R_Upper", "Wing_R_Fore", "Wing_R_Hand" },
-	WingLeft = { "Wing_L_Upper", "Wing_L_Fore", "Wing_L_Hand" },
+	WingRight = { "Wing_R_Upper", "Wing_R_Fore" },
+	WingLeft = { "Wing_L_Upper", "Wing_L_Fore" },
 	FrontRight = { "Leg_FR_Upper", "Leg_FR_Lower" },
 	FrontLeft = { "Leg_FL_Upper", "Leg_FL_Lower" },
 	BackRight = { "Leg_BR_Upper", "Leg_BR_Lower" },
 	BackLeft = { "Leg_BL_Upper", "Leg_BL_Lower" },
-	WingOpen = 0, -- the rest pose is already spread
-	ElbowOpen = 0,
-	WingLevel = -10, -- the upper wing rises ~15 degrees at rest (dihedral): a little down in flight
-	WingFoldBack = 50, -- on the ground the wing swings back 50 degrees...
-	ElbowFoldRest = 35, -- ...the forearm 35 more (now about straight back along the flank)...
-	HandFoldRest = 0, -- ...the hand stays (it is already swept back ~20 degrees)
-	WingFold = 15, -- and the folded wing droops a little
-	RestWingFold = 6,
 	JawOpen = 20,
+	Clips = true,
 }
 
 -- The bone map for a dragon model (the art template or any clone of it): the Standard map for re-rigged art (attribute
@@ -259,6 +250,10 @@ return {
 	-- Idle actions while perched or resting on the ground (RoostAnimationController picks one every ActionEvery
 	-- seconds by weight). Look = turn the head toward a new spot (up to LookYaw / LookPitch degrees).
 	ActionEvery = NumberRange.new(2.5, 6),
+	-- Clip rigs (Standard): an idle action fades in/out over this share of its length; clip playback speed per action
+	-- = the clip's length / the action's Seconds below.
+	ClipFade = 0.12,
+	ClipCrossfade = 0.3, -- seconds: flap burst <-> glide in flight
 	LookYaw = 45,
 	LookPitch = 18,
 	Actions = {
