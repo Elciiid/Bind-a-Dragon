@@ -7,10 +7,10 @@
    "element": "Fire",
    "rarity": "Common",
    "source": "Cinderwing_Hatchling.glb",
-   "status": "converted",
+   "status": "placed",
    "fbx": "assets/Dragons/fbx/ready/Cinderwing_Hatchling.fbx",
    "problems": [],
-   "placed": "ReplicatedStorage.Assets.Dragons.Cinderwing.Hatchling (2026-10-11)",
+   "placed": "ReplicatedStorage.Assets.Dragons.Cinderwing.Hatchling (2026-10-11, re-import v2; v1 backed up)",
    "bytes": 27367740,
    "mtime": 1790874348
   },
