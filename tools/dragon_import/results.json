@@ -1,0 +1,293 @@
+{
+ "Cinderwing_Hatchling": {
+  "name": "Cinderwing_Hatchling",
+  "species": "Cinderwing",
+  "stage": "Hatchling",
+  "element": "Fire",
+  "source": "Cinderwing_Hatchling.glb",
+  "fbx": "assets/Dragons/fbx/ready/Cinderwing_Hatchling.fbx",
+  "budget_tris": 5000,
+  "budget_texture": 512,
+  "length_want": 10.0,
+  "seconds": 1.9,
+  "missing_chains": [
+   "wing_L",
+   "wing_R"
+  ],
+  "heat_misses_fixed": 0,
+  "tail_straightened": 1.0,
+  "deform_bones_without_weights": [],
+  "flipped": true,
+  "tail_note": null,
+  "check": {
+   "file": "Cinderwing_Hatchling.fbx",
+   "objects": [
+    "Body",
+    "Cinderwing_Hatchling"
+   ],
+   "armatures": 1,
+   "meshes": [
+    "Body"
+   ],
+   "bones": 35,
+   "bones_not_standard": [],
+   "standard_bones_missing": [],
+   "wrong_parents": [],
+   "triangles": 5000,
+   "vertices": 2506,
+   "max_influences": 4,
+   "bones_without_weights": [
+    "Wing_L_Upper",
+    "Wing_L_Fore",
+    "Wing_L_Hand",
+    "Wing_L_Tip",
+    "Wing_R_Upper",
+    "Wing_R_Fore",
+    "Wing_R_Hand",
+    "Wing_R_Tip"
+   ],
+   "textures": [
+    {
+     "name": "Cinderwing_Hatchling_BaseColor",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "materials": [
+    "Cinderwing_Hatchling_Mat"
+   ],
+   "size_studs": [
+    6.19,
+    10.0,
+    6.55
+   ],
+   "lowest_z": -0.0,
+   "center_xy": [
+    0.0,
+    0.0
+   ],
+   "head_y": -4.91,
+   "tail_tip_y": 4.26,
+   "faces_minus_y": true
+  },
+  "problems": [
+   "NOTE: the source has no wing_L bones; that part is skinned to the body and moves with it",
+   "NOTE: the source has no wing_R bones; that part is skinned to the body and moves with it"
+  ],
+  "status": "converted",
+  "previews": [
+   "Cinderwing_Hatchling_rest_front_f001.png",
+   "Cinderwing_Hatchling_rest_persp_f001.png",
+   "Cinderwing_Hatchling_rest_side_f001.png"
+  ]
+ },
+ "Cinderwing_Drake": {
+  "name": "Cinderwing_Drake",
+  "species": "Cinderwing",
+  "stage": "Drake",
+  "element": "Fire",
+  "source": "Cinderwing_Drake.glb",
+  "fbx": "assets/Dragons/fbx/ready/Cinderwing_Drake.fbx",
+  "budget_tris": 7000,
+  "budget_texture": 512,
+  "length_want": 15.0,
+  "seconds": 2.0,
+  "missing_chains": [],
+  "heat_misses_fixed": 0,
+  "tail_straightened": 1.0,
+  "deform_bones_without_weights": [],
+  "flipped": false,
+  "tail_note": "tail found off the center line (farthest-back pelvis branch)",
+  "check": {
+   "file": "Cinderwing_Drake.fbx",
+   "objects": [
+    "Body",
+    "Cinderwing_Drake"
+   ],
+   "armatures": 1,
+   "meshes": [
+    "Body"
+   ],
+   "bones": 35,
+   "bones_not_standard": [],
+   "standard_bones_missing": [],
+   "wrong_parents": [],
+   "triangles": 6998,
+   "vertices": 3507,
+   "max_influences": 4,
+   "bones_without_weights": [],
+   "textures": [
+    {
+     "name": "Cinderwing_Drake_BaseColor",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "materials": [
+    "Cinderwing_Drake_Mat"
+   ],
+   "size_studs": [
+    15.17,
+    15.0,
+    9.18
+   ],
+   "lowest_z": 0.0,
+   "center_xy": [
+    0.23,
+    0.0
+   ],
+   "head_y": -5.87,
+   "tail_tip_y": 6.62,
+   "faces_minus_y": true
+  },
+  "problems": [],
+  "status": "converted",
+  "previews": [
+   "Cinderwing_Drake_rest_front_f001.png",
+   "Cinderwing_Drake_rest_persp_f001.png",
+   "Cinderwing_Drake_rest_side_f001.png"
+  ]
+ },
+ "Cinderwing_Dragon": {
+  "name": "Cinderwing_Dragon",
+  "species": "Cinderwing",
+  "stage": "Dragon",
+  "element": "Fire",
+  "source": "Cinderwing_Dragon.glb",
+  "fbx": "assets/Dragons/fbx/ready/Cinderwing_Dragon.fbx",
+  "budget_tris": 9000,
+  "budget_texture": 1024,
+  "length_want": 21.0,
+  "seconds": 2.0,
+  "missing_chains": [],
+  "heat_misses_fixed": 0,
+  "tail_straightened": 1.0,
+  "deform_bones_without_weights": [],
+  "flipped": false,
+  "tail_note": null,
+  "check": {
+   "file": "Cinderwing_Dragon.fbx",
+   "objects": [
+    "Body",
+    "Cinderwing_Dragon"
+   ],
+   "armatures": 1,
+   "meshes": [
+    "Body"
+   ],
+   "bones": 35,
+   "bones_not_standard": [],
+   "standard_bones_missing": [],
+   "wrong_parents": [],
+   "triangles": 9000,
+   "vertices": 4500,
+   "max_influences": 4,
+   "bones_without_weights": [],
+   "textures": [
+    {
+     "name": "Cinderwing_Dragon_BaseColor",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "materials": [
+    "Cinderwing_Dragon_Mat"
+   ],
+   "size_studs": [
+    29.39,
+    21.0,
+    11.98
+   ],
+   "lowest_z": 0.0,
+   "center_xy": [
+    0.01,
+    0.0
+   ],
+   "head_y": -8.57,
+   "tail_tip_y": 10.49,
+   "faces_minus_y": true
+  },
+  "problems": [],
+  "status": "converted",
+  "previews": [
+   "Cinderwing_Dragon_rest_front_f001.png",
+   "Cinderwing_Dragon_rest_persp_f001.png",
+   "Cinderwing_Dragon_rest_side_f001.png"
+  ]
+ },
+ "Cinderwing_Elder": {
+  "name": "Cinderwing_Elder",
+  "species": "Cinderwing",
+  "stage": "Elder",
+  "element": "Fire",
+  "source": "Cinderwing_Elder.glb",
+  "fbx": "assets/Dragons/fbx/ready/Cinderwing_Elder.fbx",
+  "budget_tris": 10000,
+  "budget_texture": 1024,
+  "length_want": 28.0,
+  "seconds": 2.1,
+  "missing_chains": [],
+  "heat_misses_fixed": 0,
+  "tail_straightened": 1.0,
+  "deform_bones_without_weights": [],
+  "flipped": false,
+  "tail_note": null,
+  "check": {
+   "file": "Cinderwing_Elder.fbx",
+   "objects": [
+    "Body",
+    "Cinderwing_Elder"
+   ],
+   "armatures": 1,
+   "meshes": [
+    "Body"
+   ],
+   "bones": 35,
+   "bones_not_standard": [],
+   "standard_bones_missing": [],
+   "wrong_parents": [],
+   "triangles": 9999,
+   "vertices": 5000,
+   "max_influences": 4,
+   "bones_without_weights": [],
+   "textures": [
+    {
+     "name": "Cinderwing_Elder_BaseColor",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "materials": [
+    "Cinderwing_Elder_Mat"
+   ],
+   "size_studs": [
+    39.33,
+    28.0,
+    12.85
+   ],
+   "lowest_z": 0.0,
+   "center_xy": [
+    0.011,
+    0.0
+   ],
+   "head_y": -12.5,
+   "tail_tip_y": 14.23,
+   "faces_minus_y": true
+  },
+  "problems": [],
+  "status": "converted",
+  "previews": [
+   "Cinderwing_Elder_rest_front_f001.png",
+   "Cinderwing_Elder_rest_persp_f001.png",
+   "Cinderwing_Elder_rest_side_f001.png"
+  ]
+ }
+}

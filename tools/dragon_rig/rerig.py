@@ -3,6 +3,14 @@
 Run with Blender in background mode:
     blender -b --python tools/dragon_rig/rerig.py -- <input.glb> <output.blend> [--stage Elder] [--fbx <out.fbx>]
         [--tris 10000] [--texture 1024] [--flip] [--landmarks <overrides.json>] [--no-canonical] [--curled-tail]
+        [--length STUDS] [--name <Species>_<Stage>]
+
+--length scales the finished model (tail straightened) so nose to tail tip is exactly STUDS (the game's
+Config/Evolution Length: 10 / 15 / 21 / 28); without it the curled source is scaled to template.STAGE_LENGTH.
+--flip auto turns the model 180 degrees only when its own skeleton faces +Y (the chest hub behind the pelvis hub);
+the turn now happens right after the import, so every later step sees the head toward -Y.
+--name gives the FBX unique names: armature object <name>, material <name>_Mat, texture <name>_BaseColor (the mesh
+stays "Body" and the .blend keeps "DragonRig" for preview.py). tools/dragon_import/import_dragons.py drives both.
 
 Steps:
   1. import the GLB, delete helper meshes, apply transforms; then straighten the tail (most Meshy dragons curl it to the
@@ -25,7 +33,7 @@ Steps:
   7. saves the .blend (armature "DragonRig", mesh "Body") and optionally a rigged FBX (no animation), and writes
      <output>.json with the landmarks and a report.
 Missing parts (e.g. a wyvern has no front legs) still get their bones, marked non-deform, so every rig has every
-bone name; they don't export (the FBX keeps deform bones only).
+bone name; the FBX exports all of them (every model has the same 35 bones; unskinned ones simply move nothing).
 """
 
 import json
@@ -51,18 +59,23 @@ def parse_args():
     if len(argv) < 2:
         raise SystemExit(__doc__)
     opts = {"input": argv[0], "output": argv[1], "stage": "Elder", "fbx": None, "tris": 10000, "texture": 1024,
-            "flip": False, "landmarks": None, "canonical": True, "straight_tail": True}
+            "flip": False, "landmarks": None, "canonical": True, "straight_tail": True, "length": None, "name": None}
     i = 2
     while i < len(argv):
         key = argv[i]
-        if key in ("--stage", "--fbx", "--landmarks"):
+        if key in ("--stage", "--fbx", "--landmarks", "--name"):
             opts[key[2:]] = argv[i + 1]; i += 2
         elif key == "--tris":
             opts["tris"] = min(int(argv[i + 1]), 20000); i += 2
+        elif key == "--length":
+            opts["length"] = float(argv[i + 1]); i += 2
         elif key == "--texture":
             opts["texture"] = int(argv[i + 1]); i += 2
         elif key == "--flip":
-            opts["flip"] = True; i += 1
+            if i + 1 < len(argv) and argv[i + 1] == "auto":
+                opts["flip"] = "auto"; i += 2
+            else:
+                opts["flip"] = True; i += 1
         elif key == "--no-canonical":
             opts["canonical"] = False; i += 1
         elif key == "--curled-tail":
@@ -224,13 +237,23 @@ def find_landmarks(arm, mesh, body_len, height):
     # pelvis children: the tail starts on the centerline (it may touch the ground too), the back legs to the sides
     others = [c for c in pelvis.children if c != spine_child]
     tails = [c for c in others if abs(s.head[c.name].x - cx_pelvis) < 0.03 * body_len]
-    legs = [c for c in others if c not in tails and min(p.z for p in s.points(c)) < ground + 0.15 * height]
     if not tails:
-        raise SystemExit("no tail found")
+        # a tail that starts a little off the center line: the branch reaching farthest back (+Y), if it reaches far
+        far = max(others, key=lambda c: max(p.y for p in s.points(c)), default=None)
+        if far is not None and max(p.y for p in s.points(far)) - s.head[pelvis.name].y > 0.25 * body_len:
+            tails = [far]
+            lm_note = "tail found off the center line (farthest-back pelvis branch)"
+        else:
+            raise SystemExit("no tail found")
+    else:
+        lm_note = None
+    legs = [c for c in others if c not in tails and min(p.z for p in s.points(c)) < ground + 0.15 * height]
     tail = max(tails, key=lambda c: max(p.y for p in s.points(c)))
     tail_path = s.path(tail, lambda p: (p - s.head[tail.name]).length)
     lm["tail"] = s.polyline(tail_path)
     lm["report"]["tail"] = [x.name for x in tail_path]
+    if lm_note:
+        lm["report"]["tail_note"] = lm_note
     for c in legs:
         side = "L" if s.head[c.name].x > cx_pelvis else "R"
         path = s.path(c, lambda p: -p.z)
@@ -276,6 +299,31 @@ def find_landmarks(arm, mesh, body_len, height):
     return lm
 
 
+def faces_plus_y(arm):
+    """True when the source skeleton faces +Y: its chest hub (neck, wings, front legs) is behind its pelvis hub."""
+    s = Src(arm)
+    roots = [b for b in s.bones if b.parent is None]
+    if len(roots) != 1:
+        return False
+    b = roots[0]
+    while len(b.children) < 3:
+        if not b.children:
+            return False
+        b = b.children[0]
+    pelvis = b
+
+    def has_hub(c):
+        return any(len(x.children) >= 3 for x in s.subtree(c))
+
+    spine = max((c for c in pelvis.children if has_hub(c)), key=lambda c: len(s.subtree(c)), default=None)
+    if spine is None:
+        return False
+    chest = spine
+    while len(chest.children) < 3:
+        chest = chest.children[0]
+    return s.head[chest.name].y > s.head[pelvis.name].y
+
+
 def head_from_mesh(mesh, head_base, body_len):
     """Snout tip and jaw line from the mesh: vertices in front of the head base, near the centerline."""
     pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
@@ -313,7 +361,7 @@ def straighten_tail(src, mesh, flip=False):
     spine = lm["spine"]
     # straight back along the center line, level (a sloping spine, e.g. a wyvern standing up, would point it into the
     # ground), then drooping per TAIL_DROOP
-    back = Vector((0.0, -1.0 if flip else 1.0, 0.0))  # --flip sources face +Y until they are turned later
+    back = Vector((0.0, 1.0, 0.0))  # the model faces -Y here (a --flip source was turned right after the import)
     before_tip = src.matrix_world @ src.data.bones[names[-1]].tail_local
     select_only(src)
     bpy.ops.object.mode_set(mode="POSE")
@@ -520,6 +568,21 @@ def main():
         bpy.ops.object.join()
     mesh = skinned[0]
     report = {"input": opts["input"], "stage": opts["stage"]}
+    for o in (src, mesh):
+        select_only(o)
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    if opts["flip"] == "auto":
+        opts["flip"] = faces_plus_y(src)
+    report["flipped"] = bool(opts["flip"])
+    if opts["flip"]:
+        rot = Matrix.Rotation(math.pi, 4, "Z")
+        for o in (src, mesh):
+            if o.parent is None:
+                o.matrix_world = rot @ o.matrix_world
+        bpy.context.view_layer.update()
+        for o in (src, mesh):
+            select_only(o)
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
     generated_length = max(p.y for p in pts) - min(p.y for p in pts)  # the stage scale uses this (see step 1)
     if opts["straight_tail"]:
@@ -581,16 +644,16 @@ def main():
             img.scale(opts["texture"], opts["texture"])
         img.pack()
 
-    # facing, scale to the stage length, feet on the ground, centered (the source skeleton moves with the mesh)
-    if opts["flip"]:
-        rot = Matrix.Rotation(math.pi, 4, "Z")
-        for o in (src, mesh):
-            o.matrix_world = rot @ o.matrix_world
+    # scale to the stage length, feet on the ground, centered (the source skeleton moves with the mesh; any --flip turn
+    # was done right after the import)
     bpy.context.view_layer.update()
     pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
     lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
-    s = T.STAGE_LENGTH[opts["stage"]] / generated_length
+    if opts["length"]:
+        s = opts["length"] / (hi.y - lo.y)  # the finished model, tail straightened, is exactly --length long
+    else:
+        s = T.STAGE_LENGTH[opts["stage"]] / generated_length
     offset = Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
     for o in (src, mesh):
         o.matrix_world = Matrix.Scale(s, 4) @ Matrix.Translation(offset) @ o.matrix_world
@@ -603,7 +666,7 @@ def main():
                    max(p.z for p in pts)))
     # detection thresholds are shares of the body length as generated (= the stage length after scaling), not of the
     # straightened length: a long straightened tail would stretch them
-    body_len, height = T.STAGE_LENGTH[opts["stage"]], size.z
+    body_len, height = (generated_length * s if opts["length"] else T.STAGE_LENGTH[opts["stage"]]), size.z
     report["size_studs"] = [round(v, 2) for v in size]
 
     # landmarks
@@ -642,13 +705,20 @@ def main():
 
     os.makedirs(os.path.dirname(os.path.abspath(opts["output"])), exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(opts["output"]))
+    if opts["fbx"] and opts["name"]:
+        rig.name = opts["name"]
+        for mat in mesh.data.materials:
+            if mat:
+                mat.name = f"{opts['name']}_Mat"
+        for img in bpy.data.images:
+            img.name = f"{opts['name']}_BaseColor"
     if opts["fbx"]:
         select_only(rig)
         mesh.select_set(True)
         bpy.ops.export_scene.fbx(filepath=os.path.abspath(opts["fbx"]), use_selection=True,
                                  object_types={"ARMATURE", "MESH"}, apply_scale_options="FBX_SCALE_ALL",
                                  add_leaf_bones=False, bake_anim=False, path_mode="COPY", embed_textures=True,
-                                 mesh_smooth_type="FACE", use_armature_deform_only=True)
+                                 mesh_smooth_type="FACE", use_armature_deform_only=False)  # all 35 standard bones, always
     with open(os.path.splitext(os.path.abspath(opts["output"]))[0] + "_rig.json", "w") as f:
         json.dump(report, f, indent=1)
     print("\n=== rerig report ===")

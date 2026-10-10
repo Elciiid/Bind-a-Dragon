@@ -1,0 +1,836 @@
+{
+ "note": "Built by tools/dragon_import/import_dragons.py scan. Source GLBs are never modified; GLB/FBX are not in Git.",
+ "models": [
+  {
+   "species": "Cinderwing",
+   "stage": "Hatchling",
+   "element": "Fire",
+   "rarity": "Common",
+   "source": "Cinderwing_Hatchling.glb",
+   "status": "converted",
+   "fbx": "assets/Dragons/fbx/ready/Cinderwing_Hatchling.fbx",
+   "problems": [
+    "NOTE: the source has no wing_L bones; that part is skinned to the body and moves with it",
+    "NOTE: the source has no wing_R bones; that part is skinned to the body and moves with it"
+   ],
+   "bytes": 27367740,
+   "mtime": 1790874348
+  },
+  {
+   "species": "Cinderwing",
+   "stage": "Drake",
+   "element": "Fire",
+   "rarity": "Common",
+   "source": "Cinderwing_Drake.glb",
+   "status": "converted",
+   "fbx": "assets/Dragons/fbx/ready/Cinderwing_Drake.fbx",
+   "problems": [],
+   "bytes": 26341608,
+   "mtime": 1790874325
+  },
+  {
+   "species": "Cinderwing",
+   "stage": "Dragon",
+   "element": "Fire",
+   "rarity": "Common",
+   "source": "Cinderwing_Dragon.glb",
+   "status": "converted",
+   "fbx": "assets/Dragons/fbx/ready/Cinderwing_Dragon.fbx",
+   "problems": [],
+   "bytes": 27877140,
+   "mtime": 1790874315
+  },
+  {
+   "species": "Cinderwing",
+   "stage": "Elder",
+   "element": "Fire",
+   "rarity": "Common",
+   "source": "Cinderwing_Elder.glb",
+   "status": "converted",
+   "fbx": "assets/Dragons/fbx/ready/Cinderwing_Elder.fbx",
+   "problems": [],
+   "bytes": 29990876,
+   "mtime": 1790874339
+  },
+  {
+   "species": "Emberclaw",
+   "stage": "Hatchling",
+   "element": "Fire",
+   "rarity": "Rare",
+   "source": "Emberclaw_Hatchling.glb",
+   "status": "pending",
+   "bytes": 27210180,
+   "mtime": 1790874818
+  },
+  {
+   "species": "Emberclaw",
+   "stage": "Drake",
+   "element": "Fire",
+   "rarity": "Rare",
+   "source": "Emberclaw_Drake.glb",
+   "status": "pending",
+   "bytes": 28555732,
+   "mtime": 1790874819
+  },
+  {
+   "species": "Emberclaw",
+   "stage": "Dragon",
+   "element": "Fire",
+   "rarity": "Rare",
+   "source": "Emberclaw_Dragon.glb",
+   "status": "pending",
+   "bytes": 29394204,
+   "mtime": 1790874819
+  },
+  {
+   "species": "Emberclaw",
+   "stage": "Elder",
+   "element": "Fire",
+   "rarity": "Rare",
+   "source": "Emberclaw_Elder.glb",
+   "status": "pending",
+   "bytes": 30139164,
+   "mtime": 1790874819
+  },
+  {
+   "species": "Blazefang",
+   "stage": "Hatchling",
+   "element": "Fire",
+   "rarity": "Epic",
+   "source": "Blazefang_Hatchling.glb",
+   "status": "pending",
+   "bytes": 28189360,
+   "mtime": 1790875296
+  },
+  {
+   "species": "Blazefang",
+   "stage": "Drake",
+   "element": "Fire",
+   "rarity": "Epic",
+   "source": "Blazefang_Drake.glb",
+   "status": "pending",
+   "bytes": 29319288,
+   "mtime": 1790875296
+  },
+  {
+   "species": "Blazefang",
+   "stage": "Dragon",
+   "element": "Fire",
+   "rarity": "Epic",
+   "source": "Blazefang_Dragon.glb",
+   "status": "pending",
+   "bytes": 30001276,
+   "mtime": 1790875295
+  },
+  {
+   "species": "Blazefang",
+   "stage": "Elder",
+   "element": "Fire",
+   "rarity": "Epic",
+   "source": "Blazefang_Elder.glb",
+   "status": "pending",
+   "bytes": 32645128,
+   "mtime": 1790875295
+  },
+  {
+   "species": "Infernus",
+   "stage": "Hatchling",
+   "element": "Fire",
+   "rarity": "Legendary",
+   "source": "Infernus_Hatchling.glb",
+   "status": "pending",
+   "bytes": 32547396,
+   "mtime": 1790876115
+  },
+  {
+   "species": "Infernus",
+   "stage": "Drake",
+   "element": "Fire",
+   "rarity": "Legendary",
+   "source": "Infernus_Drake.glb",
+   "status": "pending",
+   "bytes": 34522688,
+   "mtime": 1790876114
+  },
+  {
+   "species": "Infernus",
+   "stage": "Dragon",
+   "element": "Fire",
+   "rarity": "Legendary",
+   "source": "Infernus_Dragon.glb",
+   "status": "pending",
+   "bytes": 34342292,
+   "mtime": 1790876115
+  },
+  {
+   "species": "Infernus",
+   "stage": "Elder",
+   "element": "Fire",
+   "rarity": "Legendary",
+   "source": "Infernus_Elder.glb",
+   "status": "pending",
+   "bytes": 34105032,
+   "mtime": 1790876117
+  },
+  {
+   "species": "Solflare",
+   "stage": "Hatchling",
+   "element": "Fire",
+   "rarity": "Mythic",
+   "source": "Solflare_Hatchling.glb",
+   "status": "pending",
+   "bytes": 34229608,
+   "mtime": 1790876826
+  },
+  {
+   "species": "Solflare",
+   "stage": "Drake",
+   "element": "Fire",
+   "rarity": "Mythic",
+   "source": "Solflare_Drake.glb",
+   "status": "pending",
+   "bytes": 32480828,
+   "mtime": 1790876826
+  },
+  {
+   "species": "Solflare",
+   "stage": "Dragon",
+   "element": "Fire",
+   "rarity": "Mythic",
+   "source": "Solflare_Dragon.glb",
+   "status": "pending",
+   "bytes": 33607660,
+   "mtime": 1790876827
+  },
+  {
+   "species": "Solflare",
+   "stage": "Elder",
+   "element": "Fire",
+   "rarity": "Mythic",
+   "source": "Solflare_Elder.glb",
+   "status": "pending",
+   "bytes": 31996684,
+   "mtime": 1790527564
+  },
+  {
+   "species": "Frostling",
+   "stage": "Hatchling",
+   "element": "Ice",
+   "rarity": "Common",
+   "source": "Frostling_Hatchling.glb",
+   "status": "pending",
+   "bytes": 28202576,
+   "mtime": 1790874619
+  },
+  {
+   "species": "Frostling",
+   "stage": "Drake",
+   "element": "Ice",
+   "rarity": "Common",
+   "source": "Frostling_Drake.glb",
+   "status": "pending",
+   "bytes": 28730384,
+   "mtime": 1790874619
+  },
+  {
+   "species": "Frostling",
+   "stage": "Dragon",
+   "element": "Ice",
+   "rarity": "Common",
+   "source": "Frostling_Dragon.glb",
+   "status": "pending",
+   "bytes": 28717224,
+   "mtime": 1790874619
+  },
+  {
+   "species": "Frostling",
+   "stage": "Elder",
+   "element": "Ice",
+   "rarity": "Common",
+   "source": "Frostling_Elder.glb",
+   "status": "pending",
+   "bytes": 28374924,
+   "mtime": 1790874619
+  },
+  {
+   "species": "Glacierback",
+   "stage": "Hatchling",
+   "element": "Ice",
+   "rarity": "Rare",
+   "source": "Glacierback_Hatchling.glb",
+   "status": "pending",
+   "bytes": 26531044,
+   "mtime": 1790874928
+  },
+  {
+   "species": "Glacierback",
+   "stage": "Drake",
+   "element": "Ice",
+   "rarity": "Rare",
+   "source": "Glacierback_Drake.glb",
+   "status": "pending",
+   "bytes": 27589076,
+   "mtime": 1790874927
+  },
+  {
+   "species": "Glacierback",
+   "stage": "Dragon",
+   "element": "Ice",
+   "rarity": "Rare",
+   "source": "Glacierback_Dragon.glb",
+   "status": "pending",
+   "bytes": 30216364,
+   "mtime": 1790874928
+  },
+  {
+   "species": "Glacierback",
+   "stage": "Elder",
+   "element": "Ice",
+   "rarity": "Rare",
+   "source": "Glacierback_Elder.glb",
+   "status": "pending",
+   "bytes": 32082700,
+   "mtime": 1790874928
+  },
+  {
+   "species": "Rimewing",
+   "stage": "Hatchling",
+   "element": "Ice",
+   "rarity": "Epic",
+   "source": "Rimewing_Hatchling.glb",
+   "status": "pending",
+   "bytes": 32162556,
+   "mtime": 1790875372
+  },
+  {
+   "species": "Rimewing",
+   "stage": "Drake",
+   "element": "Ice",
+   "rarity": "Epic",
+   "source": "Rimewing_Drake.glb",
+   "status": "pending",
+   "bytes": 32345668,
+   "mtime": 1790875371
+  },
+  {
+   "species": "Rimewing",
+   "stage": "Dragon",
+   "element": "Ice",
+   "rarity": "Epic",
+   "source": "Rimewing_Dragon.glb",
+   "status": "pending",
+   "bytes": 33514304,
+   "mtime": 1790875371
+  },
+  {
+   "species": "Rimewing",
+   "stage": "Elder",
+   "element": "Ice",
+   "rarity": "Epic",
+   "source": "Rimewing_Elder.glb",
+   "status": "pending",
+   "bytes": 35287700,
+   "mtime": 1790875371
+  },
+  {
+   "species": "Borealis",
+   "stage": "Hatchling",
+   "element": "Ice",
+   "rarity": "Legendary",
+   "source": "Borealis_Hatchling.glb",
+   "status": "pending",
+   "bytes": 31451820,
+   "mtime": 1790876015
+  },
+  {
+   "species": "Borealis",
+   "stage": "Drake",
+   "element": "Ice",
+   "rarity": "Legendary",
+   "source": "Borealis_Drake.glb",
+   "status": "pending",
+   "bytes": 32725612,
+   "mtime": 1790876015
+  },
+  {
+   "species": "Borealis",
+   "stage": "Dragon",
+   "element": "Ice",
+   "rarity": "Legendary",
+   "source": "Borealis_Dragon.glb",
+   "status": "pending",
+   "bytes": 35606320,
+   "mtime": 1790876015
+  },
+  {
+   "species": "Borealis",
+   "stage": "Elder",
+   "element": "Ice",
+   "rarity": "Legendary",
+   "source": "Borealis_Elder.glb",
+   "status": "pending",
+   "bytes": 37493044,
+   "mtime": 1790876017
+  },
+  {
+   "species": "Aurorynth",
+   "stage": "Hatchling",
+   "element": "Ice",
+   "rarity": "Mythic",
+   "source": "Aurorynth_Hatchling.glb",
+   "status": "pending",
+   "bytes": 30125540,
+   "mtime": 1790876521
+  },
+  {
+   "species": "Aurorynth",
+   "stage": "Drake",
+   "element": "Ice",
+   "rarity": "Mythic",
+   "source": "Aurorynth_Drake.glb",
+   "status": "pending",
+   "bytes": 31194544,
+   "mtime": 1790876521
+  },
+  {
+   "species": "Aurorynth",
+   "stage": "Dragon",
+   "element": "Ice",
+   "rarity": "Mythic",
+   "source": "Aurorynth_Dragon.glb",
+   "status": "pending",
+   "bytes": 31700680,
+   "mtime": 1790876522
+  },
+  {
+   "species": "Aurorynth",
+   "stage": "Elder",
+   "element": "Ice",
+   "rarity": "Mythic",
+   "source": "Aurorynth_Elder.glb",
+   "status": "pending",
+   "bytes": 29135780,
+   "mtime": 1790527678
+  },
+  {
+   "species": "Gustwing",
+   "stage": "Hatchling",
+   "element": "Storm",
+   "rarity": "Common",
+   "source": "Gustwing_Hatchling.glb",
+   "status": "pending",
+   "bytes": 25939928,
+   "mtime": 1790874703
+  },
+  {
+   "species": "Gustwing",
+   "stage": "Drake",
+   "element": "Storm",
+   "rarity": "Common",
+   "source": "Gustwing_Drake.glb",
+   "status": "pending",
+   "bytes": 24800632,
+   "mtime": 1790874702
+  },
+  {
+   "species": "Gustwing",
+   "stage": "Dragon",
+   "element": "Storm",
+   "rarity": "Common",
+   "source": "Gustwing_Dragon.glb",
+   "status": "pending",
+   "bytes": 26587984,
+   "mtime": 1790874702
+  },
+  {
+   "species": "Gustwing",
+   "stage": "Elder",
+   "element": "Storm",
+   "rarity": "Common",
+   "source": "Gustwing_Elder.glb",
+   "status": "pending",
+   "bytes": 26868612,
+   "mtime": 1790874703
+  },
+  {
+   "species": "Sparkscale",
+   "stage": "Hatchling",
+   "element": "Storm",
+   "rarity": "Rare",
+   "source": "Sparkscale_Hatchling.glb",
+   "status": "pending",
+   "bytes": 27092944,
+   "mtime": 1790875166
+  },
+  {
+   "species": "Sparkscale",
+   "stage": "Drake",
+   "element": "Storm",
+   "rarity": "Rare",
+   "source": "Sparkscale_Drake.glb",
+   "status": "pending",
+   "bytes": 27625480,
+   "mtime": 1790875167
+  },
+  {
+   "species": "Sparkscale",
+   "stage": "Dragon",
+   "element": "Storm",
+   "rarity": "Rare",
+   "source": null,
+   "status": "missing"
+  },
+  {
+   "species": "Sparkscale",
+   "stage": "Elder",
+   "element": "Storm",
+   "rarity": "Rare",
+   "source": "Sparkscale_Elder.glb",
+   "status": "pending",
+   "bytes": 28308040,
+   "mtime": 1790875166
+  },
+  {
+   "species": "Ringhorn",
+   "stage": "Hatchling",
+   "element": "Storm",
+   "rarity": "Epic",
+   "source": "Ringhorn_Hatchling.glb",
+   "status": "pending",
+   "bytes": 30297292,
+   "mtime": 1790875523
+  },
+  {
+   "species": "Ringhorn",
+   "stage": "Drake",
+   "element": "Storm",
+   "rarity": "Epic",
+   "source": "Ringhorn_Drake.glb",
+   "status": "pending",
+   "bytes": 31146676,
+   "mtime": 1790875523
+  },
+  {
+   "species": "Ringhorn",
+   "stage": "Dragon",
+   "element": "Storm",
+   "rarity": "Epic",
+   "source": "Ringhorn_Dragon.glb",
+   "status": "pending",
+   "bytes": 31152964,
+   "mtime": 1790875522
+  },
+  {
+   "species": "Ringhorn",
+   "stage": "Elder",
+   "element": "Storm",
+   "rarity": "Epic",
+   "source": null,
+   "status": "missing"
+  },
+  {
+   "species": "Tempestus",
+   "stage": "Hatchling",
+   "element": "Storm",
+   "rarity": "Legendary",
+   "source": "Tempestus_Hatchling.glb",
+   "status": "pending",
+   "bytes": 29034404,
+   "mtime": 1790876217
+  },
+  {
+   "species": "Tempestus",
+   "stage": "Drake",
+   "element": "Storm",
+   "rarity": "Legendary",
+   "source": "Tempestus_Drake.glb",
+   "status": "pending",
+   "bytes": 30715760,
+   "mtime": 1790876217
+  },
+  {
+   "species": "Tempestus",
+   "stage": "Dragon",
+   "element": "Storm",
+   "rarity": "Legendary",
+   "source": "Tempestus_Dragon.glb",
+   "status": "pending",
+   "bytes": 31085820,
+   "mtime": 1790876218
+  },
+  {
+   "species": "Tempestus",
+   "stage": "Elder",
+   "element": "Storm",
+   "rarity": "Legendary",
+   "source": "Tempestus_Elder.glb",
+   "status": "pending",
+   "bytes": 32796060,
+   "mtime": 1790876218
+  },
+  {
+   "species": "Stormcrown",
+   "stage": "Hatchling",
+   "element": "Storm",
+   "rarity": "Mythic",
+   "source": "Stormcrown_Hatchling.glb",
+   "status": "pending",
+   "bytes": 34157148,
+   "mtime": 1790876904
+  },
+  {
+   "species": "Stormcrown",
+   "stage": "Drake",
+   "element": "Storm",
+   "rarity": "Mythic",
+   "source": "Stormcrown_Drake.glb",
+   "status": "pending",
+   "bytes": 34307308,
+   "mtime": 1790876904
+  },
+  {
+   "species": "Stormcrown",
+   "stage": "Dragon",
+   "element": "Storm",
+   "rarity": "Mythic",
+   "source": "Stormcrown_Dragon.glb",
+   "status": "pending",
+   "bytes": 34144852,
+   "mtime": 1790876905
+  },
+  {
+   "species": "Stormcrown",
+   "stage": "Elder",
+   "element": "Storm",
+   "rarity": "Mythic",
+   "source": "Stormcrown_Elder.glb",
+   "status": "pending",
+   "bytes": 38022028,
+   "mtime": 1790876905
+  },
+  {
+   "species": "Duskling",
+   "stage": "Hatchling",
+   "element": "Shadow",
+   "rarity": "Common",
+   "source": "Duskling_Hatchling.glb",
+   "status": "pending",
+   "bytes": 30269440,
+   "mtime": 1790874496
+  },
+  {
+   "species": "Duskling",
+   "stage": "Drake",
+   "element": "Shadow",
+   "rarity": "Common",
+   "source": "Duskling_Drake.glb",
+   "status": "pending",
+   "bytes": 30054936,
+   "mtime": 1790874496
+  },
+  {
+   "species": "Duskling",
+   "stage": "Dragon",
+   "element": "Shadow",
+   "rarity": "Common",
+   "source": "Duskling_Dragon.glb",
+   "status": "pending",
+   "bytes": 29772208,
+   "mtime": 1790874497
+  },
+  {
+   "species": "Duskling",
+   "stage": "Elder",
+   "element": "Shadow",
+   "rarity": "Common",
+   "source": "Duskling_Elder.glb",
+   "status": "pending",
+   "bytes": 29772308,
+   "mtime": 1790527819
+  },
+  {
+   "species": "Nightclaw",
+   "stage": "Hatchling",
+   "element": "Shadow",
+   "rarity": "Rare",
+   "source": "Nightclaw_Hatchling.glb",
+   "status": "pending",
+   "bytes": 29653296,
+   "mtime": 1790875021
+  },
+  {
+   "species": "Nightclaw",
+   "stage": "Drake",
+   "element": "Shadow",
+   "rarity": "Rare",
+   "source": "Nightclaw_Drake.glb",
+   "status": "pending",
+   "bytes": 28340028,
+   "mtime": 1790875021
+  },
+  {
+   "species": "Nightclaw",
+   "stage": "Dragon",
+   "element": "Shadow",
+   "rarity": "Rare",
+   "source": "Nightclaw_Dragon.glb",
+   "status": "pending",
+   "bytes": 29684240,
+   "mtime": 1790875021
+  },
+  {
+   "species": "Nightclaw",
+   "stage": "Elder",
+   "element": "Shadow",
+   "rarity": "Rare",
+   "source": "Nightclaw_Elder.glb",
+   "status": "pending",
+   "bytes": 30344300,
+   "mtime": 1790875022
+  },
+  {
+   "species": "Umbrafang",
+   "stage": "Hatchling",
+   "element": "Shadow",
+   "rarity": "Epic",
+   "source": "Umbrafang_Hatchling.glb",
+   "status": "pending",
+   "bytes": 28001416,
+   "mtime": 1790875587
+  },
+  {
+   "species": "Umbrafang",
+   "stage": "Drake",
+   "element": "Shadow",
+   "rarity": "Epic",
+   "source": "Umbrafang_Drake.glb",
+   "status": "pending",
+   "bytes": 28237576,
+   "mtime": 1790875586
+  },
+  {
+   "species": "Umbrafang",
+   "stage": "Dragon",
+   "element": "Shadow",
+   "rarity": "Epic",
+   "source": "Umbrafang_Dragon.glb",
+   "status": "pending",
+   "bytes": 31248124,
+   "mtime": 1790875587
+  },
+  {
+   "species": "Umbrafang",
+   "stage": "Elder",
+   "element": "Shadow",
+   "rarity": "Epic",
+   "source": "Umbrafang_Elder.glb",
+   "status": "pending",
+   "bytes": 33106012,
+   "mtime": 1790875586
+  },
+  {
+   "species": "Voidwing",
+   "stage": "Hatchling",
+   "element": "Shadow",
+   "rarity": "Legendary",
+   "source": "Voidwing_Hatchling.glb",
+   "status": "pending",
+   "bytes": 32875756,
+   "mtime": 1790876440
+  },
+  {
+   "species": "Voidwing",
+   "stage": "Drake",
+   "element": "Shadow",
+   "rarity": "Legendary",
+   "source": "Voidwing_Drake.glb",
+   "status": "pending",
+   "bytes": 33197168,
+   "mtime": 1790876439
+  },
+  {
+   "species": "Voidwing",
+   "stage": "Dragon",
+   "element": "Shadow",
+   "rarity": "Legendary",
+   "source": "Voidwing_Dragon.glb",
+   "status": "pending",
+   "bytes": 33412132,
+   "mtime": 1790876440
+  },
+  {
+   "species": "Voidwing",
+   "stage": "Elder",
+   "element": "Shadow",
+   "rarity": "Legendary",
+   "source": "Voidwing_Elder.glb",
+   "status": "pending",
+   "bytes": 33478984,
+   "mtime": 1790876439
+  },
+  {
+   "species": "Eclipsar",
+   "stage": "Hatchling",
+   "element": "Shadow",
+   "rarity": "Mythic",
+   "source": "Eclipsar_Hatchling.glb",
+   "status": "pending",
+   "bytes": 33599212,
+   "mtime": 1790876711
+  },
+  {
+   "species": "Eclipsar",
+   "stage": "Drake",
+   "element": "Shadow",
+   "rarity": "Mythic",
+   "source": "Eclipsar_Drake.glb",
+   "status": "pending",
+   "bytes": 33440536,
+   "mtime": 1790876711
+  },
+  {
+   "species": "Eclipsar",
+   "stage": "Dragon",
+   "element": "Shadow",
+   "rarity": "Mythic",
+   "source": "Eclipsar_Dragon.glb",
+   "status": "pending",
+   "bytes": 33737900,
+   "mtime": 1790876711
+  },
+  {
+   "species": "Eclipsar",
+   "stage": "Elder",
+   "element": "Shadow",
+   "rarity": "Mythic",
+   "source": null,
+   "status": "missing"
+  }
+ ],
+ "skipped": [
+  {
+   "file": "Unicorn_Dragon.glb",
+   "reason": "not a game species (owner): skipped"
+  },
+  {
+   "file": "Unicorn_Drake.glb",
+   "reason": "not a game species (owner): skipped"
+  },
+  {
+   "file": "Unicorn_Elder.glb",
+   "reason": "not a game species (owner): skipped"
+  },
+  {
+   "file": "Unicorn_Hatchling.glb",
+   "reason": "not a game species (owner): skipped"
+  }
+ ],
+ "unknown": [],
+ "ignored_non_glb": [
+  "Aurorynth_Elder",
+  "Eclipsar_Elder",
+  "Ringhorn_Elder",
+  "Solflare_Elder",
+  "Sparkscale_Dragon"
+ ]
+}
