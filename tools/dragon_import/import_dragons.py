@@ -5,6 +5,7 @@ Normal Python (3.10+), drives Blender in background mode. Everything stays on dr
     python tools/dragon_import/import_dragons.py scan
     python tools/dragon_import/import_dragons.py run --species Cinderwing --out assets/Dragons/fbx/ready
     python tools/dragon_import/import_dragons.py run --element Fire --out assets/Dragons/fbx/ready/Fire
+    python tools/dragon_import/import_dragons.py run --species Cinderwing --stage Hatchling --out ... --force
     python tools/dragon_import/import_dragons.py report
 
 scan    re-reads assets/Dragons (only files ending in .glb count) and rewrites manifest.json; every run starts with a
@@ -240,6 +241,7 @@ def convert(entry, out_dir, lengths):
             row["deform_bones_without_weights"] = rep.get("deform_bones_without_weights", [])
             row["flipped"] = rep.get("flipped")
             row["tail_note"] = rep.get("source_chains", {}).get("tail_note")
+            row["hub_rule"] = rep.get("source_chains", {}).get("hub_rule")
     c = check(fbx, name)
     row["check"] = c
     row["problems"] = judge(c, stage, length, fallback)
@@ -288,6 +290,7 @@ def main():
     ap.add_argument("command", choices=["scan", "run", "report"])
     ap.add_argument("--species", nargs="*")
     ap.add_argument("--element")
+    ap.add_argument("--stage", nargs="*")
     ap.add_argument("--out")
     ap.add_argument("--force", action="store_true", help="convert again even if already converted")
     a = ap.parse_args()
@@ -309,7 +312,8 @@ def main():
     out_dir = os.path.join(ROOT, a.out)
     lengths = load_lengths()
     todo = [e for e in m if (not a.species or e["species"] in a.species) and (not a.element or e["element"] == a.element)
-            and e["status"] in (("pending", "converted", "fallback", "failed") if a.force else ("pending",))]
+            and (not a.stage or e["stage"] in a.stage)
+            and e["status"] in (("pending", "converted", "fallback", "failed", "placed") if a.force else ("pending",))]
     for e in todo:
         print("converting", e["species"], e["stage"], flush=True)
         row = convert(e, out_dir, lengths)

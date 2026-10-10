@@ -135,6 +135,33 @@ function DevService:Start()
 	items.Name = "GiveItems"
 	items.OnInvoke = giveItems
 	items.Parent = folder
+	-- Studio test setup without the Command Bar: the Workspace string attribute "DevJoinCommands" (set in Edit mode) holds a
+	-- JSON array of DevCommand objects, run once per session for the first player right after their welcome bind (at once
+	-- for a save that is past it), e.g. '[{"Op":"Slots","Slots":6},{"Op":"Dragons","Ids":["Cinderwing"],"Level":50,"Place":true}]'.
+	local joinRaw = workspace:GetAttribute("DevJoinCommands")
+	if type(joinRaw) == "string" and joinRaw ~= "" then
+		task.spawn(function()
+			local ok, list = pcall(HttpService.JSONDecode, HttpService, joinRaw)
+			if not ok or type(list) ~= "table" then
+				warn("[DevService] DevJoinCommands is not a JSON array")
+				return
+			end
+			local player = Players:GetPlayers()[1] or Players.PlayerAdded:Wait()
+			local data = DataService:WaitForData(player)
+			while data and player.Parent and not data.OnboardingFirstBindUsed and data.OnboardingStep ~= -1 do
+				task.wait(1)
+			end
+			if not (data and player.Parent) then
+				return
+			end
+			task.wait(1)
+			for _, cmd in list do
+				workspace:SetAttribute("DevCommand", HttpService:JSONEncode(cmd))
+				task.wait(0.5)
+			end
+			print("[DevService] DevJoinCommands done:", workspace:GetAttribute("DevResult"))
+		end)
+	end
 	workspace:GetAttributeChangedSignal("DevCommand"):Connect(function()
 		local raw = workspace:GetAttribute("DevCommand")
 		if type(raw) ~= "string" or raw == "" then

@@ -9,16 +9,14 @@
   "budget_tris": 5000,
   "budget_texture": 512,
   "length_want": 10.0,
-  "seconds": 1.9,
-  "missing_chains": [
-   "wing_L",
-   "wing_R"
-  ],
+  "seconds": 2.6,
+  "missing_chains": [],
   "heat_misses_fixed": 0,
   "tail_straightened": 1.0,
   "deform_bones_without_weights": [],
-  "flipped": true,
+  "flipped": false,
   "tail_note": null,
+  "hub_rule": "legs",
   "check": {
    "file": "Cinderwing_Hatchling.fbx",
    "objects": [
@@ -36,16 +34,7 @@
    "triangles": 5000,
    "vertices": 2506,
    "max_influences": 4,
-   "bones_without_weights": [
-    "Wing_L_Upper",
-    "Wing_L_Fore",
-    "Wing_L_Hand",
-    "Wing_L_Tip",
-    "Wing_R_Upper",
-    "Wing_R_Fore",
-    "Wing_R_Hand",
-    "Wing_R_Tip"
-   ],
+   "bones_without_weights": [],
    "textures": [
     {
      "name": "Cinderwing_Hatchling_BaseColor",
@@ -59,23 +48,20 @@
     "Cinderwing_Hatchling_Mat"
    ],
    "size_studs": [
-    6.19,
+    7.56,
     10.0,
-    6.55
+    6.18
    ],
-   "lowest_z": -0.0,
+   "lowest_z": 0.0,
    "center_xy": [
-    0.0,
+    0.015,
     0.0
    ],
-   "head_y": -4.91,
-   "tail_tip_y": 4.26,
+   "head_y": -3.93,
+   "tail_tip_y": 5.07,
    "faces_minus_y": true
   },
-  "problems": [
-   "NOTE: the source has no wing_L bones; that part is skinned to the body and moves with it",
-   "NOTE: the source has no wing_R bones; that part is skinned to the body and moves with it"
-  ],
+  "problems": [],
   "status": "converted",
   "previews": [
    "Cinderwing_Hatchling_rest_front_f001.png",

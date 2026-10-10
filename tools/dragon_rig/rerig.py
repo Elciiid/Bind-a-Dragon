@@ -7,8 +7,11 @@ Run with Blender in background mode:
 
 --length scales the finished model (tail straightened) so nose to tail tip is exactly STUDS (the game's
 Config/Evolution Length: 10 / 15 / 21 / 28); without it the curled source is scaled to template.STAGE_LENGTH.
---flip auto turns the model 180 degrees only when its own skeleton faces +Y (the chest hub behind the pelvis hub);
-the turn now happens right after the import, so every later step sees the head toward -Y.
+--flip auto turns the model 180 degrees only when its MESH is clearly backwards: the highest point of the back 30 % of
+its length is well above the front 30 % (the head end is the high end of a standing dragon; a survey of all 77 Meshy
+sources found every one facing -Y, so this almost never turns anything). The turn happens right after the import.
+The pelvis and chest are found by their legs (two hubs with left + right legs reaching the ground; the pelvis is the one
+further back), not by the order of the bones: about half the UniRig skeletons start at the chest ("head-first").
 --name gives the FBX unique names: armature object <name>, material <name>_Mat, texture <name>_BaseColor (the mesh
 stays "Body" and the .blend keeps "DragonRig" for preview.py). tools/dragon_import/import_dragons.py drives both.
 
@@ -206,36 +209,88 @@ class Src:
         return [self.head[b.name] for b in bones_] + [self.tail[bones_[-1].name]]
 
 
+def ancestors(b):
+    out = []
+    while b.parent is not None:
+        b = b.parent
+        out.append(b)
+    return out
+
+
+def hubs_by_legs(s, body_len, height):
+    """(pelvis, chest, spine path pelvis -> chest, pelvis child toward the chest or None, chest child toward the pelvis
+    or None), found by the legs: hubs (3+ children) with a left and a right child reaching the ground; the pelvis is the
+    one further back (+Y). None when fewer than two such hubs exist (then the old tree-order rule is used)."""
+    ground = min(min(s.head[b.name].z, s.tail[b.name].z) for b in s.bones)
+
+    def legs(h):
+        cx = s.head[h.name].x
+        out = [c for c in h.children if min(p.z for p in s.points(c)) < ground + 0.15 * height
+               and abs(s.head[c.name].x - cx) >= 0.03 * body_len]
+        return out if any(s.head[c.name].x > cx for c in out) and any(s.head[c.name].x < cx for c in out) else []
+
+    cands = [h for h in s.bones if len(h.children) >= 3 and legs(h)]
+    if len(cands) < 2:
+        return None
+    best = max(((a, b) for i, a in enumerate(cands) for b in cands[i + 1:]),
+               key=lambda pair: abs(s.head[pair[0].name].y - s.head[pair[1].name].y))
+    pelvis, chest = sorted(best, key=lambda h: -s.head[h.name].y)
+    if abs(s.head[pelvis.name].y - s.head[chest.name].y) < 0.1 * body_len:
+        return None
+    up_p, up_c = ancestors(pelvis), ancestors(chest)
+    if chest in up_p:  # head-first skeleton: the chest is the pelvis's ancestor
+        path = [pelvis] + up_p[:up_p.index(chest) + 1]
+        toward_chest, toward_pelvis = None, path[-2]
+    elif pelvis in up_c:  # tail-first: the pelvis is the chest's ancestor
+        path = list(reversed([chest] + up_c[:up_c.index(pelvis) + 1]))
+        toward_chest, toward_pelvis = path[1], None
+    else:  # siblings under a common ancestor
+        common = next(a for a in up_p if a in up_c)
+        down = [chest] + up_c[:up_c.index(common)]
+        path = [pelvis] + up_p[:up_p.index(common) + 1] + list(reversed(down))
+        toward_chest, toward_pelvis = None, None
+    return pelvis, chest, path, toward_chest, toward_pelvis
+
+
 def find_landmarks(arm, mesh, body_len, height):
     s = Src(arm)
     roots = [b for b in s.bones if b.parent is None]
     if len(roots) != 1:
         raise SystemExit(f"expected one root bone, found {len(roots)}")
-    b = roots[0]
-    while len(b.children) < 3:
-        if not b.children:
-            raise SystemExit("no pelvis hub (a bone with 3+ children) found")
-        b = b.children[0]
-    pelvis = b
+    found = hubs_by_legs(s, body_len, height)
+    if found:
+        pelvis, chest, path, toward_chest, toward_pelvis = found
+        spine_points = [s.head[x.name] for x in path]
+        hub_rule = "legs"
+    else:  # the old rule: the first hub from the root is the pelvis, the chest is the next hub down the spine
+        b = roots[0]
+        while len(b.children) < 3:
+            if not b.children:
+                raise SystemExit("no pelvis hub (a bone with 3+ children) found")
+            b = b.children[0]
+        pelvis = b
+
+        def has_hub(c):
+            return any(len(x.children) >= 3 for x in s.subtree(c))
+
+        toward_chest = max((c for c in pelvis.children if has_hub(c)), key=lambda c: len(s.subtree(c)), default=None)
+        if toward_chest is None:
+            raise SystemExit("no chest hub found under the pelvis")
+        chest = toward_chest
+        spine_bones = [chest]
+        while len(chest.children) < 3:
+            chest = chest.children[0]
+            spine_bones.append(chest)
+        toward_pelvis = None
+        spine_points = [s.head[pelvis.name]] + [s.head[x.name] for x in spine_bones] + [s.tail[chest.name]]
+        hub_rule = "tree order"
     cx_pelvis = s.head[pelvis.name].x
-    ground = min(p.z for p in s.points(pelvis))
-
-    def has_hub(c):
-        return any(len(x.children) >= 3 for x in s.subtree(c))
-
-    spine_child = max((c for c in pelvis.children if has_hub(c)), key=lambda c: len(s.subtree(c)), default=None)
-    if spine_child is None:
-        raise SystemExit("no chest hub found under the pelvis")
-    chest = spine_child
-    spine_bones = [chest]
-    while len(chest.children) < 3:
-        chest = chest.children[0]
-        spine_bones.append(chest)
-    lm = {"pelvis": s.head[pelvis.name], "report": {"pelvis_hub": pelvis.name, "chest_hub": chest.name}}
-    lm["spine"] = [s.head[pelvis.name]] + [s.head[x.name] for x in spine_bones] + [s.tail[chest.name]]
+    ground = min(p.z for p in s.points(pelvis)) if not found else min(min(s.head[b.name].z, s.tail[b.name].z) for b in s.bones)
+    lm = {"pelvis": s.head[pelvis.name], "report": {"pelvis_hub": pelvis.name, "chest_hub": chest.name, "hub_rule": hub_rule}}
+    lm["spine"] = spine_points
 
     # pelvis children: the tail starts on the centerline (it may touch the ground too), the back legs to the sides
-    others = [c for c in pelvis.children if c != spine_child]
+    others = [c for c in pelvis.children if c != toward_chest]
     tails = [c for c in others if abs(s.head[c.name].x - cx_pelvis) < 0.03 * body_len]
     if not tails:
         # a tail that starts a little off the center line: the branch reaching farthest back (+Y), if it reaches far
@@ -262,18 +317,21 @@ def find_landmarks(arm, mesh, body_len, height):
 
     # chest children: the neck is the centered one with the biggest subtree; per side, wing = the higher reaching one
     cx = s.head[chest.name].x
-    centered = [c for c in chest.children if abs(s.head[c.name].x - cx) < 0.03 * body_len]
+    chest_children = [c for c in chest.children if c != toward_pelvis]
+    centered = [c for c in chest_children if abs(s.head[c.name].x - cx) < 0.03 * body_len]
+    if not centered:
+        raise SystemExit("no neck found at the chest")
     neck = max(centered, key=lambda c: len(s.subtree(c)))
     neck_bones = [neck]
     while len(neck_bones[-1].children) == 1:
         neck_bones.append(neck_bones[-1].children[0])
     head_hub = neck_bones[-1]
     lm["head_base"] = s.head[head_hub.name]
-    lm["neck"] = [s.tail[chest.name]] + [s.head[x.name] for x in neck_bones]
+    lm["neck"] = [spine_points[-1]] + [s.head[x.name] for x in neck_bones]
     lm["report"]["neck"] = [x.name for x in neck_bones]
     # a source jaw: a centered child chain of the head hub pointing forward and down from the head base
     for side_sign, side in ((1, "L"), (-1, "R")):
-        cands = [c for c in chest.children if c not in centered and (s.head[c.name].x - cx) * side_sign > 0]
+        cands = [c for c in chest_children if c not in centered and (s.head[c.name].x - cx) * side_sign > 0]
         wing, leg = None, None
         if len(cands) >= 2:
             cands.sort(key=lambda c: -max(p.z for p in s.points(c)))
@@ -299,29 +357,16 @@ def find_landmarks(arm, mesh, body_len, height):
     return lm
 
 
-def faces_plus_y(arm):
-    """True when the source skeleton faces +Y: its chest hub (neck, wings, front legs) is behind its pelvis hub."""
-    s = Src(arm)
-    roots = [b for b in s.bones if b.parent is None]
-    if len(roots) != 1:
-        return False
-    b = roots[0]
-    while len(b.children) < 3:
-        if not b.children:
-            return False
-        b = b.children[0]
-    pelvis = b
-
-    def has_hub(c):
-        return any(len(x.children) >= 3 for x in s.subtree(c))
-
-    spine = max((c for c in pelvis.children if has_hub(c)), key=lambda c: len(s.subtree(c)), default=None)
-    if spine is None:
-        return False
-    chest = spine
-    while len(chest.children) < 3:
-        chest = chest.children[0]
-    return s.head[chest.name].y > s.head[pelvis.name].y
+def mesh_faces_plus_y(mesh):
+    """True only when the mesh is clearly backwards: the highest point of its back 30 % (+Y) is more than 15 % of the
+    height above the highest point of its front 30 % (the head end is the high end of a standing dragon)."""
+    pts = [mesh.matrix_world @ v.co for v in mesh.data.vertices]
+    ylo, yhi = min(p.y for p in pts), max(p.y for p in pts)
+    zlo, zhi = min(p.z for p in pts), max(p.z for p in pts)
+    span = yhi - ylo
+    front = max((p.z for p in pts if p.y < ylo + 0.3 * span), default=zlo)
+    back = max((p.z for p in pts if p.y > yhi - 0.3 * span), default=zlo)
+    return back - front > 0.15 * (zhi - zlo)
 
 
 def head_from_mesh(mesh, head_base, body_len):
@@ -415,7 +460,7 @@ def fit_points(lm, body_len, head_tip, jaw_hinge, jaw_tip, height):
         p[f"Spine{i + 1}"] = (spine[i], spine[i + 1])
     root = spine[0]
     p["Root"] = (root, root + Vector((0, 0, 0.06 * body_len)))
-    neck = resample(clean(lm["neck"] + [lm["head_base"]], min_seg), 3)
+    neck = resample(clean(lm["neck"] + [lm["head_base"]], min_seg), 3)  # starts at the chest (the spine's end)
     neck[0] = spine[-1]
     for i in range(3):
         p[f"Neck{i + 1}"] = (neck[i], neck[i + 1])
@@ -572,7 +617,7 @@ def main():
         select_only(o)
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     if opts["flip"] == "auto":
-        opts["flip"] = faces_plus_y(src)
+        opts["flip"] = mesh_faces_plus_y(mesh)
     report["flipped"] = bool(opts["flip"])
     if opts["flip"]:
         rot = Matrix.Rotation(math.pi, 4, "Z")

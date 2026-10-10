@@ -92,10 +92,18 @@ local function placeLine(line: Line, camera: Camera, a: Vector3, b: Vector3): bo
 		line.Gui.Enabled = false
 		return false
 	end
-	line.Gui.Enabled = true
-	line.Attachment.WorldPosition = (a + b) / 2
 	local delta = Vector2.new(pb.X - pa.X, pb.Y - pa.Y)
 	local length = delta.Magnitude
+	local viewport = camera.ViewportSize
+	if length > (viewport.X + viewport.Y) * 3 then -- a star far off to the side: the line would run far off screen
+		line.Gui.Enabled = false
+		return false
+	end
+	line.Gui.Enabled = true
+	-- The billboard is centered on its attachment, so put the attachment where the line's middle is ON SCREEN (in
+	-- perspective the 3D midpoint of two stars far apart projects elsewhere, which shifted and stretched the line).
+	local middle = camera:ViewportPointToRay((pa.X + pb.X) / 2, (pa.Y + pb.Y) / 2)
+	line.Attachment.WorldPosition = middle.Origin + middle.Direction * Sky.Distance
 	local rotation = math.deg(math.atan2(delta.Y, delta.X))
 	local glowWidth = if line.Glow then line.Glow.Size.Y.Offset else 0
 	local side = length + math.max(glowWidth, line.Core.Size.Y.Offset) + 2
